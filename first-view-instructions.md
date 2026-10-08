@@ -4,9 +4,10 @@ Context for whoever (or whichever Claude Code) works on this next. This describe
 
 ## Summary
 
-- A new **first-person table** (`client/src/components/table3d/`) built with three.js through `@react-three/fiber`, used by default. The old top-down table is still there and can be switched back in the table menu (`prefs.view3d`).
+- A new **first-person table** (`client/src/components/table3d/`) built with three.js through `@react-three/fiber`, called "Realistic" in the UI. The old top-down table is still there and is called "Simplified". The player picks one on the home screen (`ViewModePicker` in `components/Home.tsx`) and can switch in the table menu. Both write `prefs.view3d`; when nothing is saved, the default comes from the device (`recommendedView3d()` in `lib/prefs.ts`: touch screens and widths under 768 px get Simplified).
 - **Character selection** in the lobby: six portraits, chosen per player, stored on the server and shown on the 3D table.
 - **Text chat** in the lobby and in the game, with speech bubbles over the speaker in the 3D view.
+- A **right-side stack** in the realistic mode (`GameScreen.tsx`): `Scoreboard` (everyone's bet and tricks made, hidden on narrow and short-landscape screens) and `ViraPanel` (the vira card and the manilha, always visible; it animates in after the deal, when the vira is turned). Name tags on the table also show larger "Palpite / Fez" numbers.
 - A **"Você" status panel** (letters, bet, tricks made, how many are left) and a bigger bet bar in the first-person view.
 - The **emoji reactions** that were added on `main` also float over the 3D characters.
 - README has a new player-facing "Playing" section.

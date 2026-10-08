@@ -4,7 +4,7 @@ A real-time multiplayer version of the Brazilian card game **Dane-se** (a.k.a. F
 
 - 2 to 6 players, phone-first, also fine on desktop (portrait and landscape)
 - Rooms with a short code and share link, nickname only (no accounts)
-- First-person view from your seat, or the classic top-down table (switch in the table menu)
+- Two ways to play, picked on the home screen: **Simplified** (the classic top-down table, light, best on phones) or **Realistic** (first-person view from your seat, best on desktop). Phones start on Simplified, computers on Realistic; you can switch any time in the table menu
 - Pick a character in the lobby: the group's six friends, drawn as cartoon portraits (several players can pick the same one)
 - Emoji reactions and a text chat
 - Reconnects to your seat after a refresh or a network drop; a bot plays for you while you're away
@@ -15,7 +15,9 @@ A real-time multiplayer version of the Brazilian card game **Dane-se** (a.k.a. F
 
 **Lobby.** Create a room, share the link, and pick your character. The host can add bots, change the word (it's "DANE-SE" by default) and start the game.
 
-**The table.** You sit at the bottom of a round cafeteria table; the others are seated around it in play order (counter-clockwise). Each player shows their name, the letters they've lost, their bet (🎯) and the tricks they've made (✋). The one dealing, the **Pé**, is tagged and always bets and plays last. In the first-person view, your own numbers sit in the **"Você"** panel at the top left: your letters, your bet, the tricks you've made and how many you still need.
+**Choosing a mode.** On the home screen, pick **Simplified** or **Realistic** before creating or joining a room. The choice is remembered on that device and can be changed in the table menu (☰).
+
+**The table.** You sit at the bottom of a round cafeteria table; the others are seated around it in play order (counter-clockwise). Each player shows their name, the letters they've lost, their bet (🎯) and the tricks they've made (✋). The one dealing, the **Pé**, is tagged and always bets and plays last. In the realistic mode, your own numbers sit in the **"Você"** panel at the top left: your letters, your bet, the tricks you've made and how many you still need. On the right, a scoreboard lists everyone's bet and tricks made, and under it a **Vira** panel always shows the vira and the manilha it makes (it appears when the vira is turned over).
 
 **Looking around.** Move the mouse up to raise your head (handy to see the cards on other players' foreheads in the blind round) and sideways to glance around. On a phone, drag your finger. The other players look at whoever's turn it is, and now and then at each other.
 
