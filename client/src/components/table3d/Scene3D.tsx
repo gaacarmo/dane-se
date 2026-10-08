@@ -76,6 +76,9 @@ function useGaze(seats: SeatInfo[], youIndex: number, focusId: string | null | u
 
 const CAMERA_POSITION: [number, number, number] = [0, 1.85, 2.0];
 const CAMERA_TARGET = new THREE.Vector3(0, 0.85, 0.02);
+/** 0 inside [deadLow, deadHigh]; grows to 1 toward 0 and to -1 toward 1. */
+const ramp = (v: number, deadLow: number, deadHigh: number) =>
+  v < deadLow ? (deadLow - v) / deadLow : v > deadHigh ? -(v - deadHigh) / (1 - deadHigh) : 0;
 const MAX_YAW = 0.35;
 const MIN_PITCH = -0.08;
 const MAX_PITCH = 0.36;
@@ -100,10 +103,13 @@ function LookControls() {
     const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
     const onMove = (e: PointerEvent) => {
       if (e.pointerType === 'mouse') {
+        // Neutral in the middle of the screen; only the edges turn your head.
         const nx = e.clientX / window.innerWidth;
         const ny = e.clientY / window.innerHeight;
-        look.current.targetYaw = clamp((0.5 - nx) * 1.2, -MAX_YAW, MAX_YAW);
-        look.current.targetPitch = clamp((0.62 - ny) * 1.1, MIN_PITCH, MAX_PITCH);
+        const sideways = ramp(nx, 0.3, 0.7);
+        const vertical = ramp(ny, 0.4, 0.88);
+        look.current.targetYaw = sideways * MAX_YAW;
+        look.current.targetPitch = vertical > 0 ? vertical * MAX_PITCH : vertical * -MIN_PITCH;
       } else if (e.buttons) {
         look.current.targetYaw = clamp(look.current.targetYaw + (e.clientX - lastX) * 0.004, -MAX_YAW, MAX_YAW);
         look.current.targetPitch = clamp(look.current.targetPitch - (e.clientY - lastY) * 0.004, MIN_PITCH, MAX_PITCH);
