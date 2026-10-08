@@ -13,7 +13,7 @@ import {
 import { sfx } from '../../lib/sound';
 import { useClient } from '../../lib/store';
 import { Letters } from '../table/Letters';
-import { Card3D } from './Card3D';
+import { CARD_H, Card3D } from './Card3D';
 import { Scene3D, TABLE_Y, seatPosition } from './Scene3D';
 
 const TOP = TABLE_Y + 0.006;
@@ -22,6 +22,12 @@ const PLAY_RX = 0.62;
 const PLAY_RZ = 0.4;
 const LEAN = Math.PI / 2;
 const CARD_SCALE = 2;
+/** The vira stands almost upright (0 = vertical, facing the camera) and a bit larger than the cards. */
+const VIRA_TILT = 0.4;
+const VIRA_SCALE = 1.5;
+/** Near right corner of the table: in the middle it would hide the cards played by the player across. */
+const VIRA_X = 0.6;
+const VIRA_Z = 0.38;
 
 const BUBBLE_MS = 6000;
 
@@ -258,14 +264,15 @@ function Pile({ game }: { game: PlayerView }) {
           <Card3D card={null} />
         </group>
       ))}
-      <group position={[0.2, 0.004, -0.02]} scale={1.3}>
+      {/* The vira stands up facing the viewer. Each client renders it from its own seat, so everyone sees it face on. */}
+      <group position={[VIRA_X, VIRA_SCALE * (CARD_H / 2) * Math.cos(VIRA_TILT) + 0.006, VIRA_Z]} scale={VIRA_SCALE}>
         <group ref={flip}>
-          <group rotation={[-LEAN, 0, 0]}>
+          <group rotation={[-VIRA_TILT, 0, 0]}>
             <Card3D card={game.vira} />
           </group>
         </group>
       </group>
-      <Html center position={[0, 0.2, -0.3]} distanceFactor={2} style={{ pointerEvents: 'none' }} zIndexRange={[10, 0]}>
+      <Html center position={[VIRA_X, 0.5, VIRA_Z]} distanceFactor={2} style={{ pointerEvents: 'none' }} zIndexRange={[10, 0]}>
         <div className="rounded-full bg-black/65 px-2.5 py-1 text-xs whitespace-nowrap text-white ring-1 ring-gold-500/60">
           Manilha: <strong className="text-gold-300">{game.manilhaRank}</strong>
         </div>
