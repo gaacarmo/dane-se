@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { type FormEvent, useState } from 'react';
 import { MAX_NAME_LENGTH, ROOM_CODE_LENGTH, type Card } from '@dane-se/shared';
 import { actions, codeFromUrl, savedName, useClient } from '../lib/store';
+import { recommendedView3d, setPref, usePrefs } from '../lib/prefs';
 import { CardBack, PlayingCard } from './cards/PlayingCard';
 import { Button } from './ui/Button';
 
@@ -11,6 +12,62 @@ const FAN: Card[] = [
   { rank: '7', suit: 'D' },
   { rank: 'A', suit: 'S' },
 ];
+
+const VIEW_MODES = [
+  {
+    realistic: false,
+    icon: '📱',
+    title: 'Simplificado',
+    text: 'A mesa vista de cima. Leve, ideal pro celular.',
+  },
+  {
+    realistic: true,
+    icon: '🖥️',
+    title: 'Realista',
+    text: 'Você sentado à mesa, em primeira pessoa. Melhor no computador.',
+  },
+] as const;
+
+/** Chosen before creating or joining a room; remembered on this device. */
+function ViewModePicker() {
+  const { view3d } = usePrefs();
+  const recommended = recommendedView3d();
+  return (
+    <fieldset>
+      <legend className="mb-1 block text-sm text-stone-300">Modo de jogo</legend>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Modo de jogo">
+        {VIEW_MODES.map((m) => {
+          const selected = view3d === m.realistic;
+          return (
+            <button
+              key={m.title}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => setPref('view3d', m.realistic)}
+              className={`flex flex-col items-start gap-1 rounded-xl p-3 text-left ring-2 transition ${
+                selected ? 'bg-felt-700 ring-gold-400' : 'bg-black/30 ring-white/10 hover:ring-white/30'
+              }`}
+            >
+              <span className="flex w-full items-center justify-between text-sm font-bold text-white">
+                <span>
+                  {m.icon} {m.title}
+                </span>
+                {selected && <span className="text-gold-300">✓</span>}
+              </span>
+              <span className="text-xs leading-snug text-stone-300">{m.text}</span>
+              {recommended === m.realistic && (
+                <span className="rounded-full bg-gold-500/20 px-2 py-0.5 text-[10px] font-semibold text-gold-300">
+                  recomendado pro seu aparelho
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
 
 export function Home({ onHelp }: { onHelp: () => void }) {
   const { connection } = useClient();
@@ -41,7 +98,12 @@ export function Home({ onHelp }: { onHelp: () => void }) {
             key={i}
             className="absolute bottom-0 left-1/2 w-20 origin-bottom"
             initial={{ rotate: 0, x: '-50%', y: 40, opacity: 0 }}
-            animate={{ rotate: (i - 1.5) * 14, x: `calc(-50% + ${(i - 1.5) * 26}px)`, y: Math.abs(i - 1.5) * 6, opacity: 1 }}
+            animate={{
+              rotate: (i - 1.5) * 14,
+              x: `calc(-50% + ${(i - 1.5) * 26}px)`,
+              y: Math.abs(i - 1.5) * 6,
+              opacity: 1,
+            }}
             transition={{ delay: 0.15 + i * 0.08, type: 'spring', stiffness: 160, damping: 16 }}
           >
             <PlayingCard card={card} highlight={i === 0} />
@@ -83,6 +145,8 @@ export function Home({ onHelp }: { onHelp: () => void }) {
             ))}
           </div>
         )}
+
+        <ViewModePicker />
 
         <label className="block">
           <span className="mb-1 block text-sm text-stone-300">Seu apelido</span>
