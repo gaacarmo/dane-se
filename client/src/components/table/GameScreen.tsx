@@ -15,6 +15,7 @@ import { Hand } from './Hand';
 import { Hud } from './Hud';
 import { Letters } from './Letters';
 import { MyStatus } from './MyStatus';
+import { Scoreboard } from './Scoreboard';
 import { GameOver, RoundSummary, WaitingBanner } from './Overlays';
 import { ReactionBubbles, ReactionPicker } from './Reactions';
 import { Seat } from './Seat';
@@ -189,6 +190,7 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
         )}
 
         {!view3d && size.width > 0 && <ReactionBubbles seats={seats} />}
+        {view3d && !compact && <Scoreboard room={room} />}
         {view3d && me && !game.isSpectator && !me.eliminated && <MyStatus game={game} me={me} word={word} compact={compact} />}
         <ReactionPicker atTop={compact} />
         <WaitingBanner room={room} />

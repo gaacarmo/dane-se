@@ -101,7 +101,13 @@ function NameTag({
 }) {
   const out = player.eliminated;
   return (
-    <Html center position={[0, -0.34, 0.02]} distanceFactor={2} style={{ pointerEvents: 'none' }} zIndexRange={[10, 0]}>
+    <Html
+      center
+      position={[0, -0.34, 0.02]}
+      distanceFactor={2.3}
+      style={{ pointerEvents: 'none' }}
+      zIndexRange={[10, 0]}
+    >
       <div
         className={`flex flex-col items-center gap-1 rounded-xl px-2.5 py-1.5 text-center whitespace-nowrap shadow-lg backdrop-blur-sm ${
           isTurn ? 'bg-gold-500/90 text-wood-900 ring-2 ring-gold-300' : 'bg-black/60 text-white ring-1 ring-white/20'
@@ -122,12 +128,20 @@ function NameTag({
         </span>
         <Letters word={word} lost={player.letters} compact />
         {!out && (
-          <span className="flex gap-1 text-[11px] leading-none">
-            <span className="rounded bg-black/40 px-1.5 py-0.5 text-white">🎯 {player.bet ?? '–'}</span>
+          <span className="flex gap-1.5 leading-none">
+            <span className="flex items-baseline gap-1 rounded bg-black/45 px-2 py-1 text-[10px] tracking-wide text-stone-300 uppercase">
+              Palpite <b className="text-base text-gold-300">{player.bet ?? '–'}</b>
+            </span>
             <span
-              className={`rounded px-1.5 py-0.5 text-white ${player.bet !== null && player.tricksWon > player.bet ? 'bg-wine-700' : 'bg-black/40'}`}
+              className={`flex items-baseline gap-1 rounded px-2 py-1 text-[10px] tracking-wide text-stone-100 uppercase ${
+                player.bet !== null && player.tricksWon > player.bet
+                  ? 'bg-wine-700'
+                  : player.bet !== null && player.tricksWon === player.bet
+                    ? 'bg-emerald-700/80'
+                    : 'bg-black/45'
+              }`}
             >
-              ✋ {player.tricksWon}
+              Fez <b className="text-base text-white">{player.tricksWon}</b>
             </span>
           </span>
         )}
