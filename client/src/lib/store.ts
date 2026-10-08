@@ -6,6 +6,8 @@ import {
   type ClientToServerEvents,
   type ErrorCode,
   type GameSettings,
+  type GameType,
+  type ProfileView,
   type Reaction,
   type RoomView,
   type ServerToClientEvents,
@@ -20,6 +22,7 @@ import {
 
 const SESSION_KEY = 'dane-se:session';
 const NAME_KEY = 'dane-se:name';
+const PROFILE_KEY = 'dane-se:profile-token';
 
 function readJson<T>(key: string): T | null {
   try {
@@ -44,6 +47,15 @@ export function savedName(): string {
     return localStorage.getItem(NAME_KEY) ?? '';
   } catch {
     return '';
+  }
+}
+
+/** The wallet token kept on this device; lets a returning player find their money. */
+export function savedProfileToken(): string | null {
+  try {
+    return localStorage.getItem(PROFILE_KEY);
+  } catch {
+    return null;
   }
 }
 
@@ -83,16 +95,24 @@ export interface ClientState {
   slowConnect: boolean;
   /** True until the first resume attempt finishes, to avoid flashing the home screen. */
   resuming: boolean;
+  /** The player's wallet profile, once `profile:hello` has resolved. */
+  profile: ProfileView | null;
+  /** False while a returning player's wallet is still loading. */
+  profileReady: boolean;
   room: RoomView | null;
   notice: Notice | null;
   /** Emoji reactions currently floating over the table. */
   reactions: Reaction[];
 }
 
+const hadSavedProfile = savedProfileToken() !== null || savedName() !== '';
+
 let state: ClientState = {
   connection: 'connecting',
   slowConnect: false,
   resuming: readJson<Session>(SESSION_KEY) !== null,
+  profile: null,
+  profileReady: !hadSavedProfile,
   room: null,
   notice: null,
   reactions: [],
@@ -148,6 +168,7 @@ function leaveRoomLocally(message?: string): void {
 socket.on('connect', () => {
   clearTimeout(slowTimer);
   setState({ connection: 'connected', slowConnect: false });
+  void ensureProfile();
   void resumeSaved();
 });
 
@@ -156,6 +177,8 @@ socket.on('disconnect', () => {
   clearTimeout(slowTimer);
   slowTimer = setTimeout(() => setState({ slowConnect: true }), 3000);
 });
+
+socket.on('profile:state', (profile) => setState({ profile }));
 
 socket.on('room:state', (room) => {
   setState({ room, resuming: false });
@@ -178,6 +201,31 @@ socket.on('room:reaction', (reaction) => {
   setState({ reactions: [...state.reactions, reaction] });
   setTimeout(() => setState({ reactions: state.reactions.filter((r) => r.id !== reaction.id) }), REACTION_VISIBLE_MS);
 });
+
+/**
+ * Loads the wallet on connect. A returning device sends its token; a device
+ * that only remembers a nickname asks for a fresh profile under that name.
+ */
+async function ensureProfile(): Promise<void> {
+  const token = savedProfileToken();
+  const name = savedName();
+  if (!token && !name) {
+    setState({ profileReady: true });
+    return;
+  }
+  const result = await call<{ token: string; profile: ProfileView }>('profile:hello', {
+    token: token ?? undefined,
+    nickname: name || undefined,
+  });
+  if (result.ok) {
+    writeStorage(PROFILE_KEY, result.token);
+    setState({ profile: result.profile, profileReady: true });
+  } else {
+    // No way to reach the old wallet (new server, bad token): start clean.
+    writeStorage(PROFILE_KEY, null);
+    setState({ profile: null, profileReady: true });
+  }
+}
 
 async function resumeSaved(): Promise<void> {
   const saved = readJson<Session>(SESSION_KEY);
@@ -213,20 +261,41 @@ async function send<T = object>(event: keyof ClientToServerEvents, ...args: unkn
   return result;
 }
 
-function remember(session: Session, name: string): void {
+function remember(session: Session): void {
   writeStorage(SESSION_KEY, JSON.stringify(session));
-  writeStorage(NAME_KEY, name);
 }
 
 export const actions = {
-  async createRoom(name: string): Promise<boolean> {
-    const r = await send<Session>('room:create', { name });
-    if (r.ok) remember(r, name);
+  /** Creates or resumes the wallet, keeping the (possibly new) token on this device. */
+  async hello(nickname: string): Promise<boolean> {
+    const r = await send<{ token: string; profile: ProfileView }>('profile:hello', { nickname });
+    if (!r.ok) return false;
+    writeStorage(PROFILE_KEY, r.token);
+    writeStorage(NAME_KEY, r.profile.nickname);
+    setState({ profile: r.profile, profileReady: true });
+    return true;
+  },
+  async rename(nickname: string): Promise<boolean> {
+    const r = await send<{ profile: ProfileView }>('profile:rename', { nickname });
+    if (!r.ok) return false;
+    writeStorage(NAME_KEY, r.profile.nickname);
+    setState({ profile: r.profile });
+    return true;
+  },
+  async refill(): Promise<boolean> {
+    const r = await send<{ profile: ProfileView }>('profile:refill');
+    if (!r.ok) return false;
+    setState({ profile: r.profile });
+    return true;
+  },
+  async createRoom(opts: { gameType?: GameType; settings?: Record<string, unknown> } = {}): Promise<boolean> {
+    const r = await send<Session>('room:create', { name: state.profile?.nickname, ...opts });
+    if (r.ok) remember(r);
     return r.ok;
   },
-  async joinRoom(code: string, name: string): Promise<boolean> {
-    const r = await send<Session>('room:join', { code: normalizeRoomCode(code), name });
-    if (r.ok) remember(r, name);
+  async joinRoom(code: string): Promise<boolean> {
+    const r = await send<Session>('room:join', { code: normalizeRoomCode(code), name: state.profile?.nickname });
+    if (r.ok) remember(r);
     return r.ok;
   },
   async leave(): Promise<void> {

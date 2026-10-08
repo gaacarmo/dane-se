@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { type PlayerView, type PublicPlayer, type RoomView, wordLetters } from '@dane-se/shared';
+import { type PlayerView, type PublicPlayer, type RoomView, formatMoney, wordLetters } from '@dane-se/shared';
 import { avatarColor, initial } from '../../lib/avatar';
-import { actions } from '../../lib/store';
+import { actions, useClient } from '../../lib/store';
 import { PlayingCard } from '../cards/PlayingCard';
 import { Button } from '../ui/Button';
 import { Letters } from './Letters';
@@ -112,10 +112,12 @@ export function RoundSummary({ game }: { game: PlayerView }) {
 
 export function GameOver({ room }: { room: RoomView }) {
   const game = room.game;
+  const { profile } = useClient();
   if (room.status !== 'finished' || !game) return null;
   const winner = game.players.find((p) => p.id === game.winnerId);
   const isHost = room.hostId === room.youId;
   const youWon = game.winnerId === room.youId;
+  const payout = room.results?.find((r) => r.playerId === room.youId);
   // Winner first, then whoever lasted longest; players knocked out in the same round share a place.
   const outRound = (p: PublicPlayer) => p.eliminatedInRound ?? Number.MAX_SAFE_INTEGER;
   const byLasted = (a: PublicPlayer, b: PublicPlayer) => outRound(b) - outRound(a) || a.letters - b.letters;
@@ -145,6 +147,31 @@ export function GameOver({ room }: { room: RoomView }) {
           {winner ? (youWon ? 'Você venceu!' : `${winner.name} venceu!`) : 'Fim de jogo'}
         </h2>
         <p className="mt-1 text-sm text-stone-300">Depois de {game.roundNumber} rodadas.</p>
+
+        {room.results && (
+          <div className="mt-3 space-y-1 rounded-xl bg-black/25 p-3 text-left text-sm">
+            {room.results.map((res) => (
+              <div key={res.playerId} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="text-stone-400">{res.place}º</span>{' '}
+                  {res.playerId === room.youId ? 'Você' : res.name}
+                </span>
+                <span
+                  className={`font-bold ${
+                    res.amount > 0 ? 'text-emerald-300' : res.amount < 0 ? 'text-red-300' : 'text-stone-400'
+                  }`}
+                >
+                  {res.amount > 0 ? `+${formatMoney(res.amount)}` : res.amount < 0 ? formatMoney(res.amount) : '—'}
+                </span>
+              </div>
+            ))}
+            {payout && profile && (
+              <p className="border-t border-white/10 pt-2 text-xs text-stone-400">
+                Saldo agora: <span className="font-semibold text-stone-200">{formatMoney(profile.balance)}</span>
+              </p>
+            )}
+          </div>
+        )}
 
         <ol className="mt-4 space-y-1.5 text-left">
           {standings.map((p) => (

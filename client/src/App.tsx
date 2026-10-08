@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home } from './components/Home';
+import { Hub } from './components/hub/Hub';
 import { HowToPlay } from './components/HowToPlay';
 import { WaitingRoom } from './components/WaitingRoom';
 import { Preview3D } from './components/table3d/Preview3D';
@@ -9,15 +9,15 @@ import { useClient } from './lib/store';
 
 export function App() {
   if (import.meta.env.DEV && new URLSearchParams(location.search).has('preview3d')) return <Preview3D />;
-  const { room, resuming } = useClient();
+  const { room, resuming, profileReady } = useClient();
   const [help, setHelp] = useState(false);
   const openHelp = () => setHelp(true);
 
   let screen;
   if (room?.game && room.status !== 'lobby') screen = <GameScreen room={room} onHelp={openHelp} />;
   else if (room) screen = <WaitingRoom room={room} onHelp={openHelp} />;
-  else if (resuming) screen = <Splash />;
-  else screen = <Home onHelp={openHelp} />;
+  else if (resuming || !profileReady) screen = <Splash />;
+  else screen = <Hub onHelp={openHelp} />;
 
   return (
     <>

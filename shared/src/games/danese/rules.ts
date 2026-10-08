@@ -17,6 +17,9 @@ export const REPLAY_ROUND_ON_SIMULTANEOUS_ELIMINATION = true;
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 6;
 
+/** Cheapest buy-in a money room may charge, in integer money. */
+export const DANESE_MIN_ENTRY = 100;
+
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
@@ -28,13 +31,60 @@ export interface GameSettings {
   word: string;
   maxCards: number;
   cardCountMode: CardCountMode;
+  /** Buy-in per player, in integer money. Ignored in "treino" (practice) rooms. */
+  entry: number;
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
   word: 'DANE-SE',
   maxCards: 6,
   cardCountMode: 'upDown',
+  entry: DANESE_MIN_ENTRY,
 };
+
+// ---------------------------------------------------------------------------
+// Money payouts (finishing position)
+// ---------------------------------------------------------------------------
+
+/**
+ * Payout weights (as percentages of the pot) by finishing position, for a
+ * given number of paying players. The pot is split with integer rounding;
+ * remainders go to 1st place. Change these numbers to change the payout table.
+ */
+export function danesePayoutWeights(playerCount: number): number[] {
+  if (playerCount <= 3) return [100];
+  return [70, 30];
+}
+
+export interface RankedPlayer {
+  id: string;
+  eliminated: boolean;
+  eliminatedInRound: number | null;
+}
+
+/**
+ * Final standings for a finished game: 1st is the last survivor, 2nd is the
+ * last eliminated, and so on. Players eliminated in the same round keep their
+ * seat order as a deterministic tie-break (the winner's side of the table
+ * ranks ahead), since the rules don't distinguish simultaneous eliminations.
+ */
+export function rankDanesePlayers(
+  players: readonly RankedPlayer[],
+  seatOrder: readonly string[],
+): string[] {
+  const seatIndex = (id: string) => seatOrder.indexOf(id);
+  const survivors = players.filter((p) => !p.eliminated).map((p) => p.id);
+  const eliminated = players
+    .filter((p) => p.eliminated)
+    .sort((a, b) => {
+      const ra = a.eliminatedInRound ?? 0;
+      const rb = b.eliminatedInRound ?? 0;
+      if (rb !== ra) return rb - ra;
+      return seatIndex(a.id) - seatIndex(b.id);
+    })
+    .map((p) => p.id);
+  return [...survivors, ...eliminated];
+}
 
 export function wordLetters(word: string): string[] {
   return [...word.toUpperCase()].filter((ch) => /\p{L}/u.test(ch));

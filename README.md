@@ -1,19 +1,25 @@
-# Dane-se (Fodinha) online
+# Game Hub (Dane-se · Poker)
 
-A real-time multiplayer version of the Brazilian card game **Dane-se** (a.k.a. Fodinha), made to feel like sitting at a real table with friends: you take a seat in a college cafeteria, see everyone around you, look at them (and they at each other), and play. The interface is in Brazilian Portuguese.
+A real-time multiplayer **game hub** with a shared server-side wallet, built from the classic Brazilian card game **Dane-se** (a.k.a. Fodinha). You take a seat in a college cafeteria, see everyone around you, and play. The interface is in Brazilian Portuguese.
 
-- 2 to 6 players, phone-first, also fine on desktop (portrait and landscape)
-- Rooms with a short code and share link, nickname only (no accounts)
-- Two ways to play, picked on the home screen: **Mobile** (the classic top-down table: light, made for phones, and it plays fine on a computer too) or **Desktop** (first-person view from your seat). Phones start on Mobile, computers on Desktop; you can switch any time in the table menu. If a browser has no WebGL (3D graphics), the Desktop mode is unavailable and the game uses the Mobile table
-- Pick a character in the lobby: the group's six friends, drawn as cartoon portraits (several players can pick the same one)
+- 🕹️ **Game Hub**: one home screen with your balance and the catalog — **Dane-se** is live now, **Poker Texas Hold'em** is coming next
+- 💰 **Shared wallet**: everyone starts with R$ 10.000 of play money on the server. Entry is charged when a money game starts, the pot is paid to the winner at the end, and nobody can touch your balance from the client
+- 2 to 6 players for Dane-se, phone-first, also fine on desktop (portrait and landscape)
+- Rooms with a short code and share link
+- Two ways to play, picked on the home screen: **Mobile** (the classic top-down table) or **Desktop** (first-person view from your seat). If a browser has no WebGL (3D graphics), the Desktop mode is unavailable
+- Pick a character in the lobby: the group's six friends, drawn as cartoon portraits
 - Emoji reactions and a text chat
 - Reconnects to your seat after a refresh or a network drop; a bot plays for you while you're away
-- Host can add bots to fill seats
-- Runs entirely on free tiers: one Node process, no database
+- Host can add bots to fill seats — a room with a bot becomes **treino** (practice): nobody pays
+- Runs entirely on free tiers: one Node process, no paid services
 
 ## Playing
 
-**Lobby.** Create a room, share the link, and pick your character. The host can add bots, change the word (it's "DANE-SE" by default) and start the game.
+**The hub.** The home screen shows your nickname and balance on top, the catalog below (Dane-se, and poker coming soon) and a join-by-code box. Pick a game, choose the entry, and create the room — or type a 4-letter code to jump into a friend's room.
+
+**Money.** Everyone starts with R$ 10.000 of play money, held server-side (the client never knows how to move it). The entry is chosen by the host at creation (Dane-se: R$ 100 upward) and charged from each player when the game **starts**. The pot is paid to the winner (and runner-up in bigger games) at the end; the results screen shows who got what and your new balance. If everyone leaves before the game ends, entries are refunded. Run low? The wallet refills to R$ 10.000 once an hour when your balance is under R$ 100. A room with a host-added bot is **treino**: no money moves at all.
+
+**Lobby.** Create a room, share the link, and pick your character. The host can add bots, change the entry, the word (it's "DANE-SE" by default) and start the game.
 
 **Choosing a mode.** On the home screen, pick **Mobile** or **Desktop** before creating or joining a room. The choice is remembered on that device and can be changed in the table menu (☰).
 
@@ -75,6 +81,7 @@ Render's free web services, as of October 2026:
 
 - **Sleeps after 15 minutes** without traffic; the next visit takes **about 1 minute** to wake it up. The app shows "Acordando o servidor…" meanwhile. Tip: open the link a minute before game night.
 - **Rooms live in memory**, so they're lost when the service sleeps, restarts or redeploys. Players who come back to a room that's gone see a friendly message and are sent to the lobby to create a new one.
+- **Wallets live in a JSON file** (`.data/`) by default, which is also wiped on redeploy/restart. Set `DATABASE_URL` to a hosted store (e.g. Turso/libSQL) when you want balances to survive; see "How it's built".
 - **750 free instance hours per month** per workspace: enough for one service running all month. If they run out, free services are suspended until the next month.
 - Render "might restart a Free web service at any time".
 - Regions: Oregon, Ohio, Virginia, Frankfurt, Singapore. There is no South America region; the Blueprint uses **Virginia** (closest to Brazil).
@@ -110,15 +117,16 @@ npm run tunnel                  # in another terminal
 ## How it's built
 
 ```
-shared/   Pure game engine + types (no framework). Fully unit tested.
-server/   Express + Socket.IO. Rooms, sessions, timers, bots. In-memory only.
-client/   React + Vite + Tailwind + Framer Motion.
+shared/   Pure game engines + the hub contracts (no framework). Fully unit tested.
+server/   Express + Socket.IO. Rooms, sessions, timers, bots, wallets, escrow.
+client/   React + Vite + Tailwind + Framer Motion. Hub + tables.
 ```
 
-- **Server-authoritative.** Clients send intentions ("bet 2", "play 7♣"); the server validates turn, phase, card ownership and the Pé restriction against the engine.
-- **No hidden-information leaks.** The only game data a client ever receives comes from `getPlayerView(state, playerId)` in `shared/src/view.ts`: your own hand only, and in the blind round everyone's forehead card except yours. The simulation script and tests audit every state sent.
-- **Deterministic engine.** `shared/src/game.ts` is a pure reducer with a seedable RNG, so games can be replayed and tested.
-- **Sessions.** A token in `localStorage` lets you reclaim your seat after a refresh. If you're disconnected on your turn, the table waits 30 s (the host can skip), then a bot plays for you until you return. If everyone leaves, the room closes after 90 s; idle rooms close after 2 h.
+- **Server-authoritative.** Clients send intentions ("bet 2", "play 7♣", "join this room"); the server validates turn, phase, card ownership, balances and the Pé restriction against the engine.
+- **Money is server-side.** The wallet lives in `server/src/hub/` (`WalletService` over a `WalletStore`: file- or memory-backed), with an append-only ledger, a refill cooldown, and idempotent settlements so a restart can't double-pay. Entering a room checks your balance; the entry is charged at the start and returned if the room empties before the game ends.
+- **No hidden-information leaks.** The only game data a client ever receives comes from `getPlayerView(state, playerId)` in `shared/src/games/danese/view.ts`: your own hand only, and in the blind round everyone's forehead card except yours. The simulation script and tests audit every state sent.
+- **Deterministic engines.** `shared/src/games/danese/game.ts` is a pure reducer with a seedable RNG (`shared/src/rng.ts`), so games can be replayed and tested.
+- **Sessions + profiles.** A seat token in `localStorage` lets you reclaim your seat after a refresh; a wallet token keeps your balance across visits. If you're disconnected on your turn, the table waits 30 s (the host can skip), then a bot plays for you until you return. If everyone leaves, the room closes after 90 s; idle rooms close after 2 h.
 - **Sounds** are synthesized with WebAudio (no audio files). Cards and table are SVG/CSS made for this project.
 
 ## Rules implemented
@@ -136,3 +144,9 @@ See the in-game **Como jogar** for the player-facing summary. Decisions worth kn
 | First Pé | Random; then it moves to the right (next in play order) | `createGame`, `startNextRound` |
 | Disconnected player | Bot plays for them; host can skip the wait; if everyone disconnects the game ends | `server/src/rooms.ts` |
 | Eliminated players | Stay as spectators (no hands shown) | — |
+| Entry | Chosen by the host at creation (Dane-se: integer ≥ 100). Charged from each player when the game starts; verified against the balance at join | `DANESE_MIN_ENTRY`, `rooms.ts` (`collectEntries`) |
+| Payouts | 2–3 players: winner takes all; 4–6: 70/30; odd remainders go to 1st. Practice rooms pay nothing | `danesePayoutWeights`, `splitByWeights` in shared |
+| Leaving mid-game | Keeps playing for you with a bot (host can skip); your entry is **not** refunded | `rooms.ts` |
+| Leaving/emptying before the end | If everyone leaves before the game ends, entries are refunded and the room closes | `rooms.ts` (`refundRoom`) |
+| Bot / practice | Host adds a bot in the lobby → the room becomes "treino": no money moves; blocked once someone paid | `rooms.ts` (`PRACTICE_LOCKED`) |
+| Refill | Below R$ 100, reset to R$ 10.000, once per hour | `REFILL_*` in `shared/src/hub/money.ts` |

@@ -1,6 +1,14 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { type RoomView, CHARACTER_IDS, MAX_PLAYERS, MIN_PLAYERS, wordLetters } from '@dane-se/shared';
+import {
+  GAME_CATALOG,
+  type RoomView,
+  CHARACTER_IDS,
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  formatMoney,
+  wordLetters,
+} from '@dane-se/shared';
 import { avatarColor, initial } from '../lib/avatar';
 import { CHARACTER_NAMES, portraitUrl } from '../lib/characters';
 import { actions, notify, roomLink } from '../lib/store';
@@ -11,6 +19,7 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
   const isHost = room.hostId === room.youId;
   const link = roomLink(room.code);
   const canStart = room.members.length >= MIN_PLAYERS;
+  const game = GAME_CATALOG.find((g) => g.id === room.gameType)!;
 
   async function share() {
     if (navigator.share) {
@@ -35,6 +44,14 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
         <header className="text-center">
           <p className="text-sm tracking-widest text-stone-400 uppercase">Sala</p>
           <h1 className="font-mono text-6xl font-bold tracking-[0.25em] gold-text">{room.code}</h1>
+          <div className="mt-2 flex items-center justify-center gap-2 text-sm text-stone-300">
+            <span>
+              {game.icon} {game.name}
+            </span>
+            {room.money.practice && (
+              <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs font-semibold text-sky-300">🤖 treino</span>
+            )}
+          </div>
           <div className="mt-3 flex justify-center gap-2">
             <Button variant="secondary" onClick={share}>
               🔗 Convidar amigos
@@ -104,6 +121,8 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
             </Button>
           )}
         </section>
+
+        <MoneyPanel room={room} isHost={isHost} />
 
         <CharacterPicker room={room} />
 
@@ -212,6 +231,60 @@ function Settings({ room, isHost }: { room: RoomView; isHost: boolean }) {
           ))}
         </div>
       </div>
+    </section>
+  );
+}
+
+function MoneyPanel({ room, isHost }: { room: RoomView; isHost: boolean }) {
+  const game = GAME_CATALOG.find((g) => g.id === room.gameType)!;
+  const paying = room.members.filter((m) => !m.isBot).length;
+  const { entry } = room.money;
+
+  return (
+    <section className="space-y-3 rounded-2xl bg-felt-900/90 p-4 ring-1 ring-gold-500/30">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-semibold text-stone-300">Entrada</h2>
+        {room.money.practice ? (
+          <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs font-semibold text-sky-300">
+            Treino: ninguém paga, o pote fica em zero
+          </span>
+        ) : (
+          <span className="text-sm text-stone-400">{formatMoney(entry)} por pessoa</span>
+        )}
+      </div>
+
+      {isHost && room.status === 'lobby' && !room.money.practice && (
+        <div className="grid grid-cols-4 gap-1.5">
+          {game.entryOptions.map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={entry === v}
+              onClick={() => actions.updateSettings({ entry: v })}
+              className={`min-h-11 rounded-lg text-sm font-bold ring-1 transition ${
+                entry === v ? 'bg-gold-400 text-wood-900 ring-gold-300' : 'bg-black/30 text-stone-300 ring-white/10'
+              }`}
+            >
+              {formatMoney(v)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-baseline justify-between rounded-xl bg-black/25 px-3 py-2 text-sm">
+        <span className="text-stone-300">Pote</span>
+        <span className="font-bold text-gold-300">
+          {formatMoney(entry * paying)}
+          <span className="ml-2 font-normal text-stone-400">
+            {paying} × {formatMoney(entry)}
+          </span>
+        </span>
+      </div>
+
+      <p className="text-xs text-stone-400">
+        A entrada é paga na hora de começar a partida, direto do seu saldo. Quem ficar até o fim leva o pote; sair no
+        meio da partida perde a entrada.
+      </p>
     </section>
   );
 }

@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { Server } from 'socket.io';
 import type { Ack, AckFn } from '@dane-se/shared';
+import { MemoryWalletStore } from './hub/memoryStore.js';
+import type { WalletStore } from './hub/store.js';
+import { WalletService } from './hub/walletService.js';
 import { DEFAULT_TIMINGS, type GameSocket, type IO, RoomManager, type Timings } from './rooms.js';
 
 const DEFAULT_CLIENT_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/dist');
@@ -14,13 +17,19 @@ export interface AppOptions {
   timings?: Partial<Timings>;
   /** Built client to serve as static files (defaults to client/dist when it exists). */
   clientDist?: string;
+  /**
+   * Where profiles/wallets live. Defaults to an in-memory store (tests,
+   * simulations); production passes a `FileWalletStore` (see index.ts).
+   */
+  walletStore?: WalletStore;
 }
 
 export function createApp(options: AppOptions = {}) {
   const app = express();
   const httpServer = createServer(app);
   const io: IO = new Server(httpServer, { pingInterval: 10_000, pingTimeout: 8_000 });
-  const rooms = new RoomManager(io, { ...DEFAULT_TIMINGS, ...options.timings });
+  const wallets = new WalletService(options.walletStore ?? new MemoryWalletStore());
+  const rooms = new RoomManager(io, wallets, { ...DEFAULT_TIMINGS, ...options.timings });
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true, rooms: rooms.roomCount, uptime: Math.round(process.uptime()) });
@@ -75,7 +84,10 @@ function registerHandlers(socket: GameSocket, rooms: RoomManager): void {
     };
 
   type Body = Record<string, unknown>;
-  socket.on('room:create', handle<Body>((p) => rooms.create(socket, p.name)));
+  socket.on('profile:hello', handle<Body>((p) => rooms.recommendHello(socket, p.token, p.nickname)));
+  socket.on('profile:rename', handle<Body>((p) => rooms.renameProfile(socket, p.nickname)));
+  socket.on('profile:refill', handle(() => rooms.refill(socket)));
+  socket.on('room:create', handle<Body>((p) => rooms.create(socket, p)));
   socket.on('room:join', handle<Body>((p) => rooms.join(socket, p.code, p.name)));
   socket.on('room:resume', handle<Body>((p) => rooms.resume(socket, p.code, p.token)));
   socket.on('room:leave', handle(() => rooms.leave(socket)));
