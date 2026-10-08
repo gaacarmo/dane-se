@@ -43,6 +43,8 @@ export interface TableGeometry {
 }
 
 const CARD_RATIO = 1.4;
+/** Widest the table oval may be, as rx / ry. */
+const MAX_TABLE_ASPECT = 1.9;
 /** Space taken by the manilha badge under the vira. */
 const BADGE_H = 34;
 
@@ -50,8 +52,9 @@ const BADGE_H = 34;
 export function tableGeometry({ width, height }: Size, compact = false): TableGeometry {
   const padX = Math.min(64, width * 0.13);
   const padY = Math.min(70, height * 0.13);
-  const rx = Math.max(60, width / 2 - padX);
   const ry = Math.max(60, height / 2 - padY);
+  // Wide, short screens (desktop) would stretch the table into a thin strip: keep it an oval and center it.
+  const rx = Math.min(Math.max(60, width / 2 - padX), ry * MAX_TABLE_ASPECT);
   const tableCardW = clamp(Math.min(width * 0.106, height * 0.1), 36, 80);
   const cardH = tableCardW * CARD_RATIO;
   return {
