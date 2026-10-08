@@ -27,7 +27,7 @@ const CARD_SCALE = 2;
  * played behind it; flat it is too foreshortened to read from the camera. Every client draws it from its own seat, so it
  * faces everyone.
  */
-const VIRA_LEAN = 0.57;
+const VIRA_LEAN = 0.75;
 const VIRA_SCALE = 1.6;
 const VIRA_X = 0.22;
 const VIRA_Z = 0.02;
@@ -262,23 +262,8 @@ function useShownCards(game: PlayerView): ShownCard[] {
   return shown;
 }
 
-function useCheekGeometry(): THREE.ExtrudeGeometry {
-  return useMemo(() => {
-    // Right triangle in (−z, y): the card leans along its hypotenuse.
-    const dz = CARD_H * Math.cos(VIRA_LEAN);
-    const top = CARD_H * Math.sin(VIRA_LEAN) + 0.004;
-    const shape = new THREE.Shape();
-    shape.moveTo(-dz / 2, 0);
-    shape.lineTo(dz / 2, 0);
-    shape.lineTo(dz / 2, top);
-    shape.closePath();
-    return new THREE.ExtrudeGeometry(shape, { depth: 0.012, bevelEnabled: false });
-  }, []);
-}
-
 function Pile({ game }: { game: PlayerView }) {
   const shadow = useContactShadow();
-  const cheek = useCheekGeometry();
   const flip = useRef<THREE.Group>(null);
   const t0 = useRef(performance.now());
   const roundKey = game.roundNumber;
@@ -300,37 +285,32 @@ function Pile({ game }: { game: PlayerView }) {
       ))}
       {/* The vira, propped up on a small stand. */}
       <group position={[VIRA_X, 0, VIRA_Z]} scale={VIRA_SCALE}>
-        <mesh position={[0, 0.002, 0.02]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.3, 0.34]} />
+        <mesh position={[0, 0.002, 0.0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.34, 0.36]} />
           <meshBasicMaterial map={shadow} transparent depthWrite={false} />
         </mesh>
         <group position={[0, (CARD_H / 2) * Math.sin(VIRA_LEAN) + 0.004, 0]}>
-          {/* Card holder: two wooden cheeks under the card and a brass lip in front. */}
-          {[-1, 1].map((side) => (
-            <mesh
-              key={side}
-              geometry={cheek}
-              position={[
-                side * (CARD_W / 2 + 0.002) + (side > 0 ? 0 : -0.012),
-                -(CARD_H / 2) * Math.sin(VIRA_LEAN) - 0.004,
-                0,
-              ]}
-              rotation={[0, Math.PI / 2, 0]}
-              castShadow
-            >
-              <meshStandardMaterial color="#4a3322" roughness={0.6} />
-            </mesh>
-          ))}
+          {/* A thin wooden base under the bottom edge, with a brass line on its front. */}
           <mesh
             position={[
               0,
               -(CARD_H / 2) * Math.sin(VIRA_LEAN) - 0.004 + 0.006,
-              (CARD_H / 2) * Math.cos(VIRA_LEAN) + 0.014,
+              (CARD_H / 2) * Math.cos(VIRA_LEAN) + 0.004,
             ]}
             castShadow
           >
-            <boxGeometry args={[CARD_W + 0.03, 0.012, 0.03]} />
-            <meshStandardMaterial color="#b88a2c" roughness={0.35} metalness={0.5} />
+            <boxGeometry args={[CARD_W + 0.04, 0.012, 0.03]} />
+            <meshStandardMaterial color="#5a3a1f" roughness={0.6} />
+          </mesh>
+          <mesh
+            position={[
+              0,
+              -(CARD_H / 2) * Math.sin(VIRA_LEAN) - 0.004 + 0.0125,
+              (CARD_H / 2) * Math.cos(VIRA_LEAN) + 0.019,
+            ]}
+          >
+            <boxGeometry args={[CARD_W + 0.04, 0.003, 0.004]} />
+            <meshStandardMaterial color="#d6a93d" roughness={0.3} metalness={0.6} />
           </mesh>
           <group ref={flip}>
             <group rotation={[-(Math.PI / 2 - VIRA_LEAN), 0, 0]}>
