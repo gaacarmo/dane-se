@@ -1,4 +1,4 @@
-import { type Card, type Rank, cardStrength } from './cards.js';
+import { type Card, type Rank, SUITS, cardStrength } from './cards.js';
 
 export interface Play {
   playerId: string;
@@ -6,32 +6,26 @@ export interface Play {
 }
 
 export interface TrickResult {
-  /** null when every card was canceled ("empatada"). */
+  /** Only null for an empty trick: equal cards are broken by suit. */
   winnerId: string | null;
-  /** Players whose cards were canceled by a tie. */
+  /** Always empty now; kept so the protocol and the client don't change. */
   canceledPlayerIds: string[];
 }
 
 /**
- * Resolves a trick. Cards of equal strength cancel each other: if the top
- * strength is tied, those cards are removed and the next strength is checked,
- * repeatedly. Manilhas never tie (suits break them).
+ * Resolves a trick: the strongest card wins. Cards of the same rank (not
+ * manilhas) are broken by suit, weakest to strongest Ouros < Espadas < Copas <
+ * Paus, so a trick always has a winner and nothing is ever canceled.
  */
 export function resolveTrick(plays: readonly Play[], manilhaRank: Rank): TrickResult {
-  const byStrength = new Map<number, string[]>();
+  let best: Play | null = null;
   for (const play of plays) {
-    const strength = cardStrength(play.card, manilhaRank);
-    const group = byStrength.get(strength) ?? [];
-    group.push(play.playerId);
-    byStrength.set(strength, group);
+    if (!best || beats(play.card, best.card, manilhaRank)) best = play;
   }
+  return { winnerId: best?.playerId ?? null, canceledPlayerIds: [] };
+}
 
-  const canceledPlayerIds: string[] = [];
-  const strengths = [...byStrength.keys()].sort((a, b) => b - a);
-  for (const strength of strengths) {
-    const group = byStrength.get(strength)!;
-    if (group.length === 1) return { winnerId: group[0]!, canceledPlayerIds };
-    canceledPlayerIds.push(...group);
-  }
-  return { winnerId: null, canceledPlayerIds };
+function beats(a: Card, b: Card, manilhaRank: Rank): boolean {
+  const diff = cardStrength(a, manilhaRank) - cardStrength(b, manilhaRank);
+  return diff !== 0 ? diff > 0 : SUITS.indexOf(a.suit) > SUITS.indexOf(b.suit);
 }
