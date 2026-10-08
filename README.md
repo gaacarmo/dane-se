@@ -1,12 +1,33 @@
 # Dane-se (Fodinha) online
 
-A real-time multiplayer version of the Brazilian card game **Dane-se** (a.k.a. Fodinha), made to feel like a real table with friends: felt, wooden rim, dealt cards, the vira flipping over, cards on the forehead in the blind round. The interface is in Brazilian Portuguese.
+A real-time multiplayer version of the Brazilian card game **Dane-se** (a.k.a. Fodinha), made to feel like sitting at a real table with friends: you take a seat in a college cafeteria, see everyone around you, look at them (and they at each other), and play. The interface is in Brazilian Portuguese.
 
 - 2 to 6 players, phone-first, also fine on desktop (portrait and landscape)
 - Rooms with a short code and share link, nickname only (no accounts)
+- First-person view from your seat, or the classic top-down table (switch in the table menu)
+- Pick a character in the lobby: the group's six friends, drawn as cartoon portraits (several players can pick the same one)
+- Emoji reactions and a text chat
 - Reconnects to your seat after a refresh or a network drop; a bot plays for you while you're away
 - Host can add bots to fill seats
 - Runs entirely on free tiers: one Node process, no database
+
+## Playing
+
+**Lobby.** Create a room, share the link, and pick your character. The host can add bots, change the word (it's "DANE-SE" by default) and start the game.
+
+**The table.** You sit at the bottom of a round cafeteria table; the others are seated around it in play order (counter-clockwise). Each player shows their name, the letters they've lost, their bet (🎯) and the tricks they've made (✋). The one dealing, the **Pé**, is tagged and always bets and plays last. In the first-person view, your own numbers sit in the **"Você"** panel at the top left: your letters, your bet, the tricks you've made and how many you still need.
+
+**Looking around.** Move the mouse up to raise your head (handy to see the cards on other players' foreheads in the blind round) and sideways to glance around. On a phone, drag your finger. The other players look at whoever's turn it is, and now and then at each other.
+
+**Betting.** At the start of each round, when it's your turn, tap how many tricks you think you'll make. The Pé can't pick the number that would make everyone's bets add up to the number of cards, so someone always misses. The bar shows the running total.
+
+**Playing a card.** Your hand is fanned at the bottom of the screen. Tap a card to raise it, tap it again (or drag it up) to play it. Cards played by everyone land on the table, face up and facing you, and the trick goes to the winner. The strongest cards are the *manilhas*, shown next to the deck and the vira.
+
+**Blind round.** In the one-card rounds, the card sits on your forehead: you see everybody's card but yours. Wait for your turn and tap **"Jogar a carta da testa"**.
+
+**Losing.** Whoever doesn't make their bet gets the next letter of the word. Whoever completes the word is out; the last one standing wins.
+
+**Talking.** The 💬 button opens the room chat (a speech bubble pops up over whoever writes). The 😀 button sends an emoji reaction that floats over your character: 😂 😱 😡 😭 😎 🙏 👏 🔥 🤡 💩 😏 🦐.
 
 ## Quick start (local)
 
