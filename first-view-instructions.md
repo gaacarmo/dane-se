@@ -73,7 +73,7 @@ Outside the 3D folder:
 
 - **Flat layers instead of 3D character models.** Procedural 3D characters (primitives) looked bad, and generating or downloading models was not an option, so the body is drawn on a canvas and the head is the portrait. It reads well from the first-person angle; it won't hold up from other angles, and the heads can't truly rotate.
 - **Hand and betting stay DOM.** The existing `Hand`, `BetBar` and `Overlays` are reused over the canvas, so the touch and drag behaviour didn't have to be rebuilt.
-- **The vira stands up.** It is rendered upright and tilted slightly back (`VIRA_TILT`), at the near right corner of the table (`VIRA_X`/`VIRA_Z`), so each player sees its face head-on. Nothing is synchronized: every client draws the scene from its own seat, so the vira faces everyone. In the middle of the table it hid the cards played by the player across, which is why it sits at the corner.
+- **The vira is propped up on the table.** It leans back `VIRA_LEAN` radians from flat, on a small stand, with a contact shadow, just right of the deck. Standing it fully upright hid the cards played behind it (in the middle, at the corner and at the far edge it was hidden by the far player's name tag), and flat it was too foreshortened to read. Nothing is synchronized: every client draws the scene from its own seat, so the vira faces everyone.
 - **Cards on the table are flat and upright for you,** not oriented to each player. Leaning them toward the camera hid the far ones behind players.
 - **The game state is untouched.** The 3D view only reads `RoomView`/`PlayerView` through the same store as the 2D table. Hidden information still comes only from `getPlayerView()`.
 
