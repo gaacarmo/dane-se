@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Home } from './components/Home';
 import { HowToPlay } from './components/HowToPlay';
 import { WaitingRoom } from './components/WaitingRoom';
+import { Preview3D } from './components/table3d/Preview3D';
 import { GameScreen } from './components/table/GameScreen';
 import { ConnectionBanner, Toast } from './components/ui/Toast';
 import { useClient } from './lib/store';
 
 export function App() {
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has('preview3d')) return <Preview3D />;
   const { room, resuming } = useClient();
   const [help, setHelp] = useState(false);
   const openHelp = () => setHelp(true);
