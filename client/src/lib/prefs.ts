@@ -7,12 +7,22 @@ export interface Prefs {
   muted: boolean;
   haptics: boolean;
   theme: TableTheme;
-  /** Table seen from your seat in 3D (default) instead of the flat top-down table. */
+  /** Realistic mode: the table seen from your seat in 3D. Off: the simplified top-down table. */
   view3d: boolean;
 }
 
 const KEY = 'dane-se:prefs';
-const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: true };
+
+/** The first-person table suits desktops; phones and tablets get the simpler top-down table. */
+export function recommendedView3d(): boolean {
+  try {
+    return !(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768);
+  } catch {
+    return true;
+  }
+}
+
+const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: recommendedView3d() };
 
 function load(): Prefs {
   try {

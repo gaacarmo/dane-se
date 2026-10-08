@@ -6,7 +6,7 @@ export function Scoreboard({ room }: { room: RoomView }) {
   const game = room.game!;
   return (
     <aside
-      className="pointer-events-none absolute top-32 right-2 z-30 hidden w-44 space-y-1 rounded-2xl bg-black/65 p-2 shadow-xl ring-1 ring-white/20 backdrop-blur sm:block"
+      className="pointer-events-none hidden w-44 space-y-1 rounded-2xl bg-black/65 p-2 shadow-xl ring-1 ring-white/20 backdrop-blur sm:block"
       aria-label="Placar da rodada"
     >
       <div className="flex items-center justify-between px-1 text-[10px] tracking-wider text-stone-300 uppercase">
