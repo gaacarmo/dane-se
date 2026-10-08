@@ -1,4 +1,4 @@
-export const CHARACTER_IDS = ['carmelo', 'martelo', 'babin', 'dezin', 'sornitas', 'colombo'] as const;
+export const CHARACTER_IDS = ['carmelo', 'martelo', 'babin', 'dezin', 'sarney', 'colombo'] as const;
 
 export type CharacterId = (typeof CHARACTER_IDS)[number];
 

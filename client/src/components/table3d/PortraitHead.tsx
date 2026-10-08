@@ -23,7 +23,7 @@ const CROPS: Record<CharacterId, Crop> = {
   martelo: { w: 500, h: 500, x0: 140, x1: 370, y0: 20, y1: 330, top: 22, chin: 298 },
   babin: { w: 500, h: 500, x0: 188, x1: 308, y0: 15, y1: 160, top: 18, chin: 135 },
   dezin: { w: 500, h: 500, x0: 140, x1: 365, y0: 20, y1: 320, top: 22, chin: 292 },
-  sornitas: { w: 500, h: 500, x0: 135, x1: 375, y0: 28, y1: 380, top: 30, chin: 335 },
+  sarney: { w: 500, h: 500, x0: 135, x1: 375, y0: 28, y1: 380, top: 30, chin: 335 },
   colombo: { w: 375, h: 666, x0: 70, x1: 330, y0: 125, y1: 520, top: 130, chin: 470 },
 };
 
