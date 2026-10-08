@@ -17,6 +17,9 @@ export function BetBar({ game, compact, onBet }: { game: PlayerView; compact?: b
       {!compact && (
         <p className="text-center text-sm text-stone-200">
           Quantas vazas você vai fazer?
+          <span className="block text-xs text-stone-300">
+            Palpites até agora: <strong className="text-gold-300">{game.betsSum}</strong> de {n}
+          </span>
           {game.blindRound && <span className="block text-xs text-stone-400">Rodada cega: olhe as cartas dos outros!</span>}
         </p>
       )}
@@ -36,7 +39,7 @@ export function BetBar({ game, compact, onBet }: { game: PlayerView; compact?: b
               }}
               title={isForbidden ? `O Pé não pode pedir ${bet}: a soma dos palpites ficaria igual a ${n}.` : undefined}
               aria-label={isForbidden ? `${bet} (proibido para o Pé)` : `Palpite ${bet}`}
-              className={`relative rounded-xl font-black shadow-lg transition active:scale-95 ${compact ? 'size-11 text-xl' : 'size-14 text-2xl'} ${
+              className={`relative rounded-xl font-black shadow-lg transition active:scale-95 ${compact ? 'size-11 text-xl' : 'size-12 text-2xl sm:size-16 sm:text-3xl'} ${
                 isForbidden
                   ? 'bg-black/40 text-stone-500 line-through ring-2 ring-card-red/70'
                   : sent === bet

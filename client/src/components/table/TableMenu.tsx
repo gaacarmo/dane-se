@@ -28,6 +28,8 @@ export function TableMenu({
         <Toggle label="🔊 Sons" checked={!prefs.muted} onChange={(on) => setPref('muted', !on)} />
         {canVibrate && <Toggle label="📳 Vibrar na sua vez" checked={prefs.haptics} onChange={(on) => setPref('haptics', on)} />}
 
+        <Toggle label="🪑 Visão em primeira pessoa" checked={prefs.view3d} onChange={(on) => setPref('view3d', on)} />
+
         <div>
           <p className="mb-2 text-sm text-stone-300">Cor da mesa (só no seu aparelho)</p>
           <div className="flex gap-2" role="radiogroup" aria-label="Cor da mesa">

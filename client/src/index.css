@@ -139,3 +139,15 @@ button:disabled {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Emoji reaction floating above a player in the 3D view. */
+@keyframes reaction-float {
+  0% { transform: translateY(0) scale(0); opacity: 0; }
+  12% { transform: translateY(-14px) scale(1.4); opacity: 1; }
+  25% { transform: translateY(-20px) scale(1); }
+  80% { opacity: 1; }
+  100% { transform: translateY(-90px) scale(0.85); opacity: 0; }
+}
+.reaction-float {
+  animation: reaction-float 2.8s ease-out forwards;
+}

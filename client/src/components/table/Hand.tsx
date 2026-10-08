@@ -13,6 +13,7 @@ export function Hand({
   dimmed,
   onPlay,
   dealDelays,
+  peek = false,
 }: {
   cards: Card[];
   manilhaRank: Rank;
@@ -23,6 +24,8 @@ export function Hand({
   onPlay: (id: string) => Promise<unknown> | void;
   /** While dealing: seconds until each card (in dealt order) lands. Empty otherwise. */
   dealDelays: number[];
+  /** First-person view: the hand sinks below the screen edge so the table stays visible; cards rise on hover/selection. */
+  peek?: boolean;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   // After playing, ignore taps until the server answers (no accidental double plays).
@@ -55,7 +58,11 @@ export function Hand({
 
   return (
     // Keeps its height when empty so the table doesn't jump as cards are played.
-    <div className="flex min-h-[calc(var(--card-w)*1.4+2.25rem)] justify-center px-2 pt-6 pb-3" role="group" aria-label="Sua mão">
+    <div
+      className={`flex justify-center px-2 ${peek ? '-mb-[calc(var(--card-w)*0.62)] min-h-[calc(var(--card-w)*1.4)] pt-2' : 'min-h-[calc(var(--card-w)*1.4+2.25rem)] pt-6 pb-3'}`}
+      role="group"
+      aria-label="Sua mão"
+    >
       {sorted.map(({ card, dealtIndex }, i) => {
         const id = cardId(card);
         const offset = i - mid;
@@ -77,7 +84,7 @@ export function Hand({
               opacity: 1,
               scale: 1,
               rotate: offset * 5,
-              y: (isSelected ? -26 : 0) + Math.abs(offset) * Math.abs(offset) * 2,
+              y: (isSelected ? (peek ? -78 : -26) : 0) + Math.abs(offset) * Math.abs(offset) * 2,
             }}
             transition={{
               type: 'spring',
@@ -85,7 +92,7 @@ export function Hand({
               damping: 26,
               delay: dealDelays[dealtIndex] ?? 0,
             }}
-            whileHover={canPlay ? { y: -14 + Math.abs(offset) * Math.abs(offset) * 2 } : undefined}
+            whileHover={canPlay ? { y: (peek ? -40 : -14) + Math.abs(offset) * Math.abs(offset) * 2 } : undefined}
             drag={active ? 'y' : false}
             dragSnapToOrigin
             dragElastic={0.6}
