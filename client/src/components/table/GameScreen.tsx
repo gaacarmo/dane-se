@@ -22,7 +22,9 @@ import { ReactionBubbles, ReactionPicker } from './Reactions';
 import { Seat } from './Seat';
 import { TableMenu } from './TableMenu';
 import { TrickArea, TrickResultLabel } from './TrickArea';
+import { Table3DBoundary } from '../table3d/Table3DBoundary';
 import { Table3DView } from '../table3d/Table3DView';
+import { webglSupported } from '../../lib/webgl';
 import { usePrefs } from '../../lib/prefs';
 
 function useMediaQuery(query: string): boolean {
@@ -63,7 +65,8 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
   useGameEffects(room);
   const compact = useMediaQuery('(orientation: landscape) and (max-height: 500px)');
   const seatScale = compact ? 0.8 : 1;
-  const { view3d } = usePrefs();
+  const { view3d: wantsView3d } = usePrefs();
+  const view3d = wantsView3d && webglSupported;
 
   const geometry = tableGeometry(size, compact);
   const n = game.players.length;
@@ -110,7 +113,11 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
       />
 
       <div ref={tableRef} className="relative min-h-0 flex-1">
-        {view3d && <Table3DView room={room} />}
+        {view3d && (
+          <Table3DBoundary>
+            <Table3DView room={room} />
+          </Table3DBoundary>
+        )}
         {!view3d && size.width > 0 && (
           <>
             {/* The table: wooden rim + felt. */}

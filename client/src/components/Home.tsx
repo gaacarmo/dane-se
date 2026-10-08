@@ -3,6 +3,7 @@ import { type FormEvent, useState } from 'react';
 import { MAX_NAME_LENGTH, ROOM_CODE_LENGTH, type Card } from '@dane-se/shared';
 import { actions, codeFromUrl, savedName, useClient } from '../lib/store';
 import { setPref, usePrefs } from '../lib/prefs';
+import { webglSupported } from '../lib/webgl';
 import { CardBack, PlayingCard } from './cards/PlayingCard';
 import { Button } from './ui/Button';
 
@@ -30,7 +31,8 @@ const VIEW_MODES = [
 
 /** Chosen before creating or joining a room; remembered on this device. */
 function ViewModePicker() {
-  const { view3d } = usePrefs();
+  const { view3d: wantsView3d } = usePrefs();
+  const view3d = wantsView3d && webglSupported;
   return (
     <fieldset>
       <legend className="mb-1 block text-sm text-stone-300">Modo de jogo</legend>
@@ -43,8 +45,9 @@ function ViewModePicker() {
               type="button"
               role="radio"
               aria-checked={selected}
+              disabled={m.realistic && !webglSupported}
               onClick={() => setPref('view3d', m.realistic)}
-              className={`flex flex-col items-start gap-1 rounded-xl p-3 text-left ring-2 transition ${
+              className={`flex flex-col items-start gap-1 rounded-xl p-3 text-left ring-2 transition disabled:cursor-not-allowed disabled:opacity-50 ${
                 selected ? 'bg-felt-700 ring-gold-400' : 'bg-black/30 ring-white/10 hover:ring-white/30'
               }`}
             >
@@ -54,7 +57,11 @@ function ViewModePicker() {
                 </span>
                 {selected && <span className="text-gold-300">✓</span>}
               </span>
-              <span className="text-xs leading-snug text-stone-300">{m.text}</span>
+              <span className="text-xs leading-snug text-stone-300">
+                {m.realistic && !webglSupported
+                  ? 'Indisponível: este navegador não tem gráficos 3D (WebGL) ativados.'
+                  : m.text}
+              </span>
             </button>
           );
         })}
