@@ -9,7 +9,9 @@
     "simulate": "tsx scripts/simulate.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "bots": "tsx scripts/addBots.ts"
+    "bots": "tsx scripts/addBots.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --sourcemap --external:bufferutil --external:utf-8-validate \"--banner:js=import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "start:prod": "node dist/index.js"
   },
   "dependencies": {
     "@dane-se/shared": "^0.1.0",
@@ -19,6 +21,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.4",
+    "esbuild": "^0.28.2",
     "socket.io-client": "^4.8.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

@@ -11,12 +11,13 @@
     "dev": "node scripts/dev.mjs",
     "dev:server": "npm run dev -w server",
     "dev:client": "npm run dev -w client",
-    "build": "npm run build -w client",
-    "start": "npm run start -w server",
+    "build": "npm run build -w client && npm run build -w server",
+    "start": "node server/dist/index.js",
     "bots": "npm run bots -w server --",
     "simulate": "npm run simulate -w server --",
     "test": "npm run test -w shared && npm run test -w server",
-    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client"
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client",
+    "tunnel": "cloudflared tunnel --url http://localhost:3001"
   },
   "engines": {
     "node": ">=20"

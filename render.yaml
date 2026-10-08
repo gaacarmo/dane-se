@@ -1,0 +1,19 @@
+# Render Blueprint: New > Blueprint, pick this repo, done.
+# Free plan: sleeps after 15 min without traffic (~1 min to wake up) and
+# in-memory rooms are lost on restart. See README for details.
+services:
+  - type: web
+    name: dane-se
+    runtime: node
+    plan: free
+    # Closest Render region to Brazil (there is no South America region).
+    region: virginia
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
