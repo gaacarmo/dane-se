@@ -52,7 +52,7 @@ export function tableGeometry({ width, height }: Size, compact = false): TableGe
   const padY = Math.min(70, height * 0.13);
   const rx = Math.max(60, width / 2 - padX);
   const ry = Math.max(60, height / 2 - padY);
-  const tableCardW = clamp(Math.min(width * 0.095, height * 0.09), 32, 72);
+  const tableCardW = clamp(Math.min(width * 0.106, height * 0.1), 36, 80);
   const cardH = tableCardW * CARD_RATIO;
   return {
     // Compact mode has no seat of your own at the bottom, so the middle moves down to give the top seat room.
@@ -66,7 +66,7 @@ export function tableGeometry({ width, height }: Size, compact = false): TableGe
     trickRx: compact ? Math.max(rx * 0.3, tableCardW * 1.3) : Math.max(rx * 0.55, tableCardW * 2.2),
     trickRy: compact ? cardH * 0.5 : Math.max(ry * 0.5, cardH + BADGE_H / 2 + 8),
     tableCardW,
-    seatCardW: clamp(tableCardW * 0.72, 28, 52),
+    seatCardW: clamp(tableCardW * 0.72, 31, 58),
   };
 }
 

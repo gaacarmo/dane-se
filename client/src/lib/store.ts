@@ -5,6 +5,7 @@ import {
   type ClientToServerEvents,
   type ErrorCode,
   type GameSettings,
+  type Reaction,
   type RoomView,
   type ServerToClientEvents,
   type Session,
@@ -83,6 +84,8 @@ export interface ClientState {
   resuming: boolean;
   room: RoomView | null;
   notice: Notice | null;
+  /** Emoji reactions currently floating over the table. */
+  reactions: Reaction[];
 }
 
 let state: ClientState = {
@@ -91,6 +94,7 @@ let state: ClientState = {
   resuming: readJson<Session>(SESSION_KEY) !== null,
   room: null,
   notice: null,
+  reactions: [],
 };
 const listeners = new Set<() => void>();
 
@@ -167,6 +171,13 @@ socket.on('room:closed', (reason) => {
 
 socket.on('room:kicked', () => leaveRoomLocally('O anfitrião removeu você da sala.'));
 
+const REACTION_VISIBLE_MS = 2800;
+
+socket.on('room:reaction', (reaction) => {
+  setState({ reactions: [...state.reactions, reaction] });
+  setTimeout(() => setState({ reactions: state.reactions.filter((r) => r.id !== reaction.id) }), REACTION_VISIBLE_MS);
+});
+
 async function resumeSaved(): Promise<void> {
   const saved = readJson<Session>(SESSION_KEY);
   const urlCode = codeFromUrl();
@@ -229,4 +240,6 @@ export const actions = {
   rematch: () => send('room:rematch'),
   bet: (bet: number) => send('game:bet', { bet }),
   play: (cardId?: string) => send('game:play', { cardId }),
+  /** Fire and forget: a reaction that's too fast is simply dropped, no error toast. */
+  react: (emoji: string) => call('room:react', { emoji }),
 };

@@ -4,6 +4,8 @@ import { CardBack, PlayingCard } from '../cards/PlayingCard';
 import { SuitIcon } from '../cards/suits';
 import type { Point } from './geometry';
 
+const FLIP_HALF = 0.25;
+
 /** Deck + vira (flipped after the deal) + manilha badge, in the middle of the felt. */
 export function CenterPile({
   center,
@@ -34,21 +36,26 @@ export function CenterPile({
         </div>
 
         {/* Vira: flips face up after the cards are dealt. */}
-        <div style={{ width: 'var(--table-card-w)', perspective: 600 }} aria-label="Vira">
+        {/* A 2D flip (the back squeezes away, the face opens up): 3D backface tricks
+            are unreliable in WebKit and could leave the vira face down. */}
+        <div className="relative" style={{ width: 'var(--table-card-w)' }} aria-label="Vira">
           <motion.div
-            key={roundKey}
-            className="relative"
-            style={{ transformStyle: 'preserve-3d' }}
-            initial={{ rotateY: 180, y: -8 }}
-            animate={{ rotateY: 0, y: 0 }}
-            transition={{ delay: flipDelay, duration: 0.6, ease: 'easeInOut' }}
+            key={`face-${roundKey}`}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: flipDelay + FLIP_HALF, duration: FLIP_HALF, ease: 'easeOut' }}
           >
-            <div style={{ backfaceVisibility: 'hidden' }}>
-              <PlayingCard card={vira} />
-            </div>
-            <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-              <CardBack />
-            </div>
+            <PlayingCard card={vira} />
+          </motion.div>
+          <motion.div
+            key={`back-${roundKey}`}
+            className="absolute inset-0"
+            initial={{ scaleX: 1 }}
+            animate={{ scaleX: 0 }}
+            transition={{ delay: flipDelay, duration: FLIP_HALF, ease: 'easeIn' }}
+            aria-hidden
+          >
+            <CardBack />
           </motion.div>
         </div>
       </div>

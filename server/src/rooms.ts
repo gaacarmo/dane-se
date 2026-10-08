@@ -13,6 +13,8 @@ import {
   type ServerToClientEvents,
   type Session,
   MAX_NAME_LENGTH,
+  REACTIONS,
+  REACTION_COOLDOWN_MS,
   MAX_PLAYERS,
   MIN_PLAYERS,
   ROOM_CODE_LENGTH,
@@ -71,6 +73,7 @@ interface Member {
   socketId: string | null;
   autoPlay: boolean;
   isBot: boolean;
+  lastReactionAt: number;
 }
 
 interface Room {
@@ -278,6 +281,22 @@ export class RoomManager {
     for (const m of room.members) m.autoPlay = m.isBot;
     this.touch(room);
     this.broadcast(room);
+    return OK;
+  }
+
+  /** Emoji reaction: not part of the game state, just relayed to everyone in the room. */
+  react(socket: GameSocket, emoji: unknown): Ack {
+    const ctx = this.context(socket);
+    if (!ctx) return fail('NOT_IN_ROOM');
+    if (!(REACTIONS as readonly unknown[]).includes(emoji)) return fail('INVALID_PAYLOAD');
+    const now = Date.now();
+    if (now - ctx.member.lastReactionAt < REACTION_COOLDOWN_MS) return fail('TOO_FAST');
+    ctx.member.lastReactionAt = now;
+    this.io.to(ctx.room.code).emit('room:reaction', {
+      id: randomUUID().slice(0, 8),
+      playerId: ctx.member.id,
+      emoji: emoji as string,
+    });
     return OK;
   }
 
@@ -532,7 +551,7 @@ export class RoomManager {
 }
 
 function newMember(name: string): Member {
-  return { id: randomUUID().slice(0, 8), name, token: randomUUID(), socketId: null, autoPlay: false, isBot: false };
+  return { id: randomUUID().slice(0, 8), name, token: randomUUID(), socketId: null, autoPlay: false, isBot: false, lastReactionAt: 0 };
 }
 
 function session(room: Room, member: Member): Session {

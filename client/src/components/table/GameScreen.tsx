@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { type PlayerView, type PublicPlayer, type RoomView, wordLetters } from '@dane-se/shared';
 import { actions } from '../../lib/store';
 import { useGameEffects } from '../../lib/useGameEffects';
+import { Shrimp } from '../cards/Shrimp';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { BetBar } from './BetBar';
@@ -13,6 +14,7 @@ import { Hand } from './Hand';
 import { Hud } from './Hud';
 import { Letters } from './Letters';
 import { GameOver, RoundSummary, WaitingBanner } from './Overlays';
+import { ReactionBubbles, ReactionPicker } from './Reactions';
 import { Seat } from './Seat';
 import { TableMenu } from './TableMenu';
 import { TrickArea, TrickResultLabel } from './TrickArea';
@@ -115,6 +117,21 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
               <div className="table-felt absolute inset-[14px] rounded-[50%]" />
             </div>
 
+            {/* Mascot printed on the felt, like a club logo. */}
+            <Shrimp
+              variant="mono"
+              tone="#000"
+              line="rgb(255 255 255 / 0.55)"
+              title=""
+              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 opacity-20"
+              style={{
+                left: geometry.center.x + geometry.rx * 0.5,
+                top: geometry.center.y + geometry.ry * 0.42,
+                width: Math.min(64, geometry.rx * 0.32),
+                rotate: '-12deg',
+              }}
+            />
+
             {!compact && (
               <CenterPile
                 center={geometry.center}
@@ -164,6 +181,8 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
           </>
         )}
 
+        {size.width > 0 && <ReactionBubbles seats={seats} />}
+        <ReactionPicker atTop={compact} />
         <WaitingBanner room={room} />
         <RoundSummary game={game} />
         <GameOver room={room} />

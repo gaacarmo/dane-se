@@ -40,7 +40,8 @@ export type ErrorCode =
   | 'NAME_TAKEN'
   | 'INVALID_SETTINGS'
   | 'NOT_IN_ROOM'
-  | 'INVALID_PAYLOAD';
+  | 'INVALID_PAYLOAD'
+  | 'TOO_FAST';
 
 export type Ack<T = object> = ({ ok: true } & T) | { ok: false; error: ErrorCode };
 export type AckFn<T = object> = (result: Ack<T>) => void;
@@ -64,6 +65,8 @@ export interface ClientToServerEvents {
   /** Host: stop waiting for a disconnected player and let the bot play for them now. */
   'room:skipWaiting': (ack: AckFn) => void;
   'room:rematch': (ack: AckFn) => void;
+  /** Quick emoji reaction shown over the player's seat. */
+  'room:react': (payload: { emoji: string }, ack: AckFn) => void;
   'game:bet': (payload: { bet: number }, ack: AckFn) => void;
   /** In the blind round the player can't see their card, so `cardId` is omitted. */
   'game:play': (payload: { cardId?: string }, ack: AckFn) => void;
@@ -75,7 +78,20 @@ export interface ServerToClientEvents {
   'room:state': (view: RoomView) => void;
   'room:kicked': () => void;
   'room:closed': (reason: RoomClosedReason) => void;
+  'room:reaction': (reaction: Reaction) => void;
 }
+
+export interface Reaction {
+  /** Unique per reaction, for keys/animations. */
+  id: string;
+  playerId: string;
+  emoji: string;
+}
+
+/** The emoji palette (🦐 is the group's mascot). */
+export const REACTIONS = ['😂', '😱', '😡', '😭', '😎', '🙏', '👏', '🔥', '🤡', '💩', '😏', '🦐'] as const;
+/** Minimum time between two reactions from the same player. */
+export const REACTION_COOLDOWN_MS = 1200;
 
 export const ROOM_CODE_LENGTH = 4;
 export const MAX_NAME_LENGTH = 16;
@@ -102,4 +118,5 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   INVALID_SETTINGS: 'Configuração inválida.',
   NOT_IN_ROOM: 'Você não está em nenhuma sala.',
   INVALID_PAYLOAD: 'Pedido inválido.',
+  TOO_FAST: 'Calma! Espere um pouquinho.',
 };

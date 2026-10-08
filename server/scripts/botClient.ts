@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import {
   type Ack,
+  type Reaction,
   type ClientToServerEvents,
   type RoomView,
   type ServerToClientEvents,
@@ -21,6 +22,7 @@ export class BotClient {
   session: Session | null = null;
   readonly views: RoomView[] = [];
   closedReason: string | null = null;
+  readonly reactions: Reaction[] = [];
   kicked = false;
   autoPlay = false;
   private acting = false;
@@ -39,6 +41,7 @@ export class BotClient {
     });
     this.socket.on('room:closed', (reason) => (this.closedReason = reason));
     this.socket.on('room:kicked', () => (this.kicked = true));
+    this.socket.on('room:reaction', (r) => this.reactions.push(r));
   }
 
   private call<T = object>(event: keyof ClientToServerEvents, ...args: any[]): Promise<Ack<T>> {
@@ -80,6 +83,9 @@ export class BotClient {
   }
   skipWaiting() {
     return this.call('room:skipWaiting');
+  }
+  react(emoji: string) {
+    return this.call('room:react', { emoji });
   }
   rematch() {
     return this.call('room:rematch');

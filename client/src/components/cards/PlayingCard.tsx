@@ -1,5 +1,6 @@
 import { memo, useId } from 'react';
 import type { Card, Rank, Suit } from '@dane-se/shared';
+import { ShrimpShape } from './Shrimp';
 import { SUIT_NAMES_PT, SuitShape, suitColor } from './suits';
 
 const W = 250;
@@ -166,19 +167,11 @@ export const CardBack = memo(function CardBack({ className, style }: { className
       <rect x="2" y="2" width={W - 4} height={H - 4} rx="18" fill="var(--color-paper)" stroke="#d6d0c0" strokeWidth="3" />
       <rect x="16" y="16" width={W - 32} height={H - 32} rx="10" fill={`url(#${id}-lattice)`} />
       <rect x="16" y="16" width={W - 32} height={H - 32} rx="10" fill="none" stroke="#e8c66a" strokeWidth="3" />
-      <ellipse cx="125" cy="175" rx="52" ry="68" fill="#5c1520" stroke="#e8c66a" strokeWidth="4" />
-      <text
-        x="125"
-        y="198"
-        textAnchor="middle"
-        fontFamily="Georgia, 'Times New Roman', serif"
-        fontStyle="italic"
-        fontWeight="700"
-        fontSize="68"
-        fill="#e8c66a"
-      >
-        D
-      </text>
+      <ellipse cx="125" cy="175" rx="56" ry="70" fill="#5c1520" stroke="#e8c66a" strokeWidth="4" />
+      {/* The group's mascot in the medallion */}
+      <g transform="translate(77 127) scale(0.96)">
+        <ShrimpShape variant="mono" tone="#e8c66a" line="#8a6a20" />
+      </g>
     </svg>
   );
 });

@@ -17,7 +17,7 @@
     "simulate": "npm run simulate -w server --",
     "test": "npm run test -w shared && npm run test -w server",
     "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client",
-    "tunnel": "cloudflared tunnel --url http://localhost:3001"
+    "tunnel": "cloudflared tunnel --protocol http2 --url http://localhost:3001"
   },
   "engines": {
     "node": ">=20"

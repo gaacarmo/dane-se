@@ -25,12 +25,12 @@
 :root {
   color-scheme: dark;
   /* Hand cards. Table and forehead card sizes are set by the game screen from the table size. */
-  --card-w: clamp(52px, 17vw, 96px);
+  --card-w: clamp(58px, 19vw, 108px);
 }
 
 @media (orientation: landscape) and (max-height: 520px) {
   :root {
-    --card-w: clamp(40px, 8vh + 2vw, 72px);
+    --card-w: clamp(44px, 9vh + 2vw, 80px);
   }
 }
 
@@ -105,8 +105,16 @@ button:disabled {
   background-color: #173a63;
 }
 
+/*
+ * Card shadow. box-shadow + rounded corners matching the SVG card (rx 18 on 250x350),
+ * NOT filter: drop-shadow: iOS Safari clips filtered elements that are rotated/animated,
+ * which cut cards in half in the hand.
+ */
 .card-shadow {
-  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.35)) drop-shadow(0 6px 10px rgb(0 0 0 / 0.25));
+  border-radius: 7.2% / 5.15%;
+  box-shadow:
+    0 2px 2px rgb(0 0 0 / 0.35),
+    0 6px 10px rgb(0 0 0 / 0.25);
 }
 
 .gold-text {

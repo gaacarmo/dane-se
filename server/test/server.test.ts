@@ -175,6 +175,26 @@ describe('rooms', () => {
   });
 });
 
+describe('reactions', () => {
+  it('relays emoji reactions to everyone in the room, with a cooldown', async () => {
+    const { players } = await lobby(3);
+    const [a, b, c] = players as [BotClient, BotClient, BotClient];
+    expect((await a.react('🦐')).ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 50));
+    for (const p of [a, b, c]) {
+      expect(p.reactions).toEqual([expect.objectContaining({ playerId: a.view!.youId, emoji: '🦐' })]);
+    }
+    expect(await a.react('😂')).toEqual({ ok: false, error: 'TOO_FAST' });
+    expect((await b.react('😂')).ok).toBe(true);
+  });
+
+  it('rejects emojis outside the palette and players outside a room', async () => {
+    const { players } = await lobby(2);
+    expect(await players[0]!.react('<script>')).toEqual({ ok: false, error: 'INVALID_PAYLOAD' });
+    expect(await client('Lost').react('😂')).toEqual({ ok: false, error: 'NOT_IN_ROOM' });
+  });
+});
+
 describe('game validation', () => {
   it('rejects out-of-turn, illegal and malformed actions', async () => {
     const { players } = await lobby(3);

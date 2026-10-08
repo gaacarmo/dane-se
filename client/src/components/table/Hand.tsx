@@ -68,7 +68,7 @@ export function Hand({
             onClick={() => tap(id)}
             disabled={!canPlay}
             aria-pressed={isSelected}
-            className={`relative shrink-0 touch-none rounded-[8%] focus-visible:outline-offset-4 ${i > 0 ? '-ml-[calc(var(--card-w)*0.32)]' : ''} ${
+            className={`relative shrink-0 touch-none rounded-[7.2%/5.15%] focus-visible:outline-offset-4 ${i > 0 ? '-ml-[calc(var(--card-w)*0.32)]' : ''} ${
               canPlay ? '' : 'cursor-default'
             }`}
             style={{ width: 'var(--card-w)', zIndex: isSelected ? 20 : i, transformOrigin: '50% 120%' }}
@@ -78,14 +78,12 @@ export function Hand({
               scale: 1,
               rotate: offset * 5,
               y: (isSelected ? -26 : 0) + Math.abs(offset) * Math.abs(offset) * 2,
-              filter: dimmed ? 'brightness(0.72)' : 'brightness(1)',
             }}
             transition={{
               type: 'spring',
               stiffness: 300,
               damping: 26,
               delay: dealDelays[dealtIndex] ?? 0,
-              filter: { duration: 0.2 },
             }}
             whileHover={canPlay ? { y: -14 + Math.abs(offset) * Math.abs(offset) * 2 } : undefined}
             drag={active ? 'y' : false}
@@ -97,9 +95,15 @@ export function Hand({
             }}
           >
             <PlayingCard card={card} highlight={card.rank === manilhaRank} />
+            {/* Dimming overlay (a CSS filter here breaks rendering on iOS Safari). */}
+            <span
+              className={`pointer-events-none absolute inset-0 rounded-[7.2%/5.15%] bg-black transition-opacity duration-200 ${
+                dimmed ? 'opacity-30' : 'opacity-0'
+              }`}
+            />
             {canPlay && (
               <span
-                className={`pointer-events-none absolute inset-0 rounded-[8%] ring-2 ${isSelected ? 'ring-4 ring-gold-300' : 'ring-gold-400/70'}`}
+                className={`pointer-events-none absolute inset-0 rounded-[7.2%/5.15%] ring-2 ${isSelected ? 'ring-4 ring-gold-300' : 'ring-gold-400/70'}`}
               />
             )}
           </motion.button>

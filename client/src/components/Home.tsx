@@ -59,7 +59,6 @@ export function Home({ onHelp }: { onHelp: () => void }) {
 
       <header className="text-center">
         <h1 className="font-display text-6xl font-bold tracking-wide gold-text drop-shadow sm:text-7xl">Dane-se</h1>
-        <p className="mt-2 text-stone-300">Fodinha online com a galera</p>
       </header>
 
       <form

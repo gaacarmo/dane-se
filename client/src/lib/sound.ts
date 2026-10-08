@@ -108,6 +108,12 @@ export const sfx = {
     tone(a, { freq: 392, dur: 0.22, type: 'triangle', gain: 0.18, slideTo: 300 });
     tone(a, { freq: 294, at: 0.2, dur: 0.4, type: 'triangle', gain: 0.18, slideTo: 196 });
   },
+  /** Someone sent an emoji reaction. */
+  pop(): void {
+    const a = audio();
+    if (!a) return;
+    tone(a, { freq: 520, dur: 0.12, gain: 0.08, slideTo: 880 });
+  },
   turn(): void {
     const a = audio();
     if (!a) return;
