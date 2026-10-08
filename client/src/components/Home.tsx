@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { type FormEvent, useState } from 'react';
 import { MAX_NAME_LENGTH, ROOM_CODE_LENGTH, type Card } from '@dane-se/shared';
 import { actions, codeFromUrl, savedName, useClient } from '../lib/store';
-import { recommendedView3d, setPref, usePrefs } from '../lib/prefs';
+import { setPref, usePrefs } from '../lib/prefs';
 import { CardBack, PlayingCard } from './cards/PlayingCard';
 import { Button } from './ui/Button';
 
@@ -17,21 +17,20 @@ const VIEW_MODES = [
   {
     realistic: false,
     icon: '📱',
-    title: 'Simplificado',
-    text: 'A mesa vista de cima. Leve, ideal pro celular.',
+    title: 'Mobile',
+    text: 'A mesa vista de cima. Leve e ideal pro celular, mas também dá pra jogar no computador.',
   },
   {
     realistic: true,
     icon: '🖥️',
-    title: 'Realista',
-    text: 'Você sentado à mesa, em primeira pessoa. Melhor no computador.',
+    title: 'Desktop',
+    text: 'Em primeira pessoa: você sentado à mesa com os outros jogadores.',
   },
 ] as const;
 
 /** Chosen before creating or joining a room; remembered on this device. */
 function ViewModePicker() {
   const { view3d } = usePrefs();
-  const recommended = recommendedView3d();
   return (
     <fieldset>
       <legend className="mb-1 block text-sm text-stone-300">Modo de jogo</legend>
@@ -56,11 +55,6 @@ function ViewModePicker() {
                 {selected && <span className="text-gold-300">✓</span>}
               </span>
               <span className="text-xs leading-snug text-stone-300">{m.text}</span>
-              {recommended === m.realistic && (
-                <span className="rounded-full bg-gold-500/20 px-2 py-0.5 text-[10px] font-semibold text-gold-300">
-                  recomendado pro seu aparelho
-                </span>
-              )}
             </button>
           );
         })}
