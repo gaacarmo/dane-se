@@ -66,6 +66,15 @@ function ViewModePicker() {
           );
         })}
       </div>
+      {!webglSupported && (
+        <p className="mt-2 rounded-lg bg-black/30 p-2 text-xs leading-snug text-stone-300">
+          Pra liberar o Desktop no Chrome: abra <strong className="text-stone-100">chrome://settings/system</strong>,
+          ligue <strong className="text-stone-100">&ldquo;Usar aceleração gráfica quando disponível&rdquo;</strong>,
+          reinicie o Chrome e recarregue esta página. Pra conferir,{' '}
+          <strong className="text-stone-100">chrome://gpu</strong> deve mostrar &ldquo;WebGL2: Hardware
+          accelerated&rdquo;.
+        </p>
+      )}
     </fieldset>
   );
 }
