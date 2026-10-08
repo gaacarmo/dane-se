@@ -17,7 +17,15 @@ export function Card3D({ card, highlight, dim }: { card: Card | null; highlight?
       EDGE,
       EDGE,
       EDGE,
-      new THREE.MeshStandardMaterial({ map: cardTexture(card, highlight), roughness: 0.55, color }),
+      new THREE.MeshStandardMaterial({
+        map: cardTexture(card, highlight),
+        // A little self-lighting so the faces stay crisp under the colored scene lights.
+        emissiveMap: cardTexture(card, highlight),
+        emissive: dim ? '#444444' : '#ffffff',
+        emissiveIntensity: 0.45,
+        roughness: 0.55,
+        color,
+      }),
       new THREE.MeshStandardMaterial({ map: cardTexture(null), roughness: 0.55, color }),
     ];
   }, [card, highlight, dim]);

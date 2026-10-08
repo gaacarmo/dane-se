@@ -13,7 +13,7 @@ import {
 import { sfx } from '../../lib/sound';
 import { useClient } from '../../lib/store';
 import { Letters } from '../table/Letters';
-import { CARD_H, Card3D } from './Card3D';
+import { CARD_H, CARD_W, Card3D } from './Card3D';
 import { Scene3D, TABLE_Y, seatPosition } from './Scene3D';
 
 const TOP = TABLE_Y + 0.006;
@@ -262,8 +262,23 @@ function useShownCards(game: PlayerView): ShownCard[] {
   return shown;
 }
 
+function useCheekGeometry(): THREE.ExtrudeGeometry {
+  return useMemo(() => {
+    // Right triangle in (−z, y): the card leans along its hypotenuse.
+    const dz = CARD_H * Math.cos(VIRA_LEAN);
+    const top = CARD_H * Math.sin(VIRA_LEAN) + 0.004;
+    const shape = new THREE.Shape();
+    shape.moveTo(-dz / 2, 0);
+    shape.lineTo(dz / 2, 0);
+    shape.lineTo(dz / 2, top);
+    shape.closePath();
+    return new THREE.ExtrudeGeometry(shape, { depth: 0.012, bevelEnabled: false });
+  }, []);
+}
+
 function Pile({ game }: { game: PlayerView }) {
   const shadow = useContactShadow();
+  const cheek = useCheekGeometry();
   const flip = useRef<THREE.Group>(null);
   const t0 = useRef(performance.now());
   const roundKey = game.roundNumber;
@@ -290,10 +305,32 @@ function Pile({ game }: { game: PlayerView }) {
           <meshBasicMaterial map={shadow} transparent depthWrite={false} />
         </mesh>
         <group position={[0, (CARD_H / 2) * Math.sin(VIRA_LEAN) + 0.004, 0]}>
-          {/* Stand: a thin leg under the top edge. */}
-          <mesh position={[0, 0, -(CARD_H / 2) * Math.cos(VIRA_LEAN) - 0.004]}>
-            <boxGeometry args={[0.03, CARD_H * Math.sin(VIRA_LEAN) + 0.006, 0.006]} />
-            <meshStandardMaterial color="#3b2a1c" roughness={0.7} />
+          {/* Card holder: two wooden cheeks under the card and a brass lip in front. */}
+          {[-1, 1].map((side) => (
+            <mesh
+              key={side}
+              geometry={cheek}
+              position={[
+                side * (CARD_W / 2 + 0.002) + (side > 0 ? 0 : -0.012),
+                -(CARD_H / 2) * Math.sin(VIRA_LEAN) - 0.004,
+                0,
+              ]}
+              rotation={[0, Math.PI / 2, 0]}
+              castShadow
+            >
+              <meshStandardMaterial color="#4a3322" roughness={0.6} />
+            </mesh>
+          ))}
+          <mesh
+            position={[
+              0,
+              -(CARD_H / 2) * Math.sin(VIRA_LEAN) - 0.004 + 0.006,
+              (CARD_H / 2) * Math.cos(VIRA_LEAN) + 0.014,
+            ]}
+            castShadow
+          >
+            <boxGeometry args={[CARD_W + 0.03, 0.012, 0.03]} />
+            <meshStandardMaterial color="#b88a2c" roughness={0.35} metalness={0.5} />
           </mesh>
           <group ref={flip}>
             <group rotation={[-(Math.PI / 2 - VIRA_LEAN), 0, 0]}>
@@ -302,7 +339,13 @@ function Pile({ game }: { game: PlayerView }) {
           </group>
         </group>
       </group>
-      <Html center position={[-0.22, 0.1, -0.1]} distanceFactor={2} style={{ pointerEvents: 'none' }} zIndexRange={[10, 0]}>
+      <Html
+        center
+        position={[-0.22, 0.1, -0.1]}
+        distanceFactor={2}
+        style={{ pointerEvents: 'none' }}
+        zIndexRange={[10, 0]}
+      >
         <div className="rounded-full bg-black/65 px-2.5 py-1 text-xs whitespace-nowrap text-white ring-1 ring-gold-500/60">
           Manilha: <strong className="text-gold-300">{game.manilhaRank}</strong>
         </div>
