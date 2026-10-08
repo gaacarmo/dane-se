@@ -6,3 +6,7 @@ export const webglSupported: boolean = (() => {
     return false;
   }
 })();
+
+/** Events between the 3D scene and its boundary. */
+export const SCENE_READY_EVENT = 'dane-se:3d-ready';
+export const SCENE_FAILED_EVENT = 'dane-se:3d-failed';

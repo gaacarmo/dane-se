@@ -2,6 +2,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Bloom, BrightnessContrast, EffectComposer, HueSaturation, SMAA, Vignette } from '@react-three/postprocessing';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { SCENE_FAILED_EVENT, SCENE_READY_EVENT } from '../../lib/webgl';
 import type { CharacterId } from '@dane-se/shared';
 import { Player2D } from './Player2D';
 import { Environment, PlasticChair } from './Environment';
@@ -151,6 +152,14 @@ function LookControls() {
   return null;
 }
 
+/** Mounts only when everything in the Suspense above (textures, portraits) has loaded. */
+function Ready() {
+  useEffect(() => {
+    window.dispatchEvent(new Event(SCENE_READY_EVENT));
+  }, []);
+  return null;
+}
+
 export function Scene3D({
   seats,
   youIndex = 0,
@@ -171,6 +180,12 @@ export function Scene3D({
       dpr={[1, 2]}
       camera={{ position: CAMERA_POSITION, fov: 56, near: 0.05, far: 40 }}
       gl={{ antialias: true }}
+      onCreated={({ gl }) => {
+        gl.domElement.addEventListener('webglcontextlost', (e) => {
+          e.preventDefault();
+          window.dispatchEvent(new Event(SCENE_FAILED_EVENT));
+        });
+      }}
     >
       <color attach="background" args={['#f2d9a0']} />
       <fog attach="fog" args={['#f2d9a0', 12, 24]} />
@@ -191,6 +206,7 @@ export function Scene3D({
           );
         })}
         {children}
+        <Ready />
       </Suspense>
       <EffectComposer multisampling={0}>
         <SMAA />
