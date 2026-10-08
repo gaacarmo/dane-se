@@ -44,7 +44,7 @@ const MANILHA_BASE = 100;
 
 /**
  * Numeric strength of a card for a given round. Non-manilhas rank by rank only
- * (so same-rank cards tie); manilhas are above everything and ranked by suit.
+ * (so same-rank cards tie here; `resolveTrick` breaks that by suit); manilhas are above everything and ranked by suit.
  */
 export function cardStrength(card: Card, manilhaRank: Rank): number {
   if (card.rank === manilhaRank) return MANILHA_BASE + SUITS.indexOf(card.suit);
@@ -55,7 +55,7 @@ export function isManilha(card: Card, manilhaRank: Rank): boolean {
   return card.rank === manilhaRank;
 }
 
-/** Negative if a is weaker, positive if stronger, 0 if they tie (cancel). */
+/** Negative if a is weaker, positive if stronger, 0 if the ranks tie (a trick then breaks it by suit). */
 export function compareCards(a: Card, b: Card, manilhaRank: Rank): number {
   return cardStrength(a, manilhaRank) - cardStrength(b, manilhaRank);
 }

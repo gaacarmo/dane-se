@@ -42,11 +42,10 @@ export function HowToPlay({ open, onClose }: { open: boolean; onClose: () => voi
           </p>
         </section>
         <section>
-          <h3 className="mb-1 font-semibold text-gold-300">Vazas e empates</h3>
+          <h3 className="mb-1 font-semibold text-gold-300">Vazas</h3>
           <p>
-            A carta mais forte leva a vaza, e quem leva começa a próxima. Cartas iguais (mesmo valor, sem ser manilha){' '}
-            <strong>se cancelam</strong>, e ganha a maior que sobrou. Se tudo cancelar, ninguém leva e quem começou
-            começa de novo. Se a rodada inteira empatar, o Pé leva uma letra.
+            A carta mais forte leva a vaza, e quem leva começa a próxima. Se duas cartas tiverem o mesmo valor, ganha a de{' '}
+            <strong>naipe maior</strong>: Paus ganha de Copas, que ganha de Espadas, que ganha de Ouros.
           </p>
         </section>
       </div>
