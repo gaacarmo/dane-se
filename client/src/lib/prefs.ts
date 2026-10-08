@@ -7,10 +7,12 @@ export interface Prefs {
   muted: boolean;
   haptics: boolean;
   theme: TableTheme;
+  /** Table seen from your seat in 3D (default) instead of the flat top-down table. */
+  view3d: boolean;
 }
 
 const KEY = 'dane-se:prefs';
-const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green' };
+const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: true };
 
 function load(): Prefs {
   try {

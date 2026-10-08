@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { type RoomView, MAX_PLAYERS, MIN_PLAYERS, wordLetters } from '@dane-se/shared';
+import { type RoomView, CHARACTER_IDS, MAX_PLAYERS, MIN_PLAYERS, wordLetters } from '@dane-se/shared';
 import { avatarColor, initial } from '../lib/avatar';
+import { CHARACTER_NAMES, portraitUrl } from '../lib/characters';
 import { actions, notify, roomLink } from '../lib/store';
+import { ChatPanel } from './ChatPanel';
 import { Button } from './ui/Button';
 
 export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => void }) {
@@ -103,6 +105,8 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
           )}
         </section>
 
+        <CharacterPicker room={room} />
+
         <Settings room={room} isHost={isHost} />
 
         {isHost ? (
@@ -121,6 +125,7 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
           </Button>
         </div>
       </div>
+    <ChatPanel room={room} className="fixed right-4 bottom-4 z-40" />
     </main>
   );
 }
@@ -206,6 +211,29 @@ function Settings({ room, isHost }: { room: RoomView; isHost: boolean }) {
             </button>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function CharacterPicker({ room }: { room: RoomView }) {
+  const mine = room.members.find((m) => m.id === room.youId)?.character;
+  return (
+    <section className="rounded-2xl bg-felt-900/90 p-4 ring-1 ring-gold-500/30">
+      <h2 className="mb-3 font-semibold text-stone-300">Seu personagem</h2>
+      <div className="grid grid-cols-3 gap-2">
+        {CHARACTER_IDS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => actions.setCharacter(id)}
+            aria-pressed={mine === id}
+            className={`overflow-hidden rounded-xl bg-black/25 pb-1 text-center text-sm transition ${mine === id ? 'ring-2 ring-gold-300' : 'ring-1 ring-white/10 hover:ring-white/30'}`}
+          >
+            <img src={portraitUrl(id)} alt="" className="aspect-square w-full bg-stone-100 object-cover object-top" />
+            {CHARACTER_NAMES[id]}
+          </button>
+        ))}
       </div>
     </section>
   );

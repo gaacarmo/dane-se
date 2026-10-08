@@ -23,7 +23,13 @@ import {
   cardId,
   chooseBotBet,
   chooseBotCard,
+  CHARACTER_IDS,
+  type CharacterId,
+  type ChatMessage,
+  CHAT_HISTORY,
+  MAX_CHAT_LENGTH,
   createGame,
+  isCharacterId,
   getPlayerView,
   normalizeRoomCode,
   wordLetters,
@@ -74,6 +80,7 @@ interface Member {
   autoPlay: boolean;
   isBot: boolean;
   lastReactionAt: number;
+  character: CharacterId;
 }
 
 interface Room {
@@ -85,6 +92,8 @@ interface Room {
   members: Member[];
   game: GameState | null;
   waitingFor: { playerId: string; deadline: number } | null;
+  chat: ChatMessage[];
+  chatSeq: number;
   gameTimer: NodeJS.Timeout | null;
   hostTimer: NodeJS.Timeout | null;
   emptyTimer: NodeJS.Timeout | null;
@@ -137,6 +146,8 @@ export class RoomManager {
       members: [member],
       game: null,
       waitingFor: null,
+      chat: [],
+      chatSeq: 0,
       gameTimer: null,
       hostTimer: null,
       emptyTimer: null,
@@ -156,7 +167,7 @@ export class RoomManager {
     if (room.members.length >= MAX_PLAYERS) return fail('ROOM_FULL');
     if (room.members.some((m) => m.name.toLowerCase() === name.toLowerCase())) return fail('NAME_TAKEN');
 
-    const member = newMember(name);
+    const member = newMember(name, room.members.map((m) => m.character));
     room.members.push(member);
     this.attach(room, member, socket);
     return { ok: true, ...session(room, member) };
@@ -213,6 +224,36 @@ export class RoomManager {
     return OK;
   }
 
+  chat(socket: GameSocket, rawText: unknown): Ack {
+    const { code, playerId } = socket.data;
+    const room = code ? this.rooms.get(code) : undefined;
+    const member = room?.members.find((m) => m.id === playerId);
+    if (!room || !member) return fail('NOT_IN_ROOM');
+    if (typeof rawText !== 'string') return fail('INVALID_PAYLOAD');
+    const text = rawText.replace(/\s+/g, ' ').trim().slice(0, MAX_CHAT_LENGTH);
+    if (!text) return fail('INVALID_PAYLOAD');
+    const now = Date.now();
+    const last = [...room.chat].reverse().find((m) => m.playerId === member.id);
+    if (last && now - last.at < 600) return fail('CHAT_TOO_FAST');
+    room.chat.push({ id: ++room.chatSeq, playerId: member.id, name: member.name, text, at: now });
+    if (room.chat.length > CHAT_HISTORY) room.chat.splice(0, room.chat.length - CHAT_HISTORY);
+    this.touch(room);
+    this.broadcast(room);
+    return OK;
+  }
+
+  setCharacter(socket: GameSocket, character: unknown): Ack {
+    const { code, playerId } = socket.data;
+    const room = code ? this.rooms.get(code) : undefined;
+    const member = room?.members.find((m) => m.id === playerId);
+    if (!room || !member) return fail('NOT_IN_ROOM');
+    if (!isCharacterId(character)) return fail('INVALID_PAYLOAD');
+    member.character = character;
+    this.touch(room);
+    this.broadcast(room);
+    return OK;
+  }
+
   addBot(socket: GameSocket): Ack {
     const ctx = this.hostContext(socket);
     if (!ctx.ok) return ctx;
@@ -222,7 +263,7 @@ export class RoomManager {
 
     const taken = new Set(room.members.map((m) => m.name.toLowerCase()));
     const name = BOT_NAMES.find((n) => !taken.has(n.toLowerCase())) ?? `Bot ${room.members.length + 1}`;
-    room.members.push({ ...newMember(name), autoPlay: true, isBot: true });
+    room.members.push({ ...newMember(name, room.members.map((m) => m.character)), autoPlay: true, isBot: true });
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -500,10 +541,12 @@ export class RoomManager {
         connected: m.isBot || m.socketId !== null,
         autoPlay: m.autoPlay,
         isBot: m.isBot,
+        character: m.character,
       })),
       // The only game data that leaves the server: filtered per player.
       game: room.game ? getPlayerView(room.game, memberId) : null,
       waitingFor: room.waitingFor,
+      chat: room.chat,
     };
   }
 
@@ -550,8 +593,24 @@ export class RoomManager {
   }
 }
 
-function newMember(name: string): Member {
-  return { id: randomUUID().slice(0, 8), name, token: randomUUID(), socketId: null, autoPlay: false, isBot: false, lastReactionAt: 0 };
+/** Prefers a character nobody in the room has yet; repeats are fine once all are taken. */
+function pickCharacter(taken: CharacterId[]): CharacterId {
+  const free = CHARACTER_IDS.filter((c) => !taken.includes(c));
+  const pool = free.length > 0 ? free : CHARACTER_IDS;
+  return pool[randomInt(pool.length)]!;
+}
+
+function newMember(name: string, taken: CharacterId[] = []): Member {
+  return {
+    id: randomUUID().slice(0, 8),
+    name,
+    token: randomUUID(),
+    socketId: null,
+    autoPlay: false,
+    isBot: false,
+    lastReactionAt: 0,
+    character: pickCharacter(taken),
+  };
 }
 
 function session(room: Room, member: Member): Session {

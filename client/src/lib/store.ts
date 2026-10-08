@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import {
   type Ack,
+  type CharacterId,
   type ClientToServerEvents,
   type ErrorCode,
   type GameSettings,
@@ -234,6 +235,8 @@ export const actions = {
   },
   updateSettings: (patch: Partial<GameSettings>) => send('room:settings', patch),
   start: () => send('room:start'),
+  chat: (text: string) => send('chat:send', { text }),
+  setCharacter: (character: CharacterId) => send('room:character', { character }),
   kick: (playerId: string) => send('room:kick', { playerId }),
   addBot: () => send('room:addBot'),
   skipWaiting: () => send('room:skipWaiting'),

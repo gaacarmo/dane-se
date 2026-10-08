@@ -4,6 +4,7 @@ import { type PlayerView, type PublicPlayer, type RoomView, wordLetters } from '
 import { actions } from '../../lib/store';
 import { useGameEffects } from '../../lib/useGameEffects';
 import { Shrimp } from '../cards/Shrimp';
+import { ChatPanel } from '../ChatPanel';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { BetBar } from './BetBar';
@@ -13,11 +14,14 @@ import { type Point, foreheadSpace, seatPoint, tableGeometry, trickPoint, useEle
 import { Hand } from './Hand';
 import { Hud } from './Hud';
 import { Letters } from './Letters';
+import { MyStatus } from './MyStatus';
 import { GameOver, RoundSummary, WaitingBanner } from './Overlays';
 import { ReactionBubbles, ReactionPicker } from './Reactions';
 import { Seat } from './Seat';
 import { TableMenu } from './TableMenu';
 import { TrickArea, TrickResultLabel } from './TrickArea';
+import { Table3DView } from '../table3d/Table3DView';
+import { usePrefs } from '../../lib/prefs';
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
@@ -57,6 +61,7 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
   useGameEffects(room);
   const compact = useMediaQuery('(orientation: landscape) and (max-height: 500px)');
   const seatScale = compact ? 0.8 : 1;
+  const { view3d } = usePrefs();
 
   const geometry = tableGeometry(size, compact);
   const n = game.players.length;
@@ -85,7 +90,7 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
 
   return (
     <div
-      className="room-bg flex h-dvh flex-col overflow-hidden"
+      className="room-bg relative flex h-dvh flex-col overflow-hidden"
       style={
         {
           '--table-card-w': `${geometry.tableCardW}px`,
@@ -94,6 +99,7 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
       }
     >
       <Hud game={game} showVira={compact} onMenu={() => setMenuOpen(true)} />
+      <ChatPanel room={room} opensDown className="absolute top-14 right-2 z-40" />
       <TableMenu
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
@@ -102,7 +108,8 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
       />
 
       <div ref={tableRef} className="relative min-h-0 flex-1">
-        {size.width > 0 && (
+        {view3d && <Table3DView room={room} />}
+        {!view3d && size.width > 0 && (
           <>
             {/* The table: wooden rim + felt. */}
             <div
@@ -181,7 +188,8 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
           </>
         )}
 
-        {size.width > 0 && <ReactionBubbles seats={seats} />}
+        {!view3d && size.width > 0 && <ReactionBubbles seats={seats} />}
+        {view3d && me && !game.isSpectator && !me.eliminated && <MyStatus game={game} me={me} word={word} compact={compact} />}
         <ReactionPicker atTop={compact} />
         <WaitingBanner room={room} />
         <RoundSummary game={game} />
@@ -199,6 +207,7 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
         turnName={turnPlayer?.name}
         handDelays={handDelays}
         dealing={dealing}
+        overlay={view3d}
       />
 
       <Modal open={confirmLeave} onClose={() => setConfirmLeave(false)} title="Sair da partida?">
@@ -231,6 +240,7 @@ function BottomPanel({
   turnName,
   handDelays,
   dealing,
+  overlay,
 }: {
   game: PlayerView;
   me: PublicPlayer | undefined;
@@ -243,6 +253,8 @@ function BottomPanel({
   turnName: string | undefined;
   handDelays: number[];
   dealing: boolean;
+  /** First-person view: the panel floats over the bottom of the 3D scene. */
+  overlay: boolean;
 }) {
   const betting = game.phase === 'betting';
   let status: string;
@@ -280,9 +292,15 @@ function BottomPanel({
       dimmed={!canPlay && !betting}
       onPlay={(id) => actions.play(id)}
       dealDelays={handDelays}
+      peek={overlay}
     />
   ) : (
-    <div className="flex min-h-[calc(var(--card-w)*1.4+2.25rem)] items-center justify-center px-3">
+    <div
+      className={`flex items-center justify-center px-3 ${
+        // In first person there's no hand to make room for: keep the panel at the bottom.
+        overlay ? 'min-h-4 pb-3' : 'min-h-[calc(var(--card-w)*1.4+2.25rem)]'
+      }`}
+    >
       {canPlay ? (
         <Button className="text-lg" onClick={() => actions.play()}>
           🃏 Jogar a carta da testa
@@ -296,14 +314,17 @@ function BottomPanel({
   );
 
   const highlight = myTurn && !isSpectator && (betting || game.phase === 'playing');
-  const panelClass = `safe-bottom relative z-20 shrink-0 transition-colors ${highlight ? 'bg-gold-500/15' : 'bg-black/30'}`;
+  const panelStyle = overlay ? ({ '--card-w': 'clamp(46px, 6vh + 2.4vw, 84px)' } as React.CSSProperties) : undefined;
+  const panelClass = overlay
+    ? `safe-bottom pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/75 to-transparent pt-16 [&>*]:pointer-events-auto`
+    : `safe-bottom relative z-20 shrink-0 transition-colors ${highlight ? 'bg-gold-500/15' : 'bg-black/30'}`;
 
   if (compact) {
     return (
-      <div className={`${panelClass} flex items-end gap-2 px-2`}>
+      <div className={`${panelClass} flex items-end gap-2 px-2`} style={panelStyle}>
         <div className="w-32 shrink-0 space-y-1 pb-2">
           {statusEl}
-          {me && !isSpectator && (
+          {me && !isSpectator && !overlay && (
             <div className="space-y-1">
               <Letters word={word} lost={me.letters} compact />
               <div className="flex gap-1 text-[11px] leading-none">
@@ -321,7 +342,7 @@ function BottomPanel({
   }
 
   return (
-    <div className={panelClass}>
+    <div className={panelClass} style={panelStyle}>
       {statusEl}
       {betEl && <div className="pt-2">{betEl}</div>}
       {handEl}

@@ -1,4 +1,5 @@
 export * from './cards.js';
+export * from './characters.js';
 export * from './rng.js';
 export * from './rules.js';
 export * from './trick.js';

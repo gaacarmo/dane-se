@@ -1,3 +1,4 @@
+import type { CharacterId } from './characters.js';
 import type { GameError } from './game.js';
 import type { GameSettings } from './rules.js';
 import type { PlayerView } from './view.js';
@@ -13,7 +14,22 @@ export interface RoomMember {
   autoPlay: boolean;
   /** A bot added by the host to fill a seat. */
   isBot: boolean;
+  /** Who the player looks like at the 3D table. Several players may pick the same one. */
+  character: CharacterId;
 }
+
+export interface ChatMessage {
+  id: number;
+  playerId: string;
+  /** Name when it was sent (the player may have left since). */
+  name: string;
+  text: string;
+  at: number;
+}
+
+export const MAX_CHAT_LENGTH = 200;
+/** Messages kept per room; older ones are dropped. */
+export const CHAT_HISTORY = 50;
 
 export interface RoomView {
   code: string;
@@ -26,6 +42,7 @@ export interface RoomView {
   game: PlayerView | null;
   /** The current player is disconnected; a bot takes over at `deadline` (epoch ms). */
   waitingFor: { playerId: string; deadline: number } | null;
+  chat: ChatMessage[];
 }
 
 export type ErrorCode =
@@ -41,7 +58,8 @@ export type ErrorCode =
   | 'INVALID_SETTINGS'
   | 'NOT_IN_ROOM'
   | 'INVALID_PAYLOAD'
-  | 'TOO_FAST';
+  | 'TOO_FAST'
+  | 'CHAT_TOO_FAST';
 
 export type Ack<T = object> = ({ ok: true } & T) | { ok: false; error: ErrorCode };
 export type AckFn<T = object> = (result: Ack<T>) => void;
@@ -59,6 +77,8 @@ export interface ClientToServerEvents {
   'room:leave': (ack: AckFn) => void;
   'room:settings': (payload: Partial<GameSettings>, ack: AckFn) => void;
   'room:start': (ack: AckFn) => void;
+  'room:character': (payload: { character: CharacterId }, ack: AckFn) => void;
+  'chat:send': (payload: { text: string }, ack: AckFn) => void;
   'room:kick': (payload: { playerId: string }, ack: AckFn) => void;
   /** Host: add a bot player to fill an empty seat (lobby only). */
   'room:addBot': (ack: AckFn) => void;
@@ -119,4 +139,5 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   NOT_IN_ROOM: 'Você não está em nenhuma sala.',
   INVALID_PAYLOAD: 'Pedido inválido.',
   TOO_FAST: 'Calma! Espere um pouquinho.',
+  CHAT_TOO_FAST: 'Calma, mais devagar no chat.',
 };
