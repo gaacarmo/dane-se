@@ -8,7 +8,8 @@
     "start": "tsx src/index.ts",
     "simulate": "tsx scripts/simulate.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bots": "tsx scripts/addBots.ts"
   },
   "dependencies": {
     "@dane-se/shared": "^0.1.0",

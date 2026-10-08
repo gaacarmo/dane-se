@@ -177,7 +177,8 @@ describe('elimination and end of game', () => {
     s = act(playTrick(s, { [a]: '3D', [pe]: 'KH' }), { type: 'collectTrick' });
 
     expect(s.phase).toBe('gameOver');
-    expect(s.players.find((p) => p.id === a)?.eliminated).toBe(true);
+    expect(s.players.find((p) => p.id === a)).toMatchObject({ eliminated: true, eliminatedInRound: 1 });
+    expect(s.players.find((p) => p.id === pe)?.eliminatedInRound).toBeNull();
     expect(s.winnerId).toBe(pe);
     expect(applyAction(s, { type: 'nextRound' }).ok).toBe(false);
   });

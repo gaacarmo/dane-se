@@ -23,6 +23,8 @@ export interface PlayerState {
   name: string;
   letters: number;
   eliminated: boolean;
+  /** Round in which the player was eliminated (for final standings). */
+  eliminatedInRound: number | null;
 }
 
 export interface Trick {
@@ -97,7 +99,7 @@ export function createGame(
   const base: GameState = {
     settings,
     lives: livesFor(settings),
-    players: players.map((p) => ({ id: p.id, name: p.name, letters: 0, eliminated: false })),
+    players: players.map((p) => ({ id: p.id, name: p.name, letters: 0, eliminated: false, eliminatedInRound: null })),
     phase: 'betting',
     rng: firstDealer.state,
     roundNumber: 1,
@@ -292,7 +294,13 @@ function finishRound(state: GameState): GameState {
   const resultById = new Map(score.results.map((r) => [r.playerId, r]));
   const players = state.players.map((p) => {
     const r = resultById.get(p.id);
-    return r ? { ...p, letters: r.lettersAfter, eliminated: r.eliminated } : p;
+    if (!r) return p;
+    return {
+      ...p,
+      letters: r.lettersAfter,
+      eliminated: r.eliminated,
+      eliminatedInRound: r.eliminated ? state.roundNumber : p.eliminatedInRound,
+    };
   });
 
   const lastRound: RoundSummary = {

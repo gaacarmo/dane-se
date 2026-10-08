@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Georgia', 'Iowan Old Style', 'Times New Roman', serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --color-felt-950: #06170f;
+  --color-felt-900: #0b2a1c;
+  --color-felt-800: #0f3b27;
+  --color-felt-700: #145236;
+  --color-felt-600: #1a6a45;
+  --color-wood-900: #2b160b;
+  --color-wood-700: #5a3018;
+  --color-wood-500: #8a5129;
+  --color-gold-300: #f4dc9a;
+  --color-gold-400: #e8c66a;
+  --color-gold-500: #d4a83c;
+  --color-wine-700: #7a1f2b;
+  --color-wine-800: #5c1520;
+  --color-card-red: #c0242f;
+  --color-card-black: #1b1b1f;
+  --color-paper: #fffdf6;
+}
+
+:root {
+  color-scheme: dark;
+  /* Hand cards. Table and forehead card sizes are set by the game screen from the table size. */
+  --card-w: clamp(52px, 17vw, 96px);
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  :root {
+    --card-w: clamp(40px, 8vh + 2vw, 72px);
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-felt-950);
+  color: #f5f1e6;
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-gold-400);
+  outline-offset: 2px;
+}
+
+/* Room background: dark wood-paneled room with a warm lamp above the table. */
+.room-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 45%, rgb(255 214 140 / 0.10), transparent 70%),
+    radial-gradient(ellipse at 50% 120%, #1a0f08 0%, transparent 60%),
+    linear-gradient(180deg, #120c08 0%, #0a0705 100%);
+}
+
+/* Wooden rim around the felt. */
+.table-rim {
+  background:
+    repeating-linear-gradient(
+      100deg,
+      rgb(255 255 255 / 0.03) 0 2px,
+      transparent 2px 9px
+    ),
+    radial-gradient(ellipse at 50% 30%, var(--color-wood-500), var(--color-wood-700) 55%, var(--color-wood-900));
+  box-shadow:
+    0 30px 60px -10px rgb(0 0 0 / 0.75),
+    0 0 0 2px rgb(0 0 0 / 0.5),
+    inset 0 2px 3px rgb(255 220 180 / 0.35),
+    inset 0 -4px 8px rgb(0 0 0 / 0.5);
+}
+
+/* Felt: base color, soft overhead light, vignette and a fine fiber texture. */
+.table-felt {
+  background-color: var(--color-felt-700);
+  background-image:
+    radial-gradient(ellipse 70% 60% at 50% 40%, rgb(255 255 255 / 0.13), transparent 70%),
+    radial-gradient(ellipse at center, transparent 45%, rgb(0 0 0 / 0.55) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0.1  0 0 0 0 0.05  0 0 0 0.22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  box-shadow:
+    inset 0 0 0 2px rgb(0 0 0 / 0.35),
+    inset 0 10px 40px rgb(0 0 0 / 0.55);
+}
+
+.theme-wine .table-felt {
+  background-color: #5e1825;
+}
+.theme-blue .table-felt {
+  background-color: #173a63;
+}
+
+.card-shadow {
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.35)) drop-shadow(0 6px 10px rgb(0 0 0 / 0.25));
+}
+
+.gold-text {
+  background: linear-gradient(180deg, var(--color-gold-300), var(--color-gold-500));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

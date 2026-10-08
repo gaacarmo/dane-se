@@ -15,6 +15,7 @@ export interface PublicPlayer {
   name: string;
   letters: number;
   eliminated: boolean;
+  eliminatedInRound: number | null;
   isDealer: boolean;
   bet: number | null;
   tricksWon: number;
@@ -67,6 +68,7 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
       name: p.name,
       letters: p.letters,
       eliminated: p.eliminated,
+      eliminatedInRound: p.eliminatedInRound,
       isDealer: p.id === state.dealerId,
       bet: state.bets[p.id] ?? null,
       tricksWon: inRound ? (state.tricksWon[p.id] ?? 0) : 0,
