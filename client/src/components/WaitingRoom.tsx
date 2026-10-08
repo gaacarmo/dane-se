@@ -70,6 +70,11 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
                   {m.name}
                   {m.id === room.youId && <span className="text-stone-400"> (você)</span>}
                 </span>
+                {m.isBot && (
+                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-stone-300" title="Bot">
+                    🤖 bot
+                  </span>
+                )}
                 {m.isHost && (
                   <span className="rounded-full bg-gold-500/20 px-2 py-0.5 text-xs text-gold-300" title="Anfitrião">
                     👑 anfitrião
@@ -90,6 +95,11 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
           </ul>
           {room.members.length < MIN_PLAYERS && (
             <p className="mt-3 text-center text-sm text-stone-400">Esperando mais gente entrar…</p>
+          )}
+          {isHost && room.members.length < MAX_PLAYERS && (
+            <Button variant="secondary" className="mt-3 w-full" onClick={() => actions.addBot()}>
+              🤖 Adicionar bot
+            </Button>
           )}
         </section>
 

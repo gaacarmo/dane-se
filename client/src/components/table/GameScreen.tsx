@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { type PlayerView, type PublicPlayer, type RoomView, wordLetters } from '@dane-se/shared';
 import { actions } from '../../lib/store';
+import { useGameEffects } from '../../lib/useGameEffects';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { BetBar } from './BetBar';
@@ -13,6 +14,7 @@ import { Hud } from './Hud';
 import { Letters } from './Letters';
 import { GameOver, RoundSummary, WaitingBanner } from './Overlays';
 import { Seat } from './Seat';
+import { TableMenu } from './TableMenu';
 import { TrickArea, TrickResultLabel } from './TrickArea';
 
 function useMediaQuery(query: string): boolean {
@@ -49,6 +51,8 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
   const youId = room.youId;
   const [tableRef, size] = useElementSize<HTMLDivElement>();
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  useGameEffects(room);
   const compact = useMediaQuery('(orientation: landscape) and (max-height: 500px)');
   const seatScale = compact ? 0.8 : 1;
 
@@ -87,7 +91,13 @@ export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => voi
         } as React.CSSProperties
       }
     >
-      <Hud game={game} showVira={compact} onHelp={onHelp} onLeave={() => setConfirmLeave(true)} />
+      <Hud game={game} showVira={compact} onMenu={() => setMenuOpen(true)} />
+      <TableMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onHelp={onHelp}
+        onLeave={() => setConfirmLeave(true)}
+      />
 
       <div ref={tableRef} className="relative min-h-0 flex-1">
         {size.width > 0 && (
@@ -259,7 +269,7 @@ function BottomPanel({
           🃏 Jogar a carta da testa
         </Button>
       ) : (
-        <p className="max-w-xs text-center text-xs text-stone-400">
+        !betEl && <p className="max-w-xs text-center text-xs text-stone-400">
           Rodada cega: sua carta está na sua testa. Você vê a de todo mundo, menos a sua!
         </p>
       )}

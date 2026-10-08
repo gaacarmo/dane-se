@@ -95,12 +95,12 @@ export function Seat({
               PÉ
             </span>
           )}
-          {member && !member.connected && !out && (
+          {member && (member.isBot || !member.connected) && !out && (
             <span
               className="absolute -top-1 -left-2 rounded-full bg-black/80 px-1 text-[10px] text-stone-200"
-              title={member.autoPlay ? 'Desconectado: o bot está jogando' : 'Desconectado'}
+              title={member.isBot ? 'Bot' : member.autoPlay ? 'Desconectado: o bot está jogando' : 'Desconectado'}
             >
-              {member.autoPlay ? '🤖' : '📵'}
+              {member.isBot || member.autoPlay ? '🤖' : '📵'}
             </span>
           )}
         </div>

@@ -72,6 +72,9 @@ export class BotClient {
   settings(patch: object) {
     return this.call('room:settings', patch);
   }
+  addBot() {
+    return this.call('room:addBot');
+  }
   kick(playerId: string) {
     return this.call('room:kick', { playerId });
   }

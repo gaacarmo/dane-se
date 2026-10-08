@@ -19,14 +19,24 @@ export function Hand({
   canPlay: boolean;
   /** Darken the hand (not your turn to play). */
   dimmed: boolean;
-  onPlay: (id: string) => void;
+  /** Resolves once the server answered. */
+  onPlay: (id: string) => Promise<unknown> | void;
   /** While dealing: seconds until each card (in dealt order) lands. Empty otherwise. */
   dealDelays: number[];
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  // After playing, ignore taps until the server answers (no accidental double plays).
+  const [pending, setPending] = useState(false);
   useEffect(() => {
     if (!canPlay) setSelected(null);
   }, [canPlay]);
+  const active = canPlay && !pending;
+
+  function play(id: string) {
+    setSelected(null);
+    setPending(true);
+    void Promise.resolve(onPlay(id)).finally(() => setPending(false));
+  }
 
   // Sorted weakest to strongest (manilhas on the right), like most people hold them.
   const sorted = cards
@@ -35,10 +45,9 @@ export function Hand({
   const mid = (sorted.length - 1) / 2;
 
   function tap(id: string) {
-    if (!canPlay) return;
+    if (!active) return;
     if (selected === id) {
-      setSelected(null);
-      onPlay(id);
+      play(id);
     } else {
       setSelected(id);
     }
@@ -79,15 +88,12 @@ export function Hand({
               filter: { duration: 0.2 },
             }}
             whileHover={canPlay ? { y: -14 + Math.abs(offset) * Math.abs(offset) * 2 } : undefined}
-            drag={canPlay ? 'y' : false}
+            drag={active ? 'y' : false}
             dragSnapToOrigin
             dragElastic={0.6}
             dragConstraints={{ top: -220, bottom: 0 }}
             onDragEnd={(_, info) => {
-              if (info.offset.y < -DRAG_TO_PLAY_PX) {
-                setSelected(null);
-                onPlay(id);
-              }
+              if (active && info.offset.y < -DRAG_TO_PLAY_PX) play(id);
             }}
           >
             <PlayingCard card={card} highlight={card.rank === manilhaRank} />

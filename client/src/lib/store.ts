@@ -224,6 +224,7 @@ export const actions = {
   updateSettings: (patch: Partial<GameSettings>) => send('room:settings', patch),
   start: () => send('room:start'),
   kick: (playerId: string) => send('room:kick', { playerId }),
+  addBot: () => send('room:addBot'),
   skipWaiting: () => send('room:skipWaiting'),
   rematch: () => send('room:rematch'),
   bet: (bet: number) => send('game:bet', { bet }),

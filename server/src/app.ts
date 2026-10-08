@@ -82,6 +82,7 @@ function registerHandlers(socket: GameSocket, rooms: RoomManager): void {
   socket.on('room:settings', handle<Body>((p) => rooms.updateSettings(socket, p)));
   socket.on('room:start', handle(() => rooms.start(socket)));
   socket.on('room:kick', handle<Body>((p) => rooms.kick(socket, p.playerId)));
+  socket.on('room:addBot', handle(() => rooms.addBot(socket)));
   socket.on('room:skipWaiting', handle(() => rooms.skipWaiting(socket)));
   socket.on('room:rematch', handle(() => rooms.rematch(socket)));
   socket.on('game:bet', handle<Body>((p) => rooms.bet(socket, p.bet)));

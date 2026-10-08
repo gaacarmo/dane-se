@@ -9,8 +9,10 @@ export interface RoomMember {
   name: string;
   isHost: boolean;
   connected: boolean;
-  /** A bot is playing for this player (they are disconnected). */
+  /** A bot is playing for this player (they are disconnected, or this seat is a bot). */
   autoPlay: boolean;
+  /** A bot added by the host to fill a seat. */
+  isBot: boolean;
 }
 
 export interface RoomView {
@@ -57,6 +59,8 @@ export interface ClientToServerEvents {
   'room:settings': (payload: Partial<GameSettings>, ack: AckFn) => void;
   'room:start': (ack: AckFn) => void;
   'room:kick': (payload: { playerId: string }, ack: AckFn) => void;
+  /** Host: add a bot player to fill an empty seat (lobby only). */
+  'room:addBot': (ack: AckFn) => void;
   /** Host: stop waiting for a disconnected player and let the bot play for them now. */
   'room:skipWaiting': (ack: AckFn) => void;
   'room:rematch': (ack: AckFn) => void;

@@ -116,6 +116,38 @@ describe('rooms', () => {
     expect(victim.kicked).toBe(true);
   });
 
+  it('host can add bots that play a whole game and stay for the rematch', async () => {
+    const host = client('Ana');
+    await host.create();
+    expect((await host.addBot()).ok).toBe(true);
+    expect((await host.addBot()).ok).toBe(true);
+    const view = await host.waitFor((v) => v.members.length === 3);
+    expect(view.members.filter((m) => m.isBot).map((m) => m.name)).toEqual(['Zé Robô', 'Tia Bot']);
+    expect(view.members.every((m) => m.connected)).toBe(true);
+
+    host.enableAutoPlay();
+    expect((await host.start()).ok).toBe(true);
+    await host.waitFor((v) => v.status === 'finished', 20_000);
+    expect((await host.rematch()).ok).toBe(true);
+    const lobbyView = await host.waitFor((v) => v.status === 'lobby');
+    expect(lobbyView.members.filter((m) => m.isBot)).toHaveLength(2);
+  });
+
+  it('only the host adds bots, in the lobby, up to 6 players', async () => {
+    const { players } = await lobby(5);
+    expect(await players[1]!.addBot()).toEqual({ ok: false, error: 'NOT_HOST' });
+    expect((await players[0]!.addBot()).ok).toBe(true);
+    expect(await players[0]!.addBot()).toEqual({ ok: false, error: 'ROOM_FULL' });
+  });
+
+  it('a room with only bots left is closed', async () => {
+    const host = client('Ana');
+    await host.create();
+    await host.addBot();
+    await host.leave();
+    expect(server.rooms.roomCount).toBe(0);
+  });
+
   it('nobody can join after the game started', async () => {
     const { players, code } = await lobby(2);
     expect((await players[0]!.start()).ok).toBe(true);

@@ -1,19 +1,19 @@
 import type { PlayerView } from '@dane-se/shared';
+import { setPref, usePrefs } from '../../lib/prefs';
 import { PlayingCard } from '../cards/PlayingCard';
 
 /** Round info, always visible: round, cards, bets vs N, current trick, who leads. */
 export function Hud({
   game,
   showVira,
-  onHelp,
-  onLeave,
+  onMenu,
 }: {
   game: PlayerView;
   /** Compact layout: the vira and manilha live here instead of the middle of the table. */
   showVira?: boolean;
-  onHelp: () => void;
-  onLeave: () => void;
+  onMenu: () => void;
 }) {
+  const { muted } = usePrefs();
   const n = game.cardsPerPlayer;
   const betsPlaced = game.players.filter((p) => p.bet !== null).length;
   const leader = game.players.find((p) => p.id === game.trick.leaderId);
@@ -21,7 +21,7 @@ export function Hud({
   const diff = game.betsSum - n;
 
   return (
-    <header className="relative z-30 flex items-center gap-1.5 bg-black/40 px-2 py-1.5 text-[11px] backdrop-blur-sm sm:gap-2 sm:text-sm">
+    <header className="safe-top relative z-30 flex items-center gap-1.5 bg-black/40 px-2 pb-1.5 text-[11px] backdrop-blur-sm sm:gap-2 sm:text-sm">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 sm:gap-1.5">
         {showVira && (
           <span className="flex items-center gap-1.5 rounded-full bg-black/40 py-0.5 pr-2.5 pl-1 ring-1 ring-gold-500/50">
@@ -55,19 +55,19 @@ export function Hud({
         )}
       </div>
       <button
-        onClick={onHelp}
-        className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 text-lg font-bold text-gold-300 hover:bg-white/20 max-sm:size-9"
-        aria-label="Como jogar"
+        onClick={() => setPref('muted', !muted)}
+        className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 text-lg hover:bg-white/20"
+        aria-label={muted ? 'Ligar sons' : 'Desligar sons'}
+        aria-pressed={!muted}
       >
-        ?
+        {muted ? '🔇' : '🔊'}
       </button>
       <button
-        onClick={onLeave}
-        className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 text-lg hover:bg-white/20 max-sm:size-9"
-        aria-label="Sair da sala"
-        title="Sair"
+        onClick={onMenu}
+        className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 text-xl text-gold-300 hover:bg-white/20"
+        aria-label="Menu"
       >
-        🚪
+        ☰
       </button>
     </header>
   );

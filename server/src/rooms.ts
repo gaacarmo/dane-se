@@ -70,6 +70,7 @@ interface Member {
   token: string;
   socketId: string | null;
   autoPlay: boolean;
+  isBot: boolean;
 }
 
 interface Room {
@@ -89,6 +90,7 @@ interface Room {
 
 const CODE_ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'; // no vowels: no accidental words, no 0/O confusion
 const MAX_WORD_LETTERS = 12;
+const BOT_NAMES = ['Zé Robô', 'Tia Bot', 'Bot do Bar', 'Robozão', 'Dona Bot', 'Seu Chip'];
 
 const fail = (error: ErrorCode): { ok: false; error: ErrorCode } => ({ ok: false, error });
 const OK = { ok: true } as const;
@@ -184,7 +186,7 @@ export class RoomManager {
     }
 
     room.members = room.members.filter((m) => m !== member);
-    if (room.members.length === 0) {
+    if (!room.members.some((m) => !m.isBot)) {
       this.closeRoom(room, 'everyoneLeft');
       return OK;
     }
@@ -203,6 +205,21 @@ export class RoomManager {
     const settings = validSettings(room.settings, patch);
     if (!settings) return fail('INVALID_SETTINGS');
     room.settings = settings;
+    this.touch(room);
+    this.broadcast(room);
+    return OK;
+  }
+
+  addBot(socket: GameSocket): Ack {
+    const ctx = this.hostContext(socket);
+    if (!ctx.ok) return ctx;
+    const { room } = ctx;
+    if (room.status !== 'lobby') return fail('GAME_IN_PROGRESS');
+    if (room.members.length >= MAX_PLAYERS) return fail('ROOM_FULL');
+
+    const taken = new Set(room.members.map((m) => m.name.toLowerCase()));
+    const name = BOT_NAMES.find((n) => !taken.has(n.toLowerCase())) ?? `Bot ${room.members.length + 1}`;
+    room.members.push({ ...newMember(name), autoPlay: true, isBot: true });
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -256,9 +273,9 @@ export class RoomManager {
     room.status = 'lobby';
     room.game = null;
     room.waitingFor = null;
-    // Players who left for good don't come back to the lobby.
-    room.members = room.members.filter((m) => m.socketId !== null);
-    for (const m of room.members) m.autoPlay = false;
+    // Players who left for good don't come back to the lobby; bots stay.
+    room.members = room.members.filter((m) => m.isBot || m.socketId !== null);
+    for (const m of room.members) m.autoPlay = m.isBot;
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -344,7 +361,8 @@ export class RoomManager {
         const member = room.members.find((m) => m.id === game.turnPlayerId);
         if (!member) break;
         if (member.autoPlay) {
-          later(this.timings.botDelayMs, () => this.botAct(room, member));
+          // A little variation so bots don't feel mechanical.
+          later(this.timings.botDelayMs * (0.8 + Math.random() * 0.6), () => this.botAct(room, member));
         } else if (member.socketId === null) {
           room.waitingFor = { playerId: member.id, deadline: Date.now() + this.timings.reconnectGraceMs };
           later(this.timings.reconnectGraceMs, () => {
@@ -427,7 +445,7 @@ export class RoomManager {
   private transferHost(room: Room): void {
     const current = room.members.find((m) => m.id === room.hostId);
     if (current?.socketId) return;
-    const next = room.members.find((m) => m.socketId !== null) ?? room.members[0];
+    const next = room.members.find((m) => m.socketId !== null) ?? room.members.find((m) => !m.isBot);
     if (next) room.hostId = next.id;
   }
 
@@ -460,8 +478,9 @@ export class RoomManager {
         id: m.id,
         name: m.name,
         isHost: m.id === room.hostId,
-        connected: m.socketId !== null,
+        connected: m.isBot || m.socketId !== null,
         autoPlay: m.autoPlay,
+        isBot: m.isBot,
       })),
       // The only game data that leaves the server: filtered per player.
       game: room.game ? getPlayerView(room.game, memberId) : null,
@@ -513,7 +532,7 @@ export class RoomManager {
 }
 
 function newMember(name: string): Member {
-  return { id: randomUUID().slice(0, 8), name, token: randomUUID(), socketId: null, autoPlay: false };
+  return { id: randomUUID().slice(0, 8), name, token: randomUUID(), socketId: null, autoPlay: false, isBot: false };
 }
 
 function session(room: Room, member: Member): Session {
