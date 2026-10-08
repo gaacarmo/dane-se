@@ -307,8 +307,8 @@ function BottomPanel({
   ) : (
     <div
       className={`flex items-center justify-center px-3 ${
-        // In first person there's no hand to make room for: keep the panel at the bottom.
-        overlay ? 'min-h-4 pb-3' : 'min-h-[calc(var(--card-w)*1.4+2.25rem)]'
+        // No hand to make room for (first person, or the bet bar is showing): don't reserve its height.
+        overlay || betEl ? 'min-h-4 pb-3' : 'min-h-[calc(var(--card-w)*1.4+2.25rem)]'
       }`}
     >
       {canPlay ? (

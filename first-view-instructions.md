@@ -4,7 +4,7 @@ Context for whoever (or whichever Claude Code) works on this next. This describe
 
 ## Summary
 
-- A new **first-person table** (`client/src/components/table3d/`) built with three.js through `@react-three/fiber`, called "Realistic" in the UI. The old top-down table is still there and is called "Simplified". The player picks one on the home screen (`ViewModePicker` in `components/Home.tsx`) and can switch in the table menu. Both write `prefs.view3d`; when nothing is saved, the default comes from the device (`recommendedView3d()` in `lib/prefs.ts`: touch screens and widths under 768 px get Simplified).
+- A new **first-person table** (`client/src/components/table3d/`) built with three.js through `@react-three/fiber`, called "Desktop" in the UI. The old top-down table is still there and is called "Mobile" (it is meant for phones but is fully playable on a computer). The player picks one on the home screen (`ViewModePicker` in `components/Home.tsx`) and can switch in the table menu. Both write `prefs.view3d`; when nothing is saved, the default comes from the device (`recommendedView3d()` in `lib/prefs.ts`: touch screens and widths under 768 px get Mobile, the rest Desktop).
 - **Character selection** in the lobby: six portraits, chosen per player, stored on the server and shown on the 3D table.
 - **Text chat** in the lobby and in the game, with speech bubbles over the speaker in the 3D view.
 - A **right-side stack** in the realistic mode (`GameScreen.tsx`): `Scoreboard` (everyone's bet and tricks made, hidden on narrow and short-landscape screens) and `ViraPanel` (the vira card and the manilha, always visible; it animates in after the deal, when the vira is turned). Name tags on the table also show larger "Palpite / Fez" numbers.
