@@ -4,7 +4,7 @@ A real-time multiplayer version of the Brazilian card game **Dane-se** (a.k.a. F
 
 - 2 to 6 players, phone-first, also fine on desktop (portrait and landscape)
 - Rooms with a short code and share link, nickname only (no accounts)
-- Two ways to play, picked on the home screen: **Mobile** (the classic top-down table: light, made for phones, and it plays fine on a computer too) or **Desktop** (first-person view from your seat). Phones start on Mobile, computers on Desktop; you can switch any time in the table menu
+- Two ways to play, picked on the home screen: **Mobile** (the classic top-down table: light, made for phones, and it plays fine on a computer too) or **Desktop** (first-person view from your seat). Phones start on Mobile, computers on Desktop; you can switch any time in the table menu. If a browser has no WebGL (3D graphics), the Desktop mode is unavailable and the game uses the Mobile table
 - Pick a character in the lobby: the group's six friends, drawn as cartoon portraits (several players can pick the same one)
 - Emoji reactions and a text chat
 - Reconnects to your seat after a refresh or a network drop; a bot plays for you while you're away

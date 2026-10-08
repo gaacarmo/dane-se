@@ -1,4 +1,5 @@
 import { type TableTheme, setPref, usePrefs } from '../../lib/prefs';
+import { webglSupported } from '../../lib/webgl';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 
@@ -26,9 +27,17 @@ export function TableMenu({
     <Modal open={open} onClose={onClose} title="Menu">
       <div className="space-y-4">
         <Toggle label="🔊 Sons" checked={!prefs.muted} onChange={(on) => setPref('muted', !on)} />
-        {canVibrate && <Toggle label="📳 Vibrar na sua vez" checked={prefs.haptics} onChange={(on) => setPref('haptics', on)} />}
+        {canVibrate && (
+          <Toggle label="📳 Vibrar na sua vez" checked={prefs.haptics} onChange={(on) => setPref('haptics', on)} />
+        )}
 
-        <Toggle label="🪑 Modo desktop (primeira pessoa)" checked={prefs.view3d} onChange={(on) => setPref('view3d', on)} />
+        {webglSupported && (
+          <Toggle
+            label="🪑 Modo desktop (primeira pessoa)"
+            checked={prefs.view3d}
+            onChange={(on) => setPref('view3d', on)}
+          />
+        )}
 
         <div>
           <p className="mb-2 text-sm text-stone-300">Cor da mesa (só no seu aparelho)</p>

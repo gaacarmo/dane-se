@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { webglSupported } from './webgl';
 
 /** Per-device preferences (not shared with the room). */
 export type TableTheme = 'green' | 'wine' | 'blue';
@@ -15,6 +16,7 @@ const KEY = 'dane-se:prefs';
 
 /** The first-person table suits desktops; phones and tablets get the simpler top-down table. */
 export function recommendedView3d(): boolean {
+  if (!webglSupported) return false;
   try {
     return !(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768);
   } catch {
