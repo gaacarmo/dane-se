@@ -1,0 +1,11 @@
+{
+  "name": "dane-se",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["shared", "server", "client"],
+  "scripts": {
+    "test": "npm run test -w shared",
+    "typecheck": "npm run typecheck -w shared"
+  },
+  "engines": { "node": ">=20" }
+}
