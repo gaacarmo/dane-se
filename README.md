@@ -21,6 +21,10 @@ Open http://localhost:5173. To play from phones on the same Wi-Fi, use `http://<
 
 Alone? Create a room and tap **🤖 Adicionar bot** in the lobby.
 
+## Want to help?
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)**: setup, a map of the code, the golden rules (like never leaking other players' cards), recipes for common changes, and ideas to pick up.
+
 ## Scripts
 
 | Command | What it does |
