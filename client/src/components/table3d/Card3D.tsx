@@ -11,14 +11,15 @@ const EDGE = new THREE.MeshStandardMaterial({ color: '#e9e2cf', roughness: 0.8 }
 /** A card lying along +Z up: front on +Z, back on -Z. Rotate -90° about X to lay it face up on the table. */
 export function Card3D({ card, highlight, dim }: { card: Card | null; highlight?: boolean; dim?: boolean }) {
   const materials = useMemo(() => {
-    const color = dim ? '#8a8a8a' : '#ffffff';
+    // Unlit faces: the same crisp colors from any angle and under any scene light (black stays black).
+    const color = dim ? '#8a8a8a' : '#f2ecdd';
     return [
       EDGE,
       EDGE,
       EDGE,
       EDGE,
-      new THREE.MeshStandardMaterial({ map: cardTexture(card, highlight), roughness: 0.55, color }),
-      new THREE.MeshStandardMaterial({ map: cardTexture(null), roughness: 0.55, color }),
+      new THREE.MeshBasicMaterial({ map: cardTexture(card, highlight), color, toneMapped: false }),
+      new THREE.MeshBasicMaterial({ map: cardTexture(null), color, toneMapped: false }),
     ];
   }, [card, highlight, dim]);
   return (

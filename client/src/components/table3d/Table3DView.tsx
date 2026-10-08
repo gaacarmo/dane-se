@@ -13,7 +13,7 @@ import {
 import { sfx } from '../../lib/sound';
 import { useClient } from '../../lib/store';
 import { Letters } from '../table/Letters';
-import { Card3D } from './Card3D';
+import { CARD_H, CARD_W, Card3D } from './Card3D';
 import { Scene3D, TABLE_Y, seatPosition } from './Scene3D';
 
 const TOP = TABLE_Y + 0.006;
@@ -22,6 +22,30 @@ const PLAY_RX = 0.62;
 const PLAY_RZ = 0.4;
 const LEAN = Math.PI / 2;
 const CARD_SCALE = 2;
+/**
+ * The vira is propped up on the table, leaning back by `VIRA_LEAN` radians from flat. Upright it would hide the cards
+ * played behind it; flat it is too foreshortened to read from the camera. Every client draws it from its own seat, so it
+ * faces everyone.
+ */
+const VIRA_LEAN = 0.75;
+const VIRA_SCALE = 1.6;
+const VIRA_X = 0.22;
+const VIRA_Z = 0.02;
+
+/** Soft dark blob under the vira so it reads as resting on the table. */
+function useContactShadow(): THREE.CanvasTexture {
+  return useMemo(() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d')!;
+    const grad = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+    grad.addColorStop(0, 'rgba(0,0,0,0.55)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  }, []);
+}
 
 const BUBBLE_MS = 6000;
 
@@ -239,6 +263,7 @@ function useShownCards(game: PlayerView): ShownCard[] {
 }
 
 function Pile({ game }: { game: PlayerView }) {
+  const shadow = useContactShadow();
   const flip = useRef<THREE.Group>(null);
   const t0 = useRef(performance.now());
   const roundKey = game.roundNumber;
@@ -258,14 +283,49 @@ function Pile({ game }: { game: PlayerView }) {
           <Card3D card={null} />
         </group>
       ))}
-      <group position={[0.2, 0.004, -0.02]} scale={1.3}>
-        <group ref={flip}>
-          <group rotation={[-LEAN, 0, 0]}>
-            <Card3D card={game.vira} />
+      {/* The vira, propped up on a small stand. */}
+      <group position={[VIRA_X, 0, VIRA_Z]} scale={VIRA_SCALE}>
+        <mesh position={[0, 0.002, 0.0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.34, 0.36]} />
+          <meshBasicMaterial map={shadow} transparent depthWrite={false} />
+        </mesh>
+        <group position={[0, (CARD_H / 2) * Math.sin(VIRA_LEAN) + 0.004, 0]}>
+          {/* A thin wooden base under the bottom edge, with a brass line on its front. */}
+          <mesh
+            position={[
+              0,
+              -(CARD_H / 2) * Math.sin(VIRA_LEAN) - 0.004 + 0.006,
+              (CARD_H / 2) * Math.cos(VIRA_LEAN) + 0.004,
+            ]}
+            castShadow
+          >
+            <boxGeometry args={[CARD_W + 0.04, 0.012, 0.03]} />
+            <meshStandardMaterial color="#5a3a1f" roughness={0.6} />
+          </mesh>
+          <mesh
+            position={[
+              0,
+              -(CARD_H / 2) * Math.sin(VIRA_LEAN) - 0.004 + 0.0125,
+              (CARD_H / 2) * Math.cos(VIRA_LEAN) + 0.019,
+            ]}
+          >
+            <boxGeometry args={[CARD_W + 0.04, 0.003, 0.004]} />
+            <meshStandardMaterial color="#d6a93d" roughness={0.3} metalness={0.6} />
+          </mesh>
+          <group ref={flip}>
+            <group rotation={[-(Math.PI / 2 - VIRA_LEAN), 0, 0]}>
+              <Card3D card={game.vira} />
+            </group>
           </group>
         </group>
       </group>
-      <Html center position={[0, 0.2, -0.3]} distanceFactor={2} style={{ pointerEvents: 'none' }} zIndexRange={[10, 0]}>
+      <Html
+        center
+        position={[-0.22, 0.1, -0.1]}
+        distanceFactor={2}
+        style={{ pointerEvents: 'none' }}
+        zIndexRange={[10, 0]}
+      >
         <div className="rounded-full bg-black/65 px-2.5 py-1 text-xs whitespace-nowrap text-white ring-1 ring-gold-500/60">
           Manilha: <strong className="text-gold-300">{game.manilhaRank}</strong>
         </div>
