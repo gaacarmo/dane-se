@@ -4,6 +4,7 @@ import {
   type ArcadeSeatState,
   CHARACTER_KITS,
   arcadeSeat,
+  grantShield,
   spendCharge,
   spendSpecial,
 } from '../../arcade/index.js';
@@ -124,6 +125,85 @@ function useNuossa(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilit
   });
 }
 
+/** A Safadeza (Martelo): especial, troca uma carta aleatória com um oponente escolhido. */
+function useSafadeza(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
+  if (CHARACTER_KITS[seat.character].special.id !== 'safadeza' || !seat.specialCharged) {
+    return err('ABILITY_UNAVAILABLE');
+  }
+  if (state.phase !== 'playing') return err('WRONG_PHASE');
+  const target = targetOpponent(state, action.playerId, action.targetId);
+  if (!target) return err('INVALID_TARGET');
+  const mine = state.hands[action.playerId] ?? [];
+  const theirs = state.hands[target] ?? [];
+  if (mine.length === 0 || theirs.length === 0) return err('INVALID_TARGET');
+
+  const myPick = randomInt(state.rng, mine.length);
+  const theirPick = randomInt(myPick.state, theirs.length);
+  const myHand = [...mine];
+  const theirHand = [...theirs];
+  const swapped = myHand[myPick.value]!;
+  myHand[myPick.value] = theirHand[theirPick.value]!;
+  theirHand[theirPick.value] = swapped;
+
+  return ok({
+    ...state,
+    rng: theirPick.state,
+    hands: { ...state.hands, [action.playerId]: myHand, [target]: theirHand },
+    arcade: spendSpecial(state.arcade, action.playerId),
+  });
+}
+
+/** A Bomba (Babin): especial, zera as apostas e todo mundo re-aposta a mesma mão. */
+function useBomba(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
+  if (CHARACTER_KITS[seat.character].special.id !== 'bomba' || !seat.specialCharged) {
+    return err('ABILITY_UNAVAILABLE');
+  }
+  const canBomb =
+    state.phase === 'betting' ||
+    (state.phase === 'playing' && state.completedTricks.length === 0 && state.trick.plays.length === 0);
+  if (!canBomb) return err('WRONG_PHASE');
+
+  return ok({
+    ...state,
+    phase: 'betting',
+    bets: {},
+    trick: { leaderId: state.trick.leaderId, plays: [], result: null },
+    turnPlayerId: state.roundOrder[0] ?? null,
+    arcade: spendSpecial(state.arcade, action.playerId),
+  });
+}
+
+/** Pega o Gato! (Colombo): acusa; acerto pune o alvo, erro devolve a letra pro acusador. */
+function usePegaGato(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
+  if (CHARACTER_KITS[seat.character].special.id !== 'pegaGato' || !seat.specialCharged) {
+    return err('ABILITY_UNAVAILABLE');
+  }
+  if (state.phase !== 'playing' && state.phase !== 'trickEnd') return err('WRONG_PHASE');
+  const target = targetOpponent(state, action.playerId, action.targetId);
+  if (!target) return err('INVALID_TARGET');
+
+  const punished = isGato(state, target) ? target : action.playerId;
+  return ok({
+    ...state,
+    pendingLetters: { ...state.pendingLetters, [punished]: (state.pendingLetters[punished] ?? 0) + 1 },
+    arcade: spendSpecial(state.arcade, action.playerId),
+  });
+}
+
+/** Deixa Esquentar (Sarney): especial, ganha um escudo contra a próxima letra recebida. */
+function useEsquentar(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
+  if (CHARACTER_KITS[seat.character].special.id !== 'esquentar' || !seat.specialCharged) {
+    return err('ABILITY_UNAVAILABLE');
+  }
+  if (state.phase !== 'betting' && state.phase !== 'playing' && state.phase !== 'trickEnd') {
+    return err('WRONG_PHASE');
+  }
+  return ok({
+    ...state,
+    arcade: grantShield(spendSpecial(state.arcade, action.playerId), action.playerId),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Entry point + view helpers
 // ---------------------------------------------------------------------------
@@ -142,8 +222,15 @@ export function applyArcadeAbility(state: GameState, action: ArcadeAbilityAction
       return useVisao(state, seat, action);
     case 'nuossa':
       return useNuossa(state, seat, action);
-    // Especiais/talentos de sabotagem (Safadeza, Bomba, Pega o Gato, Esquentar) e
-    // o Escudo passivo chegam numa próxima fatia.
+    case 'safadeza':
+      return useSafadeza(state, seat, action);
+    case 'bomba':
+      return useBomba(state, seat, action);
+    case 'pegaGato':
+      return usePegaGato(state, seat, action);
+    case 'esquentar':
+      return useEsquentar(state, seat, action);
+    // Escudo é passivo (não acionável); qualquer outro id cai aqui.
     default:
       return err('ABILITY_UNAVAILABLE');
   }
@@ -153,6 +240,16 @@ export function applyArcadeAbility(state: GameState, action: ArcadeAbilityAction
 export function viewerReveals(state: GameState, viewerId: string | null): ArcadeReveal[] {
   if (!viewerId || !state.arcade.enabled) return [];
   return state.arcadePrivate[viewerId] ?? [];
+}
+
+/** "De gato": apostou ≥1 e, matematicamente, já não consegue mais bater a aposta. */
+function isGato(state: GameState, id: string): boolean {
+  const bet = state.bets[id] ?? 0;
+  if (bet < 1) return false;
+  const won = state.tricksWon[id] ?? 0;
+  const remaining = state.cardsPerPlayer - state.completedTricks.length;
+  const canHit = won <= bet && won + remaining >= bet;
+  return !canHit;
 }
 
 /**
@@ -165,17 +262,12 @@ export function gatoAlerts(state: GameState, viewerId: string | null): string[] 
   if (!seat || CHARACTER_KITS[seat.character].passive.id !== 'farejador') return [];
   if (state.phase !== 'playing' && state.phase !== 'trickEnd') return [];
 
-  const remaining = state.cardsPerPlayer - state.completedTricks.length;
   const alerts: string[] = [];
   for (const id of state.roundOrder) {
     if (id === viewerId) continue;
     const player = state.players.find((p) => p.id === id);
     if (!player || player.eliminated) continue;
-    const bet = state.bets[id] ?? 0;
-    if (bet < 1) continue;
-    const won = state.tricksWon[id] ?? 0;
-    const canStillHit = won <= bet && won + remaining >= bet;
-    if (!canStillHit) alerts.push(id);
+    if (isGato(state, id)) alerts.push(id);
   }
   return alerts;
 }

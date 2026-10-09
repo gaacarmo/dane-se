@@ -76,6 +76,13 @@ export function spendCharge(match: ArcadeMatchState, id: string): ArcadeMatchSta
   return { ...match, seats: match.seats.map((s) => (s.id === id ? { ...s, charges: s.charges - 1 } : s)) };
 }
 
+/** Dá um escudo (Escudo inicial ou "Deixa Esquentar"). */
+export function grantShield(match: ArcadeMatchState, id: string): ArcadeMatchState {
+  const seat = arcadeSeat(match, id);
+  if (!seat) return match;
+  return { ...match, seats: match.seats.map((s) => (s.id === id ? { ...s, shields: s.shields + 1 } : s)) };
+}
+
 export interface ShieldResult {
   state: ArcadeMatchState;
   absorbed: boolean;

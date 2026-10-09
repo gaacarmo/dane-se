@@ -404,3 +404,106 @@ describe('dane-se arcade abilities', () => {
     expect(gatoAlerts(rigged, 'p1')).toEqual([]);
   });
 });
+
+describe('dane-se arcade sabotage', () => {
+  const plain = (playerId: string, lettersAfter: number): PlayerRoundResult => ({
+    playerId,
+    bet: 0,
+    tricksWon: 0,
+    hitBet: false,
+    gainedLetter: false,
+    lettersAfter,
+    eliminated: false,
+  });
+
+  it('A Safadeza (Martelo) troca uma carta com o alvo, só em "playing" e 1×', () => {
+    const s = arcadeGame([{ character: 'martelo', talent: 'escudo' }, { character: 'sarney', talent: 'escudo' }]);
+    const playing = betAll(s, { p0: 1, p1: 1 });
+    const before0 = playing.hands['p0']!.map(cardId);
+    const before1 = playing.hands['p1']!.map(cardId);
+
+    expect(applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'safadeza', targetId: 'p1' })).toEqual({
+      ok: false,
+      error: 'WRONG_PHASE',
+    });
+
+    const res = applyAction(playing, { type: 'arcade', playerId: 'p0', ability: 'safadeza', targetId: 'p1' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.state.hands['p0']!.map(cardId)).toEqual(before1);
+    expect(res.state.hands['p1']!.map(cardId)).toEqual(before0);
+    expect(seat(res.state, 'p0')?.specialCharged).toBe(false);
+    expect(applyAction(res.state, { type: 'arcade', playerId: 'p0', ability: 'safadeza', targetId: 'p1' })).toEqual({
+      ok: false,
+      error: 'ABILITY_UNAVAILABLE',
+    });
+  });
+
+  it('A Bomba (Babin) zera as apostas e volta pra aposta, 1×', () => {
+    const s = arcadeGame([{ character: 'babin', talent: 'escudo' }, { character: 'sarney', talent: 'escudo' }]);
+    const playing = betAll(s, { p0: 1, p1: 1 });
+    expect(playing.phase).toBe('playing');
+
+    const res = applyAction(playing, { type: 'arcade', playerId: 'p0', ability: 'bomba' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.state.phase).toBe('betting');
+    expect(res.state.bets).toEqual({});
+    expect(seat(res.state, 'p0')?.specialCharged).toBe(false);
+    expect(applyAction(res.state, { type: 'arcade', playerId: 'p0', ability: 'bomba' })).toEqual({
+      ok: false,
+      error: 'ABILITY_UNAVAILABLE',
+    });
+  });
+
+  it('Pega o Gato! (Colombo) pune o alvo se for gato e o acusador se errar', () => {
+    const s = arcadeGame([{ character: 'colombo', talent: 'escudo' }, { character: 'sarney', talent: 'escudo' }]);
+    const playing = betAll(s, { p0: 1, p1: 1 });
+
+    // p1 apostou 2 e já fez 3 vãos: impossível bater → é gato.
+    const gato: GameState = {
+      ...playing,
+      cardsPerPlayer: 3,
+      completedTricks: [playing.trick],
+      bets: { p0: 1, p1: 2 },
+      tricksWon: { p0: 0, p1: 3 },
+    };
+    const hit = applyAction(gato, { type: 'arcade', playerId: 'p0', ability: 'pegaGato', targetId: 'p1' });
+    expect(hit.ok).toBe(true);
+    if (!hit.ok) return;
+    expect(hit.state.pendingLetters).toEqual({ p1: 1 });
+
+    // Aposta normal ainda dá pra bater → o Colombo leva a letra.
+    const wrong = applyAction(playing, { type: 'arcade', playerId: 'p0', ability: 'pegaGato', targetId: 'p1' });
+    expect(wrong.ok).toBe(true);
+    if (!wrong.ok) return;
+    expect(wrong.state.pendingLetters).toEqual({ p0: 1 });
+  });
+
+  it('Deixa Esquentar (Sarney) dá um escudo, 1×', () => {
+    const s = arcadeGame([{ character: 'sarney', talent: 'escudo' }, { character: 'colombo', talent: 'escudo' }]);
+    const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'esquentar' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    // Já tinha o escudo do talento; agora são dois.
+    expect(seat(res.state, 'p0')?.shields).toBe(2);
+    expect(seat(res.state, 'p0')?.specialCharged).toBe(false);
+    expect(applyAction(res.state, { type: 'arcade', playerId: 'p0', ability: 'esquentar' })).toEqual({
+      ok: false,
+      error: 'ABILITY_UNAVAILABLE',
+    });
+  });
+
+  it('letras de acusação entram no fim da rodada, passando por escudo e fôlego', () => {
+    const match = createArcadeMatchState([
+      { id: 'a', loadout: { character: 'colombo', talent: 'escudo' } },
+      { id: 'b', loadout: { character: 'sarney', talent: 'radar' } },
+    ]);
+    const out = applyArcadeLetters(match, 6, [plain('a', 0), plain('b', 0)], { a: 1, b: 1 });
+    const byId = (id: string) => out.results.find((r) => r.playerId === id)!;
+    // O escudo do 'a' anula a letra; o 'b' leva a dele.
+    expect(byId('a').lettersAfter).toBe(0);
+    expect(byId('a').eliminated).toBe(false);
+    expect(byId('b').lettersAfter).toBe(1);
+  });
+});

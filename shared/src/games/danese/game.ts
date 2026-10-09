@@ -81,6 +81,8 @@ export interface GameState {
   deck: Card[];
   /** Cartas de oponentes reveladas a cada jogador. Segredo por assento. */
   arcadePrivate: Record<string, ArcadeReveal[]>;
+  /** Letras concedidas por acusações (Pega o Gato), aplicadas no fim da rodada. */
+  pendingLetters: Record<string, number>;
   /** Alive players for this round, starting right of the Pé and ending with the Pé. */
   roundOrder: string[];
   bets: Record<string, number>;
@@ -144,6 +146,7 @@ export function createGame(
     hands: {},
     deck: [],
     arcadePrivate: {},
+    pendingLetters: {},
     roundOrder: [],
     bets: {},
     tricksWon: {},
@@ -212,6 +215,7 @@ function dealRound(state: GameState): GameState {
     hands,
     deck,
     arcadePrivate,
+    pendingLetters: {},
     roundOrder: order,
     bets: {},
     tricksWon: Object.fromEntries(order.map((p) => [p, 0])),
@@ -348,7 +352,7 @@ function finishRound(state: GameState): GameState {
     lives: state.lives,
   });
 
-  const outcome = applyArcadeLetters(state.arcade, state.lives, score.results);
+  const outcome = applyArcadeLetters(state.arcade, state.lives, score.results, state.pendingLetters);
   const resultById = new Map(outcome.results.map((r) => [r.playerId, r]));
   const players = state.players.map((p) => {
     const r = resultById.get(p.id);
@@ -377,6 +381,7 @@ function finishRound(state: GameState): GameState {
     ...state,
     players,
     arcade: outcome.arcade,
+    pendingLetters: {},
     lastRound,
     phase: gameOver ? 'gameOver' : 'roundSummary',
     trick: { leaderId: '', plays: [], result: null },
@@ -394,7 +399,9 @@ export function applyArcadeLetters(
   arcade: ArcadeMatchState,
   lives: number,
   results: readonly PlayerRoundResult[],
-): { arcade: ArcadeMatchState; results: PlayerRoundResult[]; eliminatedIds: string[] } {  if (!arcade.enabled) {
+  extra: Readonly<Record<string, number>> = {},
+): { arcade: ArcadeMatchState; results: PlayerRoundResult[]; eliminatedIds: string[] } {
+  if (!arcade.enabled) {
     return {
       arcade,
       results: [...results],
@@ -405,23 +412,26 @@ export function applyArcadeLetters(
   let next = arcade;
   const adjusted = results.map((r): PlayerRoundResult => {
     const before = r.lettersAfter - (r.gainedLetter ? 1 : 0);
-    if (!r.gainedLetter) return { ...r, lettersAfter: before, eliminated: false };
-
-    const shielded = absorbHit(next, r.playerId);
-    if (shielded.absorbed) {
+    let gain = (r.gainedLetter ? 1 : 0) + (extra[r.playerId] ?? 0);
+    while (gain > 0) {
+      const shielded = absorbHit(next, r.playerId);
+      if (!shielded.absorbed) break;
       next = shielded.state;
-      return { ...r, gainedLetter: false, lettersAfter: before, eliminated: false };
+      gain -= 1;
     }
 
     const threshold = eliminationThreshold(next, r.playerId, lives);
-    let lettersAfter = before + 1;
-    let eliminated = lettersAfter >= threshold;
-    if (eliminated && canRevive(next, r.playerId)) {
-      next = spendRevive(next, r.playerId);
-      eliminated = false;
-      lettersAfter = threshold - 1;
+    let lettersAfter = before + gain;
+    let eliminated = false;
+    if (gain > 0 && lettersAfter >= threshold) {
+      if (canRevive(next, r.playerId)) {
+        next = spendRevive(next, r.playerId);
+        lettersAfter = threshold - 1;
+      } else {
+        eliminated = true;
+      }
     }
-    return { ...r, lettersAfter, eliminated };
+    return { ...r, gainedLetter: gain > 0, lettersAfter, eliminated };
   });
 
   return {
