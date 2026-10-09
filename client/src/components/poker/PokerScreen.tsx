@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { POKER_TURN_TIMEOUT_MS, type PokerCard, type PokerRoomView, bigBlind, formatMoney } from '@dane-se/shared';
 import { usePrefs } from '../../lib/prefs';
 import { actions } from '../../lib/store';
-import { webglSupported } from '../../lib/webgl';
 import { PokerTable3DView } from '../table3d/PokerTable3DView';
 import { Table3DBoundary } from '../table3d/Table3DBoundary';
 import { usePokerEffects } from '../../lib/useGameEffects';
@@ -60,7 +59,7 @@ export function PokerScreen({ room, onHelp }: { room: PokerRoomView; onHelp: () 
   usePokerEffects(room);
   const compact = useMediaQuery('(orientation: landscape) and (max-height: 500px)');
   const { view3d: wantsView3d } = usePrefs();
-  const view3d = wantsView3d && webglSupported;
+  const view3d = wantsView3d;
 
   const geometry = pokerGeometry(size, compact);
   const n = game.seats.length;

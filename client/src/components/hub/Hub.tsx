@@ -44,7 +44,7 @@ function SectionLabel({ children }: { children: ReactNode }) {
 /** Chosen before creating or joining a room; remembered on this device. */
 function ViewModePicker() {
   const { view3d: wantsView3d } = usePrefs();
-  const view3d = wantsView3d && webglSupported;
+  const view3d = wantsView3d;
   return (
     <div className="hub-panel space-y-3 p-4">
       <h2 className="text-[11px] font-semibold tracking-[0.16em] text-stone-400 uppercase">Modo de jogo</h2>
@@ -57,9 +57,8 @@ function ViewModePicker() {
               type="button"
               role="radio"
               aria-checked={selected}
-              disabled={m.realistic && !webglSupported}
               onClick={() => setPref('view3d', m.realistic)}
-              className={`flex flex-col items-start gap-1 rounded-2xl p-3 text-left ring-2 transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`flex flex-col items-start gap-1 rounded-2xl p-3 text-left ring-2 transition ${
                 selected ? 'bg-felt-700 ring-gold-400' : 'bg-black/30 ring-white/10 hover:ring-white/30'
               }`}
             >
@@ -71,13 +70,22 @@ function ViewModePicker() {
               </span>
               <span className="text-xs leading-snug text-stone-300">
                 {m.realistic && !webglSupported
-                  ? 'Indisponível: este navegador não tem gráficos 3D (WebGL) ativados.'
+                  ? 'Seu navegador diz que não tem gráficos 3D ativados. Dá pra tentar mesmo assim; se não abrir, o jogo volta pro Mobile.'
                   : m.text}
               </span>
             </button>
           );
         })}
       </div>
+      {!webglSupported && (
+        <p className="rounded-lg bg-black/30 p-2 text-xs leading-snug text-stone-300">
+          Pra funcionar melhor no Chrome: abra <strong className="text-stone-100">chrome://settings/system</strong>,
+          ligue <strong className="text-stone-100">&ldquo;Usar aceleração gráfica quando disponível&rdquo;</strong>,
+          reinicie o Chrome e recarregue esta página. Pra conferir,{' '}
+          <strong className="text-stone-100">chrome://gpu</strong> deve mostrar &ldquo;WebGL2: Hardware
+          accelerated&rdquo;.
+        </p>
+      )}
       <p className="text-xs text-stone-500">Vale para as mesas do Dane-se e do Poker.</p>
     </div>
   );
