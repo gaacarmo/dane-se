@@ -309,8 +309,6 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
         </form>
 
         <ViewModePicker />
-
-        <p className="pb-1 text-center text-xs text-stone-500">Dinheiro de mentirinha — sem apostas de verdade. 🍀</p>
       </div>
     </main>
   );
