@@ -16,6 +16,7 @@ import {
 import { avatarColor, initial } from '../lib/avatar';
 import { CHARACTER_NAMES, portraitUrl } from '../lib/characters';
 import { actions, notify, roomLink } from '../lib/store';
+import { CardFan } from './cards/CardFan';
 import { ChatPanel } from './ChatPanel';
 import { Button } from './ui/Button';
 
@@ -47,12 +48,15 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
   return (
     <main className="room-bg flex min-h-full flex-col items-center px-4 pt-6">
       <div className="flex w-full max-w-md flex-1 flex-col gap-5 pb-10">
-        <header className="hub-panel relative overflow-hidden p-4 text-center">
+        <header className="hub-panel relative overflow-hidden px-4 pt-5 pb-4 text-center">
           <div
             aria-hidden
             className="pointer-events-none absolute -top-20 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full bg-gold-400/10 blur-3xl"
           />
-          <div className="relative flex items-center gap-2">
+          <div className="relative flex justify-center">
+            <CardFan size="sm" />
+          </div>
+          <div className="relative mt-1 flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 text-xs font-medium text-stone-200 ring-1 ring-white/10">
               <span aria-hidden>{game.icon}</span>
               {game.name}

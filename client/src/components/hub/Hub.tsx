@@ -11,17 +11,10 @@ import {
 import { setPref, usePrefs } from '../../lib/prefs';
 import { actions, codeFromUrl, useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
-import { CardBack, PlayingCard } from '../cards/PlayingCard';
+import { CardFan } from '../cards/CardFan';
 import { Button } from '../ui/Button';
 import { GameCard } from './GameCard';
 import { WalletHeader } from './WalletHeader';
-
-const FAN = [
-  { rank: '3', suit: 'C' },
-  { rank: 'K', suit: 'H' },
-  { rank: '7', suit: 'D' },
-  { rank: 'A', suit: 'S' },
-] as const;
 
 const VIEW_MODES = [
   {
@@ -212,7 +205,7 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
       <main className="room-bg flex min-h-full flex-col items-center justify-center gap-6 px-4 py-10">
         <CardFan />
         <header className="max-w-xs text-center">
-          <h1 className="font-display text-5xl font-bold tracking-wide gold-text drop-shadow sm:text-6xl">Game Hub</h1>
+          <h1 className="font-display text-5xl font-bold tracking-wide gold-text drop-shadow sm:text-6xl">Dane-se</h1>
           <p className="mt-2 text-stone-300">Uma carteira só para Dane-se e poker — jogue com a galera.</p>
         </header>
         <NicknameGate />
@@ -239,20 +232,23 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
   return (
     <main className="room-bg flex min-h-full flex-col items-center px-4 py-7">
       <div className="w-full max-w-md space-y-6">
-        <header className="flex items-center gap-3">
-          <span
+        <header className="hub-panel relative overflow-hidden px-4 py-5">
+          <div
             aria-hidden
-            className="grid size-11 shrink-0 place-items-center rounded-2xl bg-felt-800 text-xl ring-1 ring-gold-500/30"
+            className="pointer-events-none absolute -top-16 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full bg-gold-400/10 blur-3xl"
+          />
+          <Button
+            variant="ghost"
+            onClick={onHelp}
+            className="absolute top-3 right-3 z-10 shrink-0 px-3 py-2 text-sm"
           >
-            🎴
-          </span>
-          <div className="min-w-0">
-            <h1 className="font-display text-2xl leading-none gold-text">Game Hub</h1>
-            <p className="mt-1 text-xs text-stone-400">Escolha uma mesa e boa sorte.</p>
-          </div>
-          <Button variant="ghost" onClick={onHelp} className="ml-auto shrink-0 px-3 py-2 text-sm">
             📖 Regras
           </Button>
+          <div className="relative flex flex-col items-center text-center">
+            <CardFan size="sm" />
+            <h1 className="mt-1 font-display text-4xl font-bold tracking-wide gold-text drop-shadow">Dane-se</h1>
+            <p className="mt-1 text-sm text-stone-300">Escolha uma mesa e boa sorte.</p>
+          </div>
         </header>
 
         <WalletHeader profile={profile} />
@@ -317,36 +313,5 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
         <p className="pb-1 text-center text-xs text-stone-500">Dinheiro de mentirinha — sem apostas de verdade. 🍀</p>
       </div>
     </main>
-  );
-}
-
-function CardFan() {
-  return (
-    <div className="relative h-36 w-64" aria-hidden>
-      {FAN.map((card, i) => (
-        <motion.div
-          key={i}
-          className="absolute bottom-0 left-1/2 w-20 origin-bottom"
-          initial={{ rotate: 0, x: '-50%', y: 40, opacity: 0 }}
-          animate={{
-            rotate: (i - 1.5) * 14,
-            x: `calc(-50% + ${(i - 1.5) * 26}px)`,
-            y: Math.abs(i - 1.5) * 6,
-            opacity: 1,
-          }}
-          transition={{ delay: 0.15 + i * 0.08, type: 'spring', stiffness: 160, damping: 16 }}
-        >
-          <PlayingCard card={card} highlight={i === 0} />
-        </motion.div>
-      ))}
-      <motion.div
-        className="absolute -right-6 bottom-2 w-14 rotate-12"
-        initial={{ opacity: 0, x: 30 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <CardBack />
-      </motion.div>
-    </div>
   );
 }
