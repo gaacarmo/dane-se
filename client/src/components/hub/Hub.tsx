@@ -78,7 +78,7 @@ function ViewModePicker() {
           );
         })}
       </div>
-      <p className="text-xs text-stone-500">Vale para as mesas do Dane-se.</p>
+      <p className="text-xs text-stone-500">Vale para as mesas do Dane-se e do Poker.</p>
     </div>
   );
 }

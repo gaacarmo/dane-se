@@ -1,7 +1,11 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { POKER_TURN_TIMEOUT_MS, type PokerCard, type PokerRoomView, formatMoney } from '@dane-se/shared';
+import { usePrefs } from '../../lib/prefs';
 import { actions } from '../../lib/store';
+import { webglSupported } from '../../lib/webgl';
+import { PokerTable3DView } from '../table3d/PokerTable3DView';
+import { Table3DBoundary } from '../table3d/Table3DBoundary';
 import { usePokerEffects } from '../../lib/useGameEffects';
 import { ChatPanel } from '../ChatPanel';
 import { WaitingBanner } from '../table/Overlays';
@@ -54,6 +58,8 @@ export function PokerScreen({ room, onHelp }: { room: PokerRoomView; onHelp: () 
   const [menuOpen, setMenuOpen] = useState(false);
   usePokerEffects(room);
   const compact = useMediaQuery('(orientation: landscape) and (max-height: 500px)');
+  const { view3d: wantsView3d } = usePrefs();
+  const view3d = wantsView3d && webglSupported;
 
   const geometry = pokerGeometry(size, compact);
   const n = game.seats.length;
@@ -92,7 +98,15 @@ export function PokerScreen({ room, onHelp }: { room: PokerRoomView; onHelp: () 
       />
 
       <div ref={tableRef} className="relative min-h-0 flex-1">
-        {size.width > 0 && (
+        {view3d && (
+          <Table3DBoundary>
+            <PokerTable3DView room={room} />
+          </Table3DBoundary>
+        )}
+        {view3d && game.hole.length === 2 && mySeat && !game.isSpectator && (
+          <MyHoleCards cards={game.hole} folded={mySeat.folded} />
+        )}
+        {!view3d && size.width > 0 && (
           <>
             <div
               className="table-rim absolute rounded-[50%]"
@@ -169,7 +183,7 @@ export function PokerScreen({ room, onHelp }: { room: PokerRoomView; onHelp: () 
           </>
         )}
 
-        <ReactionBubbles seats={seatPoints} />
+        {!view3d && <ReactionBubbles seats={seatPoints} />}
         <ReactionPicker />
         <WaitingBanner room={room} />
         <PokerHandSummary game={game} youId={youId} />
@@ -209,5 +223,27 @@ function BetChip({ point, amount }: { point: Point; amount: number }) {
         {formatMoney(amount)}
       </span>
     </motion.div>
+  );
+}
+
+/** First person: your two hole cards, large at the bottom of the table view. */
+function MyHoleCards({ cards, folded }: { cards: PokerCard[]; folded: boolean }) {
+  return (
+    <div
+      className={`pointer-events-none absolute bottom-2 left-1/2 z-20 flex -translate-x-1/2 items-end ${folded ? 'opacity-45 grayscale' : ''}`}
+      aria-label="Suas cartas"
+    >
+      {cards.map((c, i) => (
+        <motion.div
+          key={`${c.rank}${c.suit}`}
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.08, type: 'spring', stiffness: 220, damping: 20 }}
+          style={{ marginLeft: i === 0 ? 0 : -18, rotate: (i - 0.5) * 8 }}
+        >
+          <CardFace card={c} style={{ width: 'clamp(64px, 7vw + 3vh, 104px)' }} />
+        </motion.div>
+      ))}
+    </div>
   );
 }

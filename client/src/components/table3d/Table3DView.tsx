@@ -27,13 +27,13 @@ const CARD_SCALE = 2;
  * played behind it; flat it is too foreshortened to read from the camera. Every client draws it from its own seat, so it
  * faces everyone.
  */
-const VIRA_LEAN = 0.75;
+export const VIRA_LEAN = 0.75;
 const VIRA_SCALE = 1.6;
 const VIRA_X = 0.22;
 const VIRA_Z = 0.02;
 
 /** Soft dark blob under the vira so it reads as resting on the table. */
-function useContactShadow(): THREE.CanvasTexture {
+export function useContactShadow(): THREE.CanvasTexture {
   return useMemo(() => {
     const c = document.createElement('canvas');
     c.width = c.height = 128;
@@ -50,7 +50,7 @@ function useContactShadow(): THREE.CanvasTexture {
 const BUBBLE_MS = 6000;
 
 /** Emoji reactions floating up from a player's head (or from your hands). */
-function Reactions3D({ playerId, position }: { playerId: string; position: [number, number, number] }) {
+export function Reactions3D({ playerId, position }: { playerId: string; position: [number, number, number] }) {
   const { reactions } = useClient();
   const mine = reactions.filter((r) => r.playerId === playerId);
   return (
@@ -77,7 +77,7 @@ function Reactions3D({ playerId, position }: { playerId: string; position: [numb
 }
 
 /** Plays the pop sound for each new reaction, once for the whole table. */
-function useReactionSound() {
+export function useReactionSound() {
   const { reactions } = useClient();
   const latest = reactions.at(-1)?.id;
   useEffect(() => {
@@ -85,7 +85,7 @@ function useReactionSound() {
   }, [latest]);
 }
 
-function useNow(intervalMs: number): number {
+export function useNow(intervalMs: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), intervalMs);
@@ -94,7 +94,7 @@ function useNow(intervalMs: number): number {
   return now;
 }
 
-function Bubble({ text }: { text: string }) {
+export function Bubble({ text }: { text: string }) {
   return (
     <Html
       center
