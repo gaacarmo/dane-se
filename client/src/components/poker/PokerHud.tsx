@@ -35,6 +35,12 @@ export function PokerHud({ game, youId, onMenu }: { game: PokerView; youId: stri
         <strong className="text-gold-300">{formatMoney(game.pot)}</strong>
       </span>
       {street && <span className="truncate text-stone-300">{street}</span>}
+      {me && me.bet > 0 && (
+        <span className="flex items-baseline gap-1 rounded-full bg-black/40 px-2 py-1 whitespace-nowrap ring-1 ring-gold-500/40">
+          <span className="text-stone-300">Sua aposta</span>
+          <strong className="text-gold-300">{formatMoney(me.bet)}</strong>
+        </span>
+      )}
       {myHand && (
         <span className="hidden items-baseline gap-1 rounded-full bg-felt-700/80 px-2 py-1 whitespace-nowrap ring-1 ring-gold-500/40 sm:flex">
           <span className="text-stone-300">Sua mão</span>

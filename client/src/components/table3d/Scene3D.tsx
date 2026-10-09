@@ -2,6 +2,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Bloom, BrightnessContrast, EffectComposer, HueSaturation, SMAA, Vignette } from '@react-three/postprocessing';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { sendLook } from '../../lib/store';
 import { SCENE_FAILED_EVENT, SCENE_READY_EVENT } from '../../lib/webgl';
 import type { CharacterId } from '@dane-se/shared';
 import { Player2D } from './Player2D';
@@ -17,6 +18,8 @@ export interface SeatInfo {
   isTurn?: boolean;
   /** Drawn above the player's head (name tag, forehead card). */
   overhead?: React.ReactNode;
+  /** False when the player holds their cards up instead of resting their hands on the table. */
+  handsOnTable?: boolean;
 }
 
 /** Seat k positions after you, counter-clockwise: k = 1 sits to your right. You are at +Z. */
@@ -89,7 +92,7 @@ const MAX_PITCH = 0.36;
  * to raise your head). Touch: drag. The look is damped and limited, so you
  * never lose the table.
  */
-function LookControls() {
+function LookControls({ share }: { share: boolean }) {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   const look = useRef({ yaw: 0, pitch: 0, targetYaw: 0, targetPitch: 0 });
@@ -148,6 +151,7 @@ function LookControls() {
     l.pitch = THREE.MathUtils.damp(l.pitch, l.targetPitch, 5, dt);
     camera.rotation.order = 'YXZ';
     camera.rotation.set(base.current.pitch + l.pitch, base.current.yaw + l.yaw, 0);
+    if (share) sendLook(l.yaw / MAX_YAW, l.pitch >= 0 ? l.pitch / MAX_PITCH : l.pitch / -MIN_PITCH);
   });
   return null;
 }
@@ -164,12 +168,15 @@ export function Scene3D({
   seats,
   youIndex = 0,
   focusId,
+  shareLook = false,
   children,
 }: {
   seats: SeatInfo[];
   youIndex?: number;
   /** Player everyone is watching (usually whose turn it is). */
   focusId?: string | null;
+  /** Send where you look to the other players (only from your own seat). */
+  shareLook?: boolean;
   children?: React.ReactNode;
 }) {
   const n = seats.length;
@@ -189,7 +196,7 @@ export function Scene3D({
     >
       <color attach="background" args={['#f2d9a0']} />
       <fog attach="fog" args={['#f2d9a0', 12, 24]} />
-      <LookControls />
+      <LookControls share={shareLook} />
       <Suspense fallback={null}>
         <Environment />
         <Table />
@@ -199,7 +206,14 @@ export function Scene3D({
           return (
             <group key={s.id} position={[x, 0, z]} rotation={[0, angle + Math.PI, 0]}>
               <PlasticChair position={[0, 0, -0.08]} color="#d9c24a" />
-              <Player2D id={s.character} gaze={gaze.get(s.id) ?? 0} active={s.isTurn} showBody={k !== 0}>
+              <Player2D
+                id={s.character}
+                playerId={s.id}
+                gaze={gaze.get(s.id) ?? 0}
+                active={s.isTurn}
+                showBody={k !== 0}
+                handsOnTable={s.handsOnTable ?? true}
+              >
                 {s.overhead}
               </Player2D>
             </group>

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import {
+  LOOK_INTERVAL_MS,
   type Ack,
   type CharacterId,
   type ClientToServerEvents,
@@ -152,7 +153,7 @@ export function dismissNotice(): void {
 // Socket
 // ---------------------------------------------------------------------------
 
-const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
+export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
   reconnectionDelay: 500,
   reconnectionDelayMax: 3000,
 });
@@ -196,7 +197,31 @@ socket.on('room:closed', (reason) => {
 
 socket.on('room:kicked', () => leaveRoomLocally('O anfitrião removeu você da sala.'));
 
+/** A look older than this is ignored (the player stopped moving or left). */
+const LOOK_STALE_MS = 5000;
 const REACTION_VISIBLE_MS = 2800;
+
+/** Where each other player is looking (first person). Read every frame, so kept outside React state. */
+const looks = new Map<string, { yaw: number; pitch: number; at: number }>();
+socket.on('room:look', ({ playerId, yaw, pitch }) => looks.set(playerId, { yaw, pitch, at: Date.now() }));
+
+/** A player's recent head direction (-1..1 each), or null if they haven't moved it lately. */
+export function getLook(playerId: string): { yaw: number; pitch: number } | null {
+  const look = looks.get(playerId);
+  return look && Date.now() - look.at < LOOK_STALE_MS ? look : null;
+}
+
+let lastLookSent = 0;
+let lastLook = { yaw: 0, pitch: 0 };
+/** Shares where you're looking; throttled and skipped when nothing changed. */
+export function sendLook(yaw: number, pitch: number): void {
+  const now = Date.now();
+  if (now - lastLookSent < LOOK_INTERVAL_MS + 20) return;
+  if (Math.abs(yaw - lastLook.yaw) < 0.03 && Math.abs(pitch - lastLook.pitch) < 0.03 && now - lastLookSent < 2000) return;
+  lastLookSent = now;
+  lastLook = { yaw, pitch };
+  socket.emit('look:update', { yaw, pitch });
+}
 
 socket.on('room:reaction', (reaction) => {
   setState({ reactions: [...state.reactions, reaction] });
