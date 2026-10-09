@@ -21,6 +21,9 @@ interface SeatProps {
   roundKey: string;
   /** Shrinks the seat on short screens. */
   scale?: number;
+  /** Arcade: this opponent is a valid target right now, so the seat is clickable. */
+  targetable?: boolean;
+  onTarget?: () => void;
 }
 
 export function Seat({
@@ -36,6 +39,8 @@ export function Seat({
   dealDelay,
   roundKey,
   scale = 1,
+  targetable = false,
+  onTarget,
 }: SeatProps) {
   const out = player.eliminated;
   const showFan = !blindRound && !isYou && !out && player.cardCount > 0;
@@ -43,10 +48,15 @@ export function Seat({
 
   return (
     <motion.div
-      className="absolute z-10 flex w-[100px] -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+      className={`absolute z-10 flex w-[100px] -translate-x-1/2 -translate-y-1/2 flex-col items-center ${
+        targetable ? 'z-30 cursor-pointer' : ''
+      }`}
       style={{ left: point.x, top: point.y, scale }}
       animate={{ left: point.x, top: point.y }}
       transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+      onClick={targetable ? onTarget : undefined}
+      role={targetable ? 'button' : undefined}
+      aria-label={targetable ? `Mirar em ${player.name}` : undefined}
     >
       {/* Blind round: the card sits on the forehead. You only see the back of yours. */}
       <AnimatePresence>
@@ -90,6 +100,21 @@ export function Seat({
             transition={{ repeat: Infinity, duration: 1.4 }}
             aria-hidden
           />
+        )}
+        {/* Arcade: aimed at this opponent — click the seat to confirm. */}
+        {targetable && (
+          <>
+            <motion.span
+              className="absolute -inset-2 rounded-full ring-2 ring-sky-300"
+              style={{ boxShadow: '0 0 14px 3px rgb(125 211 252 / 0.65)' }}
+              animate={{ opacity: [0.45, 1, 0.45], scale: [1, 1.08, 1] }}
+              transition={{ repeat: Infinity, duration: 1.2 }}
+              aria-hidden
+            />
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-base drop-shadow" aria-hidden>
+              🎯
+            </span>
+          </>
         )}
         <div
           className={`relative grid size-12 place-items-center rounded-full text-lg font-bold text-white shadow-lg ring-2 transition ${

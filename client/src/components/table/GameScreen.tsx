@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { type DaneseRoomView, type PlayerView, type PublicPlayer, wordLetters } from '@dane-se/shared';
+import { type ArcadeAbilityId, type DaneseRoomView, type PlayerView, type PublicPlayer, wordLetters } from '@dane-se/shared';
 import { actions } from '../../lib/store';
 import { useGameEffects } from '../../lib/useGameEffects';
 import { Shrimp } from '../cards/Shrimp';
@@ -9,6 +9,7 @@ import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { BetBar } from './BetBar';
 import { ArcadeBar } from './ArcadeBar';
+import { arcadeOpponents, arcadeSlots, type ArcadeAbilityUi } from './arcadeUi';
 import { CenterPile } from './CenterPile';
 import { DealAnimation, dealOrder, dealTiming } from './DealAnimation';
 import { type Point, foreheadSpace, seatPoint, tableGeometry, trickPoint, useElementSize } from './geometry';
@@ -62,6 +63,7 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
   const [tableRef, size] = useElementSize<HTMLDivElement>();
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [arcadePending, setArcadePending] = useState<ArcadeAbilityId | null>(null);
   useGameEffects(room);
   const compact = useMediaQuery('(orientation: landscape) and (max-height: 500px)');
   const seatScale = compact ? 0.8 : 1;
@@ -93,6 +95,32 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
   const canPlay = myTurn && game.phase === 'playing';
   const turnPlayer = game.players.find((p) => p.id === game.turnPlayerId);
 
+  // Arcade: the viewer's private kit drives the in-game bar and seat targeting.
+  const myArcadeSlots = arcadeSlots(game);
+  const pendingAbility = arcadePending ? (myArcadeSlots.find((s) => s.id === arcadePending) ?? null) : null;
+  // Seats light up only while a targeted ability is waiting for its victim.
+  const arcadeTargets = pendingAbility?.needsTarget
+    ? new Set(arcadeOpponents(game).map((p) => p.id))
+    : null;
+
+  useEffect(() => {
+    if (arcadePending && !myArcadeSlots.some((s) => s.id === arcadePending)) setArcadePending(null);
+  });
+
+  function fireArcade(ability: ArcadeAbilityId, targetId?: string, bet?: number): void {
+    void actions.arcade(ability, targetId, bet);
+    setArcadePending(null);
+  }
+
+  function selectArcade(ability: ArcadeAbilityUi): void {
+    if (ability.needsTarget || ability.needsBet) setArcadePending(ability.id);
+    else fireArcade(ability.id);
+  }
+
+  function targetArcade(playerId: string): void {
+    if (pendingAbility) fireArcade(pendingAbility.id, playerId);
+  }
+
   return (
     <div
       className="room-bg relative flex h-dvh flex-col overflow-hidden"
@@ -115,7 +143,10 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
       <div ref={tableRef} className="relative min-h-0 flex-1">
         {view3d && (
           <Table3DBoundary>
-            <Table3DView room={room} />
+            <Table3DView
+              room={room}
+              arcade={arcadeTargets ? { targetable: arcadeTargets, onTarget: targetArcade } : undefined}
+            />
           </Table3DBoundary>
         )}
         {!view3d && size.width > 0 && (
@@ -177,6 +208,8 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
                   dealDelay={j >= 0 ? timing.landAt(game.cardsPerPlayer - 1, j) : 0}
                   roundKey={roundKey}
                   scale={seatScale}
+                  targetable={!!arcadeTargets?.has(p.id)}
+                  onTarget={() => targetArcade(p.id)}
                 />
               );
             })}
@@ -207,7 +240,14 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
           </div>
         )}
         {view3d && me && !game.isSpectator && !me.eliminated && <MyStatus game={game} me={me} word={word} compact={compact} />}
-        <ArcadeBar game={game} />
+        <ArcadeBar
+          game={game}
+          slots={myArcadeSlots}
+          pending={arcadePending}
+          onSelect={selectArcade}
+          onFire={fireArcade}
+          onCancel={() => setArcadePending(null)}
+        />
         <ReactionPicker atTop={compact} />
         <WaitingBanner room={room} />
         <RoundSummary game={game} />

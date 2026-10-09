@@ -335,7 +335,14 @@ function Pile({ game }: { game: PlayerView }) {
   );
 }
 
-export function Table3DView({ room }: { room: DaneseRoomView }) {
+export function Table3DView({
+  room,
+  arcade,
+}: {
+  room: DaneseRoomView;
+  /** Arcade targeting: opponent ids the viewer may point at, and the commit callback. */
+  arcade?: { targetable: ReadonlySet<string>; onTarget: (playerId: string) => void };
+}) {
   const game = room.game!;
   const word = wordLetters(game.settings.word);
   const n = game.players.length;
@@ -371,6 +378,24 @@ export function Table3DView({ room }: { room: DaneseRoomView }) {
         <>
           <Reactions3D playerId={p.id} position={[0, 0.5, 0.05]} />
           <NameTag player={p} member={member} isYou={p.id === room.youId} isTurn={p.id === turnId} word={word} />
+          {arcade?.targetable.has(p.id) && (
+            <Html center position={[0, 0.16, 0.06]} distanceFactor={2} zIndexRange={[45, 30]}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  arcade.onTarget(p.id);
+                }}
+                title={`Mirar em ${p.name}`}
+                aria-label={`Mirar em ${p.name}`}
+                className="relative grid size-16 animate-pulse cursor-pointer place-items-center rounded-full bg-sky-400/5 ring-4 ring-sky-300/90 transition hover:bg-sky-400/20"
+              >
+                <span className="absolute -bottom-3 rounded-full bg-black/75 px-1.5 py-0.5 text-[11px] font-bold whitespace-nowrap text-sky-100">
+                  🎯 Mirar
+                </span>
+              </button>
+            </Html>
+          )}
           {(() => {
             const last = [...room.chat].reverse().find((m) => m.playerId === p.id);
             return last && now - last.at < BUBBLE_MS ? <Bubble key={last.id} text={last.text} /> : null;
