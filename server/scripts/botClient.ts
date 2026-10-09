@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import {
   type Ack,
+  type ProfileView,
   type Reaction,
   type ClientToServerEvents,
   type RoomView,
@@ -20,6 +21,8 @@ export class BotClient {
   readonly socket: ClientSocket;
   view: RoomView | null = null;
   session: Session | null = null;
+  profile: ProfileView | null = null;
+  profileToken: string | null = null;
   readonly views: RoomView[] = [];
   closedReason: string | null = null;
   readonly reactions: Reaction[] = [];
@@ -39,6 +42,9 @@ export class BotClient {
       this.waiters = this.waiters.filter((w) => (w.pred(view) ? (w.resolve(view), false) : true));
       this.maybeAct();
     });
+    this.socket.on('profile:state', (profile) => {
+      this.profile = profile;
+    });
     this.socket.on('room:closed', (reason) => (this.closedReason = reason));
     this.socket.on('room:kicked', () => (this.kicked = true));
     this.socket.on('room:reaction', (r) => this.reactions.push(r));
@@ -50,8 +56,32 @@ export class BotClient {
     });
   }
 
-  async create(): Promise<Session> {
-    const r = await this.call<Session>('room:create', { name: this.name });
+  /** Creates (or resumes) this client's wallet. */
+  async hello(nickname?: string): Promise<ProfileView> {
+    const r = await this.call<{ token: string; profile: ProfileView }>('profile:hello', {
+      token: this.profileToken ?? undefined,
+      nickname: nickname ?? this.name,
+    });
+    if (!r.ok) throw new Error(`hello failed: ${r.error}`);
+    this.profileToken = r.token;
+    this.profile = r.profile;
+    return r.profile;
+  }
+
+  async rename(nickname: string): Promise<Ack<{ profile: ProfileView }>> {
+    const r = await this.call<{ profile: ProfileView }>('profile:rename', { nickname });
+    if (r.ok) this.profile = r.profile;
+    return r;
+  }
+
+  async refill(): Promise<Ack<{ profile: ProfileView }>> {
+    const r = await this.call<{ profile: ProfileView }>('profile:refill');
+    if (r.ok) this.profile = r.profile;
+    return r;
+  }
+
+  async create(options: { gameType?: string; settings?: object } = {}): Promise<Session> {
+    const r = await this.call<Session>('room:create', { name: this.name, ...options });
     if (!r.ok) throw new Error(`create failed: ${r.error}`);
     return (this.session = r);
   }
@@ -96,6 +126,12 @@ export class BotClient {
   play(cardId?: string) {
     return this.call('game:play', { cardId });
   }
+  action(type: string, amount?: number) {
+    return this.call('game:action', { type, amount });
+  }
+  rebuy(amount?: number) {
+    return this.action('rebuy', amount);
+  }
 
   waitFor(pred: (v: RoomView) => boolean, timeoutMs = 10_000): Promise<RoomView> {
     if (this.view && pred(this.view)) return Promise.resolve(this.view);
@@ -112,8 +148,11 @@ export class BotClient {
   }
 
   myTurn(): boolean {
-    const g = this.view?.game;
-    return !!g && g.turnPlayerId === this.view!.youId && (g.phase === 'betting' || g.phase === 'playing');
+    const room = this.view;
+    if (!room) return false;
+    if (room.gameType === 'poker') return !!room.game && room.game.actorId === room.youId;
+    const g = room.game;
+    return !!g && g.turnPlayerId === room.youId && (g.phase === 'betting' || g.phase === 'playing');
   }
 
   /** Plays automatically using the shared bot heuristics. */
@@ -124,7 +163,10 @@ export class BotClient {
 
   private maybeAct(): void {
     if (!this.autoPlay || this.acting || !this.myTurn()) return;
-    const game = this.view!.game!;
+    const room = this.view!;
+    // Poker moves are driven explicitly by the caller (raise amounts differ).
+    if (room.gameType === 'poker') return;
+    const game = room.game!;
     this.acting = true;
     const action = game.phase === 'betting' ? this.bet(chooseBotBet(game)) : this.play(chooseBotCard(game) ?? undefined);
     void action.then((r) => {

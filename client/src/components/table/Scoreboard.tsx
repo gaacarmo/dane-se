@@ -1,8 +1,8 @@
-import type { RoomView } from '@dane-se/shared';
+import type { DaneseRoomView } from '@dane-se/shared';
 import { portraitUrl } from '../../lib/characters';
 
 /** Everyone's bet and tricks made so far, in one place (the name tags on the table are small). */
-export function Scoreboard({ room }: { room: RoomView }) {
+export function Scoreboard({ room }: { room: DaneseRoomView }) {
   const game = room.game!;
   return (
     <aside

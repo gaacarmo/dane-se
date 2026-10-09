@@ -1,11 +1,15 @@
 import { useSyncExternalStore } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import {
+  LOOK_INTERVAL_MS,
   type Ack,
   type CharacterId,
   type ClientToServerEvents,
   type ErrorCode,
   type GameSettings,
+  type GameType,
+  type PokerSettings,
+  type ProfileView,
   type Reaction,
   type RoomView,
   type ServerToClientEvents,
@@ -20,6 +24,7 @@ import {
 
 const SESSION_KEY = 'dane-se:session';
 const NAME_KEY = 'dane-se:name';
+const PROFILE_KEY = 'dane-se:profile-token';
 
 function readJson<T>(key: string): T | null {
   try {
@@ -44,6 +49,15 @@ export function savedName(): string {
     return localStorage.getItem(NAME_KEY) ?? '';
   } catch {
     return '';
+  }
+}
+
+/** The wallet token kept on this device; lets a returning player find their money. */
+export function savedProfileToken(): string | null {
+  try {
+    return localStorage.getItem(PROFILE_KEY);
+  } catch {
+    return null;
   }
 }
 
@@ -83,16 +97,24 @@ export interface ClientState {
   slowConnect: boolean;
   /** True until the first resume attempt finishes, to avoid flashing the home screen. */
   resuming: boolean;
+  /** The player's wallet profile, once `profile:hello` has resolved. */
+  profile: ProfileView | null;
+  /** False while a returning player's wallet is still loading. */
+  profileReady: boolean;
   room: RoomView | null;
   notice: Notice | null;
   /** Emoji reactions currently floating over the table. */
   reactions: Reaction[];
 }
 
+const hadSavedProfile = savedProfileToken() !== null || savedName() !== '';
+
 let state: ClientState = {
   connection: 'connecting',
   slowConnect: false,
   resuming: readJson<Session>(SESSION_KEY) !== null,
+  profile: null,
+  profileReady: !hadSavedProfile,
   room: null,
   notice: null,
   reactions: [],
@@ -131,7 +153,7 @@ export function dismissNotice(): void {
 // Socket
 // ---------------------------------------------------------------------------
 
-const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
+export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
   reconnectionDelay: 500,
   reconnectionDelayMax: 3000,
 });
@@ -148,6 +170,7 @@ function leaveRoomLocally(message?: string): void {
 socket.on('connect', () => {
   clearTimeout(slowTimer);
   setState({ connection: 'connected', slowConnect: false });
+  void ensureProfile();
   void resumeSaved();
 });
 
@@ -156,6 +179,8 @@ socket.on('disconnect', () => {
   clearTimeout(slowTimer);
   slowTimer = setTimeout(() => setState({ slowConnect: true }), 3000);
 });
+
+socket.on('profile:state', (profile) => setState({ profile }));
 
 socket.on('room:state', (room) => {
   setState({ room, resuming: false });
@@ -172,12 +197,61 @@ socket.on('room:closed', (reason) => {
 
 socket.on('room:kicked', () => leaveRoomLocally('O anfitrião removeu você da sala.'));
 
+/** A look older than this is ignored (the player stopped moving or left). */
+const LOOK_STALE_MS = 5000;
 const REACTION_VISIBLE_MS = 2800;
+
+/** Where each other player is looking (first person). Read every frame, so kept outside React state. */
+const looks = new Map<string, { yaw: number; pitch: number; at: number }>();
+socket.on('room:look', ({ playerId, yaw, pitch }) => looks.set(playerId, { yaw, pitch, at: Date.now() }));
+
+/** A player's recent head direction (-1..1 each), or null if they haven't moved it lately. */
+export function getLook(playerId: string): { yaw: number; pitch: number } | null {
+  const look = looks.get(playerId);
+  return look && Date.now() - look.at < LOOK_STALE_MS ? look : null;
+}
+
+let lastLookSent = 0;
+let lastLook = { yaw: 0, pitch: 0 };
+/** Shares where you're looking; throttled and skipped when nothing changed. */
+export function sendLook(yaw: number, pitch: number): void {
+  const now = Date.now();
+  if (now - lastLookSent < LOOK_INTERVAL_MS + 20) return;
+  if (Math.abs(yaw - lastLook.yaw) < 0.03 && Math.abs(pitch - lastLook.pitch) < 0.03 && now - lastLookSent < 2000) return;
+  lastLookSent = now;
+  lastLook = { yaw, pitch };
+  socket.emit('look:update', { yaw, pitch });
+}
 
 socket.on('room:reaction', (reaction) => {
   setState({ reactions: [...state.reactions, reaction] });
   setTimeout(() => setState({ reactions: state.reactions.filter((r) => r.id !== reaction.id) }), REACTION_VISIBLE_MS);
 });
+
+/**
+ * Loads the wallet on connect. A returning device sends its token; a device
+ * that only remembers a nickname asks for a fresh profile under that name.
+ */
+async function ensureProfile(): Promise<void> {
+  const token = savedProfileToken();
+  const name = savedName();
+  if (!token && !name) {
+    setState({ profileReady: true });
+    return;
+  }
+  const result = await call<{ token: string; profile: ProfileView }>('profile:hello', {
+    token: token ?? undefined,
+    nickname: name || undefined,
+  });
+  if (result.ok) {
+    writeStorage(PROFILE_KEY, result.token);
+    setState({ profile: result.profile, profileReady: true });
+  } else {
+    // No way to reach the old wallet (new server, bad token): start clean.
+    writeStorage(PROFILE_KEY, null);
+    setState({ profile: null, profileReady: true });
+  }
+}
 
 async function resumeSaved(): Promise<void> {
   const saved = readJson<Session>(SESSION_KEY);
@@ -213,27 +287,48 @@ async function send<T = object>(event: keyof ClientToServerEvents, ...args: unkn
   return result;
 }
 
-function remember(session: Session, name: string): void {
+function remember(session: Session): void {
   writeStorage(SESSION_KEY, JSON.stringify(session));
-  writeStorage(NAME_KEY, name);
 }
 
 export const actions = {
-  async createRoom(name: string): Promise<boolean> {
-    const r = await send<Session>('room:create', { name });
-    if (r.ok) remember(r, name);
+  /** Creates or resumes the wallet, keeping the (possibly new) token on this device. */
+  async hello(nickname: string): Promise<boolean> {
+    const r = await send<{ token: string; profile: ProfileView }>('profile:hello', { nickname });
+    if (!r.ok) return false;
+    writeStorage(PROFILE_KEY, r.token);
+    writeStorage(NAME_KEY, r.profile.nickname);
+    setState({ profile: r.profile, profileReady: true });
+    return true;
+  },
+  async rename(nickname: string): Promise<boolean> {
+    const r = await send<{ profile: ProfileView }>('profile:rename', { nickname });
+    if (!r.ok) return false;
+    writeStorage(NAME_KEY, r.profile.nickname);
+    setState({ profile: r.profile });
+    return true;
+  },
+  async refill(): Promise<boolean> {
+    const r = await send<{ profile: ProfileView }>('profile:refill');
+    if (!r.ok) return false;
+    setState({ profile: r.profile });
+    return true;
+  },
+  async createRoom(opts: { gameType?: GameType; settings?: Record<string, unknown> } = {}): Promise<boolean> {
+    const r = await send<Session>('room:create', { name: state.profile?.nickname, ...opts });
+    if (r.ok) remember(r);
     return r.ok;
   },
-  async joinRoom(code: string, name: string): Promise<boolean> {
-    const r = await send<Session>('room:join', { code: normalizeRoomCode(code), name });
-    if (r.ok) remember(r, name);
+  async joinRoom(code: string): Promise<boolean> {
+    const r = await send<Session>('room:join', { code: normalizeRoomCode(code), name: state.profile?.nickname });
+    if (r.ok) remember(r);
     return r.ok;
   },
   async leave(): Promise<void> {
     await call('room:leave');
     leaveRoomLocally();
   },
-  updateSettings: (patch: Partial<GameSettings>) => send('room:settings', patch),
+  updateSettings: (patch: Partial<GameSettings> & Partial<PokerSettings>) => send('room:settings', patch),
   start: () => send('room:start'),
   chat: (text: string) => send('chat:send', { text }),
   setCharacter: (character: CharacterId) => send('room:character', { character }),
@@ -242,6 +337,10 @@ export const actions = {
   skipWaiting: () => send('room:skipWaiting'),
   rematch: () => send('room:rematch'),
   bet: (bet: number) => send('game:bet', { bet }),
+  /** Named, amount-free action (poker: `fold`/`check`/`call`/`allIn`). */
+  action: (type: string, amount?: number) => send('game:action', { type, amount }),
+  /** Between-hands rebuy; the amount defaults to the room buy-in on the server. */
+  rebuy: (amount?: number) => send('game:action', { type: 'rebuy', amount }),
   play: (cardId?: string) => send('game:play', { cardId }),
   /** Fire and forget: a reaction that's too fast is simply dropped, no error toast. */
   react: (emoji: string) => call('room:react', { emoji }),

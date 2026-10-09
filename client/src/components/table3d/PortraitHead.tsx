@@ -4,6 +4,7 @@ import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { CharacterId } from '@dane-se/shared';
 import { portraitUrl } from '../../lib/characters';
+import { getLook } from '../../lib/store';
 import { CHARACTER_SPECS } from './characterSpecs';
 
 /** Pixel rectangle of the head in the source PNG, plus where the top of the head and the chin are. */
@@ -36,12 +37,23 @@ const FADE = 0.16;
  * where they look on screen (-1 left, 0 at you, 1 right): the head squashes
  * through zero and flips to turn, so it reads as a quick look to the side.
  */
-export function PortraitHead({ id, gaze, nod }: { id: CharacterId; gaze: number; nod: number }) {
+export function PortraitHead({
+  id,
+  playerId,
+  gaze,
+  nod,
+}: {
+  id: CharacterId;
+  playerId?: string;
+  gaze: number;
+  nod: number;
+}) {
   const crop = CROPS[id];
   const natural = CHARACTER_SPECS[id].faces;
   const base = useTexture(portraitUrl(id));
   const ref = useRef<THREE.Group>(null);
   const turn = useRef(1);
+  const lift = useRef(0);
 
   const { texture, geometry } = useMemo(() => {
     const cw = crop.x1 - crop.x0;
@@ -70,7 +82,10 @@ export function PortraitHead({ id, gaze, nod }: { id: CharacterId; gaze: number;
   useFrame((_, dt) => {
     const g = ref.current;
     if (!g) return;
-    const s = Math.round(gaze);
+    // A real player moving their head beats the automatic glances. Their left is our right, seen face to face.
+    const look = playerId ? getLook(playerId) : null;
+    const s = look ? (look.yaw > 0.35 ? 1 : look.yaw < -0.35 ? -1 : 0) : Math.round(gaze);
+    lift.current = THREE.MathUtils.damp(lift.current, look ? look.pitch * 0.035 : 0, 8, dt);
     // A portrait that already looks to one side must be mirrored to look to the other.
     const targetFlip = natural !== 0 && s !== 0 && s !== natural ? -1 : 1;
     const squash = natural === 0 ? 1 - Math.abs(s) * 0.07 : 1;
@@ -78,7 +93,7 @@ export function PortraitHead({ id, gaze, nod }: { id: CharacterId; gaze: number;
     g.scale.x = turn.current;
     g.rotation.z = THREE.MathUtils.damp(g.rotation.z, natural === 0 ? -s * 0.09 : -s * 0.03, 8, dt);
     g.position.x = THREE.MathUtils.damp(g.position.x, natural === 0 ? s * 0.03 : 0, 8, dt);
-    g.position.y = nod * 0.012 * Math.sin(performance.now() / 120);
+    g.position.y = lift.current + nod * 0.012 * Math.sin(performance.now() / 120);
   });
 
   return (

@@ -1,9 +1,10 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as THREE from 'three';
-import type { Card } from '@dane-se/shared';
-import { cardId } from '@dane-se/shared';
+import type { Card, PokerCard } from '@dane-se/shared';
+import { cardId, pokerCardId } from '@dane-se/shared';
 import { CardBack, PlayingCard } from '../components/cards/PlayingCard';
+import { CardFace } from '../components/poker/CardFace';
 
 const WIDTH = 500;
 const HEIGHT = 700;
@@ -38,6 +39,17 @@ export function cardTexture(card: Card | null, highlight = false): THREE.Texture
   let t = cache.get(key);
   if (!t) {
     t = build(renderToStaticMarkup(card ? createElement(PlayingCard, { card, highlight }) : createElement(CardBack)));
+    cache.set(key, t);
+  }
+  return t;
+}
+
+/** Texture of a 52-card poker face, from the same SVG as the Mobile poker table. */
+export function pokerCardTexture(card: PokerCard): THREE.Texture {
+  const key = `poker:${pokerCardId(card)}`;
+  let t = cache.get(key);
+  if (!t) {
+    t = build(renderToStaticMarkup(createElement(CardFace, { card })));
     cache.set(key, t);
   }
   return t;

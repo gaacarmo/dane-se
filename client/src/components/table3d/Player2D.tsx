@@ -17,17 +17,23 @@ const BODY_SIZE = 0.74;
  */
 export function Player2D({
   id,
+  playerId,
   gaze,
   active,
   showBody = true,
+  handsOnTable = true,
   children,
 }: {
   id: CharacterId;
   /** -1 looks to the left of the screen, 1 to the right, 0 at the camera. */
+  /** Seat owner, to follow their real head movement when they share it. */
+  playerId?: string;
   gaze: number;
   active?: boolean;
   /** Your own seat has no body in view, only your hands. */
   showBody?: boolean;
+  /** Draw the forearms resting on the table (off when the player holds cards instead). */
+  handsOnTable?: boolean;
   /** Anchored above the head (name tag, forehead card). */
   children?: React.ReactNode;
 }) {
@@ -46,18 +52,32 @@ export function Player2D({
 
   return (
     <group>
-      {[-1, 1].map((side) => (
-        <mesh key={side} position={[side * 0.2, TABLE_TOP + 0.004, 0.74]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.15, 0.375]} />
-          <meshBasicMaterial map={side < 0 ? handL : handR} transparent alphaTest={0.02} toneMapped={false} color="#f4ead8" />
-        </mesh>
-      ))}
+      {handsOnTable &&
+        [-1, 1].map((side) => (
+          <mesh key={side} position={[side * 0.2, TABLE_TOP + 0.004, 0.74]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.15, 0.375]} />
+            <meshBasicMaterial
+              map={side < 0 ? handL : handR}
+              transparent
+              alphaTest={0.02}
+              toneMapped={false}
+              color="#f4ead8"
+            />
+          </mesh>
+        ))}
       {showBody && (
         <group ref={billboard} position={[0, CHIN_Y, 0.1]}>
           <mesh geometry={bodyGeo} position={[0, -0.03, -0.01]}>
-            <meshBasicMaterial map={body} transparent alphaTest={0.02} side={THREE.DoubleSide} toneMapped={false} color="#f4ead8" />
+            <meshBasicMaterial
+              map={body}
+              transparent
+              alphaTest={0.02}
+              side={THREE.DoubleSide}
+              toneMapped={false}
+              color="#f4ead8"
+            />
           </mesh>
-          <PortraitHead id={id} gaze={gaze} nod={active ? 1 : 0} />
+          <PortraitHead id={id} playerId={playerId} gaze={gaze} nod={active ? 1 : 0} />
           {children}
         </group>
       )}

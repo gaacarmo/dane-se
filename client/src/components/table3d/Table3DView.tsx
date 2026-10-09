@@ -4,16 +4,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import {
   type Card,
+  type DaneseRoomView,
   type PlayerView,
   type PublicPlayer,
   type RoomMember,
-  type RoomView,
   wordLetters,
 } from '@dane-se/shared';
 import { sfx } from '../../lib/sound';
 import { useClient } from '../../lib/store';
 import { Letters } from '../table/Letters';
 import { CARD_H, CARD_W, Card3D } from './Card3D';
+import { WatchSwitcher, useWatchedSeat } from './WatchSwitcher';
 import { Scene3D, TABLE_Y, seatPosition } from './Scene3D';
 
 const TOP = TABLE_Y + 0.006;
@@ -27,13 +28,13 @@ const CARD_SCALE = 2;
  * played behind it; flat it is too foreshortened to read from the camera. Every client draws it from its own seat, so it
  * faces everyone.
  */
-const VIRA_LEAN = 0.75;
+export const VIRA_LEAN = 0.75;
 const VIRA_SCALE = 1.6;
 const VIRA_X = 0.22;
 const VIRA_Z = 0.02;
 
 /** Soft dark blob under the vira so it reads as resting on the table. */
-function useContactShadow(): THREE.CanvasTexture {
+export function useContactShadow(): THREE.CanvasTexture {
   return useMemo(() => {
     const c = document.createElement('canvas');
     c.width = c.height = 128;
@@ -50,7 +51,7 @@ function useContactShadow(): THREE.CanvasTexture {
 const BUBBLE_MS = 6000;
 
 /** Emoji reactions floating up from a player's head (or from your hands). */
-function Reactions3D({ playerId, position }: { playerId: string; position: [number, number, number] }) {
+export function Reactions3D({ playerId, position }: { playerId: string; position: [number, number, number] }) {
   const { reactions } = useClient();
   const mine = reactions.filter((r) => r.playerId === playerId);
   return (
@@ -77,7 +78,7 @@ function Reactions3D({ playerId, position }: { playerId: string; position: [numb
 }
 
 /** Plays the pop sound for each new reaction, once for the whole table. */
-function useReactionSound() {
+export function useReactionSound() {
   const { reactions } = useClient();
   const latest = reactions.at(-1)?.id;
   useEffect(() => {
@@ -85,7 +86,7 @@ function useReactionSound() {
   }, [latest]);
 }
 
-function useNow(intervalMs: number): number {
+export function useNow(intervalMs: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), intervalMs);
@@ -94,7 +95,7 @@ function useNow(intervalMs: number): number {
   return now;
 }
 
-function Bubble({ text }: { text: string }) {
+export function Bubble({ text }: { text: string }) {
   return (
     <Html
       center
@@ -334,13 +335,20 @@ function Pile({ game }: { game: PlayerView }) {
   );
 }
 
-export function Table3DView({ room }: { room: RoomView }) {
+export function Table3DView({ room }: { room: DaneseRoomView }) {
   const game = room.game!;
   const word = wordLetters(game.settings.word);
   const n = game.players.length;
+  const me = game.players.find((p) => p.id === room.youId);
+  // Out of the game: pick whose seat to watch from (only the camera moves; the view stays yours).
+  const canWatch = game.isSpectator || !me || me.eliminated;
+  const candidates = game.players
+    .filter((p) => !p.eliminated || p.id === room.youId)
+    .map((p) => ({ id: p.id, name: p.name }));
+  const { watchedId, step } = useWatchedSeat(candidates, room.youId, canWatch);
   const youIndex = Math.max(
     0,
-    game.players.findIndex((p) => p.id === room.youId),
+    game.players.findIndex((p) => p.id === watchedId),
   );
   const turnId = game.phase === 'betting' || game.phase === 'playing' ? game.turnPlayerId : null;
   const shown = useShownCards(game);
@@ -380,8 +388,8 @@ export function Table3DView({ room }: { room: RoomView }) {
   const result = game.trick.result;
   return (
     <div className="absolute inset-0">
-      <Scene3D seats={seats} youIndex={youIndex} focusId={turnId}>
-        <Reactions3D playerId={room.youId} position={[0, 1.05, 1.15]} />
+      <Scene3D seats={seats} youIndex={youIndex} shareLook={watchedId === room.youId} focusId={turnId}>
+        <Reactions3D playerId={watchedId} position={[0, 1.05, 1.15]} />
         <Pile game={game} />
         {shown.map((c) => {
           const s = seatWorld.get(c.playerId) ?? { x: 0, z: 0, angle: 0 };
@@ -404,6 +412,13 @@ export function Table3DView({ room }: { room: RoomView }) {
           );
         })}
       </Scene3D>
+      {canWatch && candidates.length > 1 && (
+        <WatchSwitcher
+          name={candidates.find((c) => c.id === watchedId)?.name ?? ''}
+          isYou={watchedId === room.youId}
+          onStep={step}
+        />
+      )}
     </div>
   );
 }

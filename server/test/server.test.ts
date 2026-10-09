@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { isDaneseRoom, type RoomView } from '@dane-se/shared';
 import { BotClient } from '../scripts/botClient.js';
 import { auditView, simulateGame } from '../scripts/simulate.js';
 import { createApp } from '../src/app.js';
@@ -42,9 +43,15 @@ async function lobby(n: number) {
   return { players, code };
 }
 
+/** Narrows a room view to the Dane-se branch (this file's default game). */
+function danese(view: RoomView | null | undefined): Extract<RoomView, { gameType: 'danese' }> {
+  if (!view || !isDaneseRoom(view)) throw new Error('expected a Dane-se room');
+  return view;
+}
+
 /** The client whose turn it is right now. */
 function current(players: BotClient[]): BotClient {
-  const turn = players[0]!.view!.game!.turnPlayerId;
+  const turn = danese(players[0]!.view!).game!.turnPlayerId;
   return players.find((p) => p.view?.youId === turn)!;
 }
 
@@ -92,16 +99,16 @@ describe('rooms', () => {
     const { players } = await lobby(2);
     const [host, guest] = players as [BotClient, BotClient];
     expect(await guest.start()).toEqual({ ok: false, error: 'NOT_HOST' });
-    expect(await guest.settings({ word: 'FODA' })).toEqual({ ok: false, error: 'NOT_HOST' });
+    expect(await guest.settings({ word: 'PATO' })).toEqual({ ok: false, error: 'NOT_HOST' });
     expect(await guest.kick(host.view!.youId)).toEqual({ ok: false, error: 'NOT_HOST' });
   });
 
   it('host can change settings; invalid values are rejected', async () => {
     const { players } = await lobby(2);
     const host = players[0]!;
-    expect(host.view!.settings.word).toBe('DANE-SE');
+    expect(danese(host.view).settings.word).toBe('DANE-SE');
     expect((await host.settings({ word: 'pato' })).ok).toBe(true);
-    expect((await players[1]!.waitFor((v) => v.settings.word === 'PATO')).settings.word).toBe('PATO');
+    expect(danese(await players[1]!.waitFor((v) => isDaneseRoom(v) && v.settings.word === 'PATO')).settings.word).toBe('PATO');
     expect(await host.settings({ maxCards: 9 })).toEqual({ ok: false, error: 'INVALID_SETTINGS' });
     expect(await host.settings({ word: '---' })).toEqual({ ok: false, error: 'INVALID_SETTINGS' });
     expect(await host.settings({ cardCountMode: 'chaos' })).toEqual({ ok: false, error: 'INVALID_SETTINGS' });
@@ -195,6 +202,63 @@ describe('reactions', () => {
   });
 });
 
+describe('head movement and voice signaling', () => {
+  const wait = (ms = 60) => new Promise((r) => setTimeout(r, ms));
+
+  it('relays where a player looks to the others, clamped and throttled', async () => {
+    const { players } = await lobby(3);
+    const [a, b, c] = players as [BotClient, BotClient, BotClient];
+    const seen: Record<string, unknown[]> = { a: [], b: [], c: [] };
+    a.socket.on('room:look', (l) => seen.a!.push(l));
+    b.socket.on('room:look', (l) => seen.b!.push(l));
+    c.socket.on('room:look', (l) => seen.c!.push(l));
+
+    a.socket.emit('look:update', { yaw: 5, pitch: -0.5 });
+    a.socket.emit('look:update', { yaw: 0.2, pitch: 0 }); // too soon: dropped
+    a.socket.emit('look:update', { yaw: 'x', pitch: 0 } as never);
+    await wait();
+    expect(seen.a).toEqual([]);
+    expect(seen.b).toEqual([{ playerId: a.view!.youId, yaw: 1, pitch: -0.5 }]);
+    expect(seen.c).toEqual(seen.b);
+  });
+
+  it('relays voice signals only between players in voice in the same room', async () => {
+    const { players } = await lobby(3);
+    const [a, b, c] = players as [BotClient, BotClient, BotClient];
+    const outsider = client('Fora');
+    await client('Host2').create();
+    const join = (p: BotClient) =>
+      new Promise<{ ok: boolean; peers?: string[] }>((r) => p.socket.emit('voice:join', r as never));
+
+    const joined: string[] = [];
+    c.socket.on('voice:joined', ({ playerId }) => joined.push(playerId));
+    expect(await join(a)).toEqual({ ok: true, peers: [] });
+    expect(await join(b)).toEqual({ ok: true, peers: [a.view!.youId] });
+    await wait();
+    expect(joined).toEqual([a.view!.youId, b.view!.youId]);
+
+    const got: Record<string, unknown[]> = { a: [], b: [], c: [] };
+    a.socket.on('voice:signal', (m) => got.a!.push(m));
+    b.socket.on('voice:signal', (m) => got.b!.push(m));
+    c.socket.on('voice:signal', (m) => got.c!.push(m));
+    const offer = { type: 'description', description: { type: 'offer', sdp: 'v=0' } } as const;
+    b.socket.emit('voice:signal', { to: a.view!.youId, data: offer });
+    b.socket.emit('voice:signal', { to: c.view!.youId, data: offer }); // c is not in voice
+    c.socket.emit('voice:signal', { to: a.view!.youId, data: offer }); // c is not in voice
+    outsider.socket.emit('voice:signal', { to: a.view!.youId, data: offer });
+    await wait();
+    expect(got.a).toEqual([{ from: b.view!.youId, data: offer }]);
+    expect(got.b).toEqual([]);
+    expect(got.c).toEqual([]);
+
+    const left: string[] = [];
+    a.socket.on('voice:left', ({ playerId }) => left.push(playerId));
+    b.close();
+    await wait(100);
+    expect(left).toEqual([b.view!.youId]);
+  });
+});
+
 describe('game validation', () => {
   it('rejects out-of-turn, illegal and malformed actions', async () => {
     const { players } = await lobby(3);
@@ -210,15 +274,16 @@ describe('game validation', () => {
 
     // Bet 0 twice, so the Pé may not bet 1.
     expect((await turn.bet(0)).ok).toBe(true);
-    await players[0]!.waitFor((v) => v.game!.turnPlayerId !== turn.view!.youId);
+    await players[0]!.waitFor((v) => isDaneseRoom(v) && !!v.game && v.game.turnPlayerId !== turn.view!.youId);
     expect((await current(players).bet(0)).ok).toBe(true);
-    await players[0]!.waitFor((v) => Object.values(v.game!.players).filter((p) => p.bet !== null).length === 2);
+    await players[0]!.waitFor((v) => isDaneseRoom(v) && !!v.game && Object.values(v.game.players).filter((p) => p.bet !== null).length === 2);
 
     const pe = current(players);
-    await pe.waitFor((v) => v.game!.turnPlayerId === v.youId);
-    expect(pe.view!.game!.dealerId).toBe(pe.view!.youId);
-    expect(pe.view!.game!.legalBets).toEqual([0]);
-    expect(pe.view!.game!.dealerForbiddenBet).toBe(1);
+    await pe.waitFor((v) => isDaneseRoom(v) && !!v.game && v.game.turnPlayerId === v.youId);
+    const peView = danese(pe.view!).game!;
+    expect(peView.dealerId).toBe(pe.view!.youId);
+    expect(peView.legalBets).toEqual([0]);
+    expect(peView.dealerForbiddenBet).toBe(1);
     expect(await pe.bet(1)).toEqual({ ok: false, error: 'ILLEGAL_BET' });
   });
 
@@ -227,7 +292,7 @@ describe('game validation', () => {
     await players[0]!.start();
     const views = await Promise.all(players.map((p) => p.waitFor((v) => v.game?.phase === 'betting')));
     for (const view of views) {
-      const g = view.game!;
+      const g = danese(view).game!;
       expect(g.blindRound).toBe(true);
       expect(g.hand).toEqual([]);
       for (const p of g.players) {
@@ -236,7 +301,7 @@ describe('game validation', () => {
       }
     }
     // Everyone's forehead card, as seen by the others, is consistent.
-    const seenBy = (target: string) => views.filter((v) => v.youId !== target).map((v) => v.game!.players.find((p) => p.id === target)!.foreheadCard);
+    const seenBy = (target: string) => views.filter((v) => v.youId !== target).map((v) => danese(v).game!.players.find((p) => p.id === target)!.foreheadCard);
     for (const v of views) expect(new Set(seenBy(v.youId).map((c) => JSON.stringify(c))).size).toBe(1);
   });
 
@@ -257,8 +322,8 @@ describe('disconnects', () => {
     let dropper = current(players);
     if (dropper === players[0]) {
       // Keep the host connected: let the host bet so someone else is next.
-      expect((await dropper.bet(dropper.view!.game!.legalBets[0]!)).ok).toBe(true);
-      await players[0]!.waitFor((v) => v.game!.turnPlayerId !== v.youId);
+      expect((await dropper.bet(danese(dropper.view).game!.legalBets[0]!)).ok).toBe(true);
+      await players[0]!.waitFor((v) => isDaneseRoom(v) && !!v.game && v.game.turnPlayerId !== v.youId);
       dropper = current(players);
     }
     const host = players[0]!;
@@ -271,7 +336,7 @@ describe('disconnects', () => {
     expect(waiting.members.find((m) => m.id === seat)?.connected).toBe(false);
 
     expect((await host.skipWaiting()).ok).toBe(true);
-    await host.waitFor((v) => v.game!.players.find((p) => p.id === seat)!.bet !== null);
+    await host.waitFor((v) => isDaneseRoom(v) && !!v.game && v.game.players.find((p) => p.id === seat)!.bet !== null);
     expect(host.view!.members.find((m) => m.id === seat)?.autoPlay).toBe(true);
 
     const back = client(dropper.name);
@@ -322,11 +387,12 @@ describe('full games', () => {
     const finalViews = await Promise.all(players.map((p) => p.waitFor((v) => v.status === 'finished', 20_000)));
     for (const p of players) for (const v of p.views) auditView(v);
 
-    const losers = finalViews.filter((v) => v.game!.winnerId !== v.youId);
+    const losers = finalViews.filter((v) => danese(v).game!.winnerId !== v.youId);
     expect(losers).toHaveLength(2);
     for (const v of losers) {
-      expect(v.game!.isSpectator).toBe(true);
-      expect(v.game!.hand).toEqual([]);
+      const g = danese(v).game!;
+      expect(g.isSpectator).toBe(true);
+      expect(g.hand).toEqual([]);
     }
 
     expect((await players[0]!.rematch()).ok).toBe(true);

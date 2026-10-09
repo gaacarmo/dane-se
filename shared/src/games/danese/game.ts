@@ -1,5 +1,5 @@
 import { type Card, type Rank, cardId, createDeck, manilhaRankFor } from './cards.js';
-import { randomInt, shuffle } from './rng.js';
+import { randomInt, shuffle } from '../../rng.js';
 import {
   type CardDirection,
   type GameSettings,

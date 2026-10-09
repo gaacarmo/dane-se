@@ -1,6 +1,9 @@
 # Render Blueprint: New > Blueprint, pick this repo, done.
 # Free plan: sleeps after 15 min without traffic (~1 min to wake up) and
 # in-memory rooms are lost on restart. See README for details.
+# Wallets: unless DATABASE_URL is set, profiles/wallets live in a JSON file in
+# `.data/` — which is ephemeral on Render (disk is wiped on redeploy/restart).
+# Set DATABASE_URL to a hosted store (e.g. Turso/libSQL) for durable money.
 services:
   - type: web
     name: dane-se
@@ -17,3 +20,6 @@ services:
         value: "22"
       - key: NODE_ENV
         value: production
+      # Optional: hosted wallet store. Unset uses the file store in `.data/`.
+      - key: DATABASE_URL
+        value: ""
