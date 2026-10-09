@@ -131,7 +131,7 @@ export function spendRevive(match: ArcadeMatchState, id: string): ArcadeMatchSta
   return { ...match, seats: match.seats.map((s) => (s.id === id ? { ...s, revives: s.revives - 1 } : s)) };
 }
 
-/** Chance de uma habilidade ofensiva voltar no usuário ("Gol Contra" do Babin). */
+/** Chance de uma habilidade mirada neste jogador voltar no autor ("Gol Contra" do Babin). */
 export function backfireChance(match: ArcadeMatchState, id: string): number {
   const seat = arcadeSeat(match, id);
   if (!seat) return 0;

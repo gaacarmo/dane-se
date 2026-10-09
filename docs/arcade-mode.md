@@ -53,7 +53,8 @@ Cada jogador entra com:
   Poker → troca 1 hole card com um oponente escolhido.
 
 ### Babin Tom Sahur (Babington) — atrapalha e se atrapalha
-- **Passiva "Gol Contra":** habilidades que afetam outros têm **40%** de voltar nele.
+- **Passiva "Gol Contra":** habilidades miradas nele têm **20%** de voltar no autor
+  (a espiada/troca/acusação se perde em quem tentou).
 - **Especial "Invasão de Campo":** Dane-se → embaralha as apostas (todos re-apostam);
   Poker → **bomb pot** (todos entram com um ante e a mão começa gorda — pode
   queimar ele também).

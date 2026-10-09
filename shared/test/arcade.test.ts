@@ -495,6 +495,51 @@ describe('dane-se arcade sabotage', () => {
     expect(wrong.state.pendingLetters).toEqual({ p0: 1 });
   });
 
+  it('Gol Contra (Babin) reflete o Pênalti! no acusador quando dispara', () => {
+    const s = arcadeGame([{ character: 'colombo', talents: ['escudo'] }, { character: 'babin', talents: ['escudo'] }]);
+    const playing = betAll(s, { p0: 1, p1: 1 });
+    const gato: GameState = {
+      ...playing,
+      cardsPerPlayer: 3,
+      completedTricks: [playing.trick],
+      bets: { p0: 1, p1: 2 },
+      tricksWon: { p0: 0, p1: 3 },
+    };
+
+    let reflected = 0;
+    let landed = 0;
+    for (let rng = 0; rng < 64; rng++) {
+      const res = applyAction({ ...gato, rng }, { type: 'arcade', playerId: 'p0', ability: 'pegaGato', targetId: 'p1' });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      if (res.state.pendingLetters['p0'] === 1) reflected++;
+      else if (res.state.pendingLetters['p1'] === 1) landed++;
+    }
+    expect(reflected).toBeGreaterThan(0);
+    expect(landed).toBeGreaterThan(0);
+  });
+
+  it('Gol Contra (Babin) pode anular a espiada mirada nele', () => {
+    const s = arcadeGame([{ character: 'martelo', talents: ['radar'] }, { character: 'babin', talents: ['escudo'] }]);
+    const playing = betAll(s, { p0: 1, p1: 1 });
+    const baseline = playing.arcadePrivate['p0']?.length ?? 0;
+
+    let wasted = 0;
+    let revealed = 0;
+    for (let rng = 0; rng < 64; rng++) {
+      const res = applyAction({ ...playing, rng }, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p1' });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      // A carga some nos dois casos; quando reflete, nenhuma carta nova é revelada.
+      expect(seat(res.state, 'p0')?.charges).toBe(0);
+      const gained = (res.state.arcadePrivate['p0']?.length ?? 0) - baseline;
+      if (gained === 0) wasted++;
+      else revealed++;
+    }
+    expect(wasted).toBeGreaterThan(0);
+    expect(revealed).toBeGreaterThan(0);
+  });
+
   it('Carrinho (Sarney) dá um escudo, 1×', () => {
     const s = arcadeGame([{ character: 'sarney', talents: ['escudo'] }, { character: 'colombo', talents: ['escudo'] }]);
     const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'esquentar' });

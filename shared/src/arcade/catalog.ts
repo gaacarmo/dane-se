@@ -113,9 +113,9 @@ export const CHARACTER_KITS: Record<CharacterId, CharacterKit> = {
     passive: {
       id: 'encrenca',
       name: 'Gol Contra',
-      blurb: 'Faz a festa e se machuca.',
-      danese: 'Habilidades que afetam outros têm 40% de voltar nele.',
-      poker: 'Habilidades que afetam outros têm 40% de voltar nele.',
+      blurb: 'Mexeu com ele, se deu mal.',
+      danese: 'Habilidades miradas nele têm 20% de voltar no autor.',
+      poker: 'Habilidades miradas nele têm 20% de voltar no autor.',
     },
     special: {
       id: 'bomba',

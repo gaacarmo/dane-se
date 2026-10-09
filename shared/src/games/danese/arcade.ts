@@ -4,6 +4,7 @@ import {
   type ArcadeSeatState,
   CHARACTER_KITS,
   arcadeSeat,
+  backfireChance,
   grantShield,
   spendCharge,
   spendSpecial,
@@ -46,6 +47,28 @@ function pushReveals(
   return { ...map, [id]: [...(map[id] ?? []), ...reveals] };
 }
 
+/** Habilidades apontadas a outro jogador (candidatas ao "Gol Contra"). */
+const DIRECTED_ABILITIES: ReadonlySet<ArcadeAbilityId> = new Set(['radar', 'visao', 'safadeza', 'pegaGato']);
+
+/**
+ * Gol Contra (Babin): uma habilidade mirada nele pode voltar no autor. Usa o RNG
+ * semeado do motor e só consome um passo quando o alvo tem chance de refletir,
+ * pra manter o determinismo. `backfire: true` = o efeito se perde no autor.
+ */
+function rollGolContra(
+  state: GameState,
+  action: ArcadeAbilityAction,
+  target: string,
+): { backfire: boolean; rng: number } {
+  if (target === action.playerId || !DIRECTED_ABILITIES.has(action.ability)) {
+    return { backfire: false, rng: state.rng };
+  }
+  const chance = backfireChance(state.arcade, target);
+  if (chance <= 0) return { backfire: false, rng: state.rng };
+  const roll = randomInt(state.rng, 100);
+  return { backfire: roll.value < Math.round(chance * 100), rng: roll.state };
+}
+
 // ---------------------------------------------------------------------------
 // Abilities
 // ---------------------------------------------------------------------------
@@ -59,7 +82,12 @@ function useRadar(state: GameState, seat: ArcadeSeatState, action: ArcadeAbility
   const hand = state.hands[target] ?? [];
   if (hand.length === 0) return err('INVALID_TARGET');
 
-  const pick = randomInt(state.rng, hand.length);
+  const gol = rollGolContra(state, action, target);
+  if (gol.backfire) {
+    // Gol Contra: a espiada volta no autor e se perde (carga gasta).
+    return ok({ ...state, rng: gol.rng, arcade: spendCharge(state.arcade, action.playerId) });
+  }
+  const pick = randomInt(gol.rng, hand.length);
   return ok({
     ...state,
     rng: pick.state,
@@ -100,9 +128,15 @@ function useVisao(state: GameState, seat: ArcadeSeatState, action: ArcadeAbility
   const hand = state.hands[target] ?? [];
   if (hand.length === 0) return err('INVALID_TARGET');
 
+  const gol = rollGolContra(state, action, target);
+  if (gol.backfire) {
+    // Gol Contra: a leitura volta no autor e se perde (especial gasto).
+    return ok({ ...state, rng: gol.rng, arcade: spendSpecial(state.arcade, action.playerId) });
+  }
   const reveals: ArcadeReveal[] = hand.map((card) => ({ targetId: target, card: { ...card } }));
   return ok({
     ...state,
+    rng: gol.rng,
     arcade: spendSpecial(state.arcade, action.playerId),
     arcadePrivate: pushReveals(state.arcadePrivate, action.playerId, reveals),
   });
@@ -137,7 +171,12 @@ function useSafadeza(state: GameState, seat: ArcadeSeatState, action: ArcadeAbil
   const theirs = state.hands[target] ?? [];
   if (mine.length === 0 || theirs.length === 0) return err('INVALID_TARGET');
 
-  const myPick = randomInt(state.rng, mine.length);
+  const gol = rollGolContra(state, action, target);
+  if (gol.backfire) {
+    // Gol Contra: a troca volta no autor e se perde (especial gasto).
+    return ok({ ...state, rng: gol.rng, arcade: spendSpecial(state.arcade, action.playerId) });
+  }
+  const myPick = randomInt(gol.rng, mine.length);
   const theirPick = randomInt(myPick.state, theirs.length);
   const myHand = [...mine];
   const theirHand = [...theirs];
@@ -182,9 +221,13 @@ function usePegaGato(state: GameState, seat: ArcadeSeatState, action: ArcadeAbil
   const target = targetOpponent(state, action.playerId, action.targetId);
   if (!target) return err('INVALID_TARGET');
 
-  const punished = isGato(state, target) ? target : action.playerId;
+  const gol = rollGolContra(state, action, target);
+  // Gol Contra: a acusação volta no acusador. Acerto sem reflexo pune o alvo;
+  // erro (ou reflexo) devolve a letra pro acusador.
+  const punished = gol.backfire || !isGato(state, target) ? action.playerId : target;
   return ok({
     ...state,
+    rng: gol.rng,
     pendingLetters: { ...state.pendingLetters, [punished]: (state.pendingLetters[punished] ?? 0) + 1 },
     arcade: spendSpecial(state.arcade, action.playerId),
   });

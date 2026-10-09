@@ -3,8 +3,8 @@
  * limite) mora aqui pra facilitar ajuste sem caçar no meio da lógica.
  */
 export const ARCADE_TUNING = {
-  /** Chance de a habilidade do Babin voltar nele ("Gol Contra"). */
-  encrencaBackfire: 0.4,
+  /** Chance de uma habilidade mirada no Babin voltar no autor ("Gol Contra"). */
+  encrencaBackfire: 0.2,
   /** Letras extras antes da eliminação ("Zagueirão" do Sarney). */
   esquentaLetterBuffer: 2,
   /** Bônus de fichas iniciais no poker pra quem tem o "Zagueirão". */
