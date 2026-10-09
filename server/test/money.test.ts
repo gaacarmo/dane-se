@@ -64,6 +64,24 @@ describe('wallet', () => {
     await host.create({ settings: { entry: 100 } });
     await expect(host.create({ settings: { entry: 100 } })).rejects.toThrow('ALREADY_IN_ROOM');
   });
+
+  it('lets a player who left a game in progress open another room; the bot keeps their seat', async () => {
+    const url = await boot();
+    const host = client(url, 'Ana');
+    const guest = client(url, 'Bia');
+    await host.hello();
+    await guest.hello();
+    const { code } = await host.create({ settings: { entry: 100 } });
+    expect((await guest.join(code)).ok).toBe(true);
+    await host.waitFor((v) => v.members.length === 2);
+    expect((await host.start()).ok).toBe(true);
+    await guest.waitFor((v) => v.status === 'playing');
+
+    expect((await host.leave()).ok).toBe(true);
+    await guest.waitFor((v) => v.members.find((m) => m.name === 'Ana')?.autoPlay === true);
+    const { code: second } = await host.create({ settings: { entry: 100 } });
+    expect(second).not.toBe(code);
+  });
 });
 
 describe('money rooms', () => {

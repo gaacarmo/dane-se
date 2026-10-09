@@ -105,6 +105,8 @@ interface Member {
   entry: number | null;
   /** Consecutive turns this player let the clock run out (poker). */
   timeouts: number;
+  /** Left the game on purpose: a bot keeps the seat (and the money settles at the end), but they're free to play elsewhere. */
+  left: boolean;
 }
 
 interface Room {
@@ -296,6 +298,7 @@ export class RoomManager {
 
     socket.data.profileId = member.profileId;
     member.autoPlay = false;
+    member.left = false;
     this.attach(room, member, socket);
     return { ok: true, ...session(room, member) };
   }
@@ -314,6 +317,7 @@ export class RoomManager {
       // In a money room the entry stays in the pot (leaving mid-game forfeits it).
       member.socketId = null;
       member.autoPlay = true;
+      member.left = true;
       this.onConnectivityChange(room, member);
       return OK;
     }
@@ -900,7 +904,7 @@ export class RoomManager {
 
   private roomOfProfile(profileId: string): Room | undefined {
     for (const room of this.rooms.values()) {
-      if (room.members.some((m) => !m.isBot && m.profileId === profileId)) return room;
+      if (room.members.some((m) => !m.isBot && !m.left && m.profileId === profileId)) return room;
     }
     return undefined;
   }
@@ -1027,6 +1031,7 @@ function newMember(profile: ProfileRow, taken: CharacterId[] = []): Member {
     character: pickCharacter(taken),
     entry: null,
     timeouts: 0,
+    left: false,
   };
 }
 
