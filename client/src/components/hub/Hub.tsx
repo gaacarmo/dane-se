@@ -14,6 +14,9 @@ import { webglSupported } from '../../lib/webgl';
 import { CardFan } from '../cards/CardFan';
 import { Button } from '../ui/Button';
 import { GameCard } from './GameCard';
+import { FriendsPanel } from './FriendsPanel';
+import { RankingPanel } from './RankingPanel';
+import { RecoveryPanel } from './RecoveryPanel';
 import { WalletHeader } from './WalletHeader';
 
 const VIEW_MODES = [
@@ -200,7 +203,7 @@ function CreatePanel({
 
 /** The game hub: wallet on top, catalog below, create or join a room. */
 export function Hub({ onHelp }: { onHelp: () => void }) {
-  const { connection, profile } = useClient();
+  const { connection, profile, social } = useClient();
   const linkCode = codeFromUrl();
   const [selected, setSelected] = useState<GameType | null>(null);
   const [entry, setEntry] = useState(0);
@@ -317,6 +320,20 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
         </form>
 
         <ViewModePicker />
+
+        {social && (
+          <>
+            <section className="space-y-3">
+              <SectionLabel>Amigos</SectionLabel>
+              <FriendsPanel social={social} />
+            </section>
+            <section className="space-y-3">
+              <SectionLabel>Ranking entre amigos</SectionLabel>
+              <RankingPanel social={social} />
+            </section>
+          </>
+        )}
+        <RecoveryPanel />
       </div>
     </main>
   );

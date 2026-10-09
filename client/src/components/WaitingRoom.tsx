@@ -18,6 +18,7 @@ import { CHARACTER_NAMES, portraitUrl } from '../lib/characters';
 import { actions, notify, roomLink } from '../lib/store';
 import { CardFan } from './cards/CardFan';
 import { ChatPanel } from './ChatPanel';
+import { InviteFriends } from './InviteFriends';
 import { Button } from './ui/Button';
 
 export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => void }) {
@@ -134,6 +135,8 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
         </section>
 
         {poker ? <PokerMoneyPanel room={room} isHost={isHost} /> : <MoneyPanel room={room} isHost={isHost} />}
+
+        <InviteFriends />
 
         <CharacterPicker room={room} />
 
