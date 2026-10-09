@@ -540,6 +540,64 @@ describe('dane-se arcade sabotage', () => {
     expect(revealed).toBeGreaterThan(0);
   });
 
+  /** Babin perde a 1ª vaza de uma rodada de 3 cartas apostando 1 (não vira gato). */
+  function manilhaScenario(deck: GameState['deck']): GameState {
+    const s = arcadeGame([{ character: 'babin', talents: ['escudo'] }, { character: 'sarney', talents: ['escudo'] }]);
+    return {
+      ...s,
+      phase: 'playing',
+      cardsPerPlayer: 3,
+      manilhaRank: 'K',
+      vira: { rank: 'Q', suit: 'D' },
+      roundOrder: ['p0', 'p1'],
+      bets: { p0: 1, p1: 0 },
+      tricksWon: { p0: 0, p1: 0 },
+      completedTricks: [],
+      // O 4D do Babin já foi jogado e perdido; restam 5H e 7C.
+      hands: { p0: [{ rank: '5', suit: 'H' }, { rank: '7', suit: 'C' }], p1: [{ rank: 'A', suit: 'D' }] },
+      deck,
+      trick: { leaderId: 'p0', plays: [{ playerId: 'p0', card: { rank: '4', suit: 'D' } }], result: null },
+      turnPlayerId: 'p1',
+      manilhaMagicUsed: {},
+    };
+  }
+
+  it('manilha mágica (Babin) sobe a 2ª maior carta quando ele perde precisando vencer', () => {
+    const base = manilhaScenario([{ rank: 'K', suit: 'H' }, { rank: 'K', suit: 'C' }, { rank: '2', suit: 'S' }]);
+
+    let upgraded = 0;
+    let normal = 0;
+    for (let rng = 0; rng < 64; rng++) {
+      const res = applyAction({ ...base, rng }, { type: 'play', playerId: 'p1', cardId: 'AD' });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      const hand = res.state.hands['p0']!.map(cardId);
+      if (hand.includes('KH')) {
+        // 5H (2ª maior) virou a manilha de Copas; a 7C continua.
+        expect(hand).toEqual(['KH', '7C']);
+        expect(res.state.manilhaMagicUsed['p0']).toBe(true);
+        upgraded++;
+      } else {
+        expect(hand).toEqual(['5H', '7C']);
+        normal++;
+      }
+    }
+    expect(upgraded).toBeGreaterThan(0);
+    expect(normal).toBeGreaterThan(0);
+  });
+
+  it('manilha mágica (Babin) não faz nada se a manilha do naipe não está no baralho', () => {
+    const base = manilhaScenario([{ rank: 'K', suit: 'C' }, { rank: '2', suit: 'S' }]);
+
+    for (let rng = 0; rng < 64; rng++) {
+      const res = applyAction({ ...base, rng }, { type: 'play', playerId: 'p1', cardId: 'AD' });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(res.state.hands['p0']!.map(cardId)).toEqual(['5H', '7C']);
+      expect(res.state.manilhaMagicUsed['p0']).toBeUndefined();
+    }
+  });
+
   it('Carrinho (Sarney) dá um escudo, 1×', () => {
     const s = arcadeGame([{ character: 'sarney', talents: ['escudo'] }, { character: 'colombo', talents: ['escudo'] }]);
     const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'esquentar' });

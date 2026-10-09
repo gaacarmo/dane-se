@@ -1,5 +1,7 @@
 import { randomInt } from '../../rng.js';
+import { type Card, cardId, cardStrength } from './cards.js';
 import {
+  ARCADE_TUNING,
   type ArcadeAbilityId,
   type ArcadeSeatState,
   CHARACTER_KITS,
@@ -277,6 +279,59 @@ export function applyArcadeAbility(state: GameState, action: ArcadeAbilityAction
     default:
       return err('ABILITY_UNAVAILABLE');
   }
+}
+
+/**
+ * Manilha mágica (passiva "Gol Contra", Babin): quando ele perde uma vaza e ainda
+ * precisa vencer, pode (20%, 1× por rodada) virar a 2ª maior carta da mão na
+ * manilha do próprio naipe — só se essa manilha ainda estiver no baralho. Usa o
+ * RNG semeado do motor. Deve rodar logo após a vaza fechar (fase "trickEnd").
+ */
+export function applyManilhaMagic(state: GameState): GameState {
+  if (!state.arcade.enabled) return state;
+  const winnerId = state.trick.result?.winnerId ?? null;
+
+  let hands = state.hands;
+  let deck = state.deck;
+  let rng = state.rng;
+  let used = state.manilhaMagicUsed;
+  let changed = false;
+
+  for (const id of state.roundOrder) {
+    if (id === winnerId) continue; // só quem perdeu a vaza
+    const seat = arcadeSeat(state.arcade, id);
+    if (!seat || CHARACTER_KITS[seat.character].passive.id !== 'encrenca') continue;
+    if (used[id]) continue;
+
+    const bet = state.bets[id] ?? 0;
+    const won = state.tricksWon[id] ?? 0;
+    const remaining = state.cardsPerPlayer - state.completedTricks.length - 1;
+    // Precisa de vaza e ainda pode alcançar a aposta (não é gato).
+    if (bet < 1 || won >= bet || won + remaining < bet) continue;
+
+    const hand = hands[id] ?? [];
+    if (hand.length === 0) continue;
+    const ranked = [...hand].sort((a, b) => cardStrength(b, state.manilhaRank) - cardStrength(a, state.manilhaRank));
+    const target = (hand.length >= 2 ? ranked[1] : ranked[0])!;
+    if (target.rank === state.manilhaRank) continue; // já é manilha
+    const wantedId = cardId({ rank: state.manilhaRank, suit: target.suit });
+    const deckIndex = deck.findIndex((c) => cardId(c) === wantedId);
+    if (deckIndex < 0) continue; // a manilha desse naipe não está disponível
+
+    const roll = randomInt(rng, 100);
+    rng = roll.state;
+    if (roll.value >= Math.round(ARCADE_TUNING.encrencaManilha * 100)) continue;
+
+    const upgraded: Card = { rank: state.manilhaRank, suit: target.suit };
+    hands = { ...hands, [id]: hand.map((c) => (c === target ? upgraded : c)) };
+    deck = deck.filter((_, i) => i !== deckIndex);
+    deck.push(target);
+    used = { ...used, [id]: true };
+    changed = true;
+  }
+
+  if (!changed) return rng === state.rng ? state : { ...state, rng };
+  return { ...state, hands, deck, rng, manilhaMagicUsed: used };
 }
 
 /** Cartas de oponentes reveladas ao viewer (só ele recebe). */

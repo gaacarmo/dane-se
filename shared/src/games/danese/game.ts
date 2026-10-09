@@ -12,7 +12,7 @@ import {
   eliminationThreshold,
   spendRevive,
 } from '../../arcade/index.js';
-import { applyArcadeAbility } from './arcade.js';
+import { applyArcadeAbility, applyManilhaMagic } from './arcade.js';
 import {
   type CardDirection,
   type GameSettings,
@@ -83,6 +83,8 @@ export interface GameState {
   arcadePrivate: Record<string, ArcadeReveal[]>;
   /** Letras concedidas por acusações (Pênalti), aplicadas no fim da rodada. */
   pendingLetters: Record<string, number>;
+  /** Babin já usou a "manilha mágica" nesta rodada (1× por rodada). */
+  manilhaMagicUsed: Record<string, boolean>;
   /** Alive players for this round, starting right of the Pé and ending with the Pé. */
   roundOrder: string[];
   bets: Record<string, number>;
@@ -147,6 +149,7 @@ export function createGame(
     deck: [],
     arcadePrivate: {},
     pendingLetters: {},
+    manilhaMagicUsed: {},
     roundOrder: [],
     bets: {},
     tricksWon: {},
@@ -216,6 +219,7 @@ function dealRound(state: GameState): GameState {
     deck,
     arcadePrivate,
     pendingLetters: {},
+    manilhaMagicUsed: {},
     roundOrder: order,
     bets: {},
     tricksWon: Object.fromEntries(order.map((p) => [p, 0])),
@@ -313,10 +317,15 @@ function playCard(state: GameState, playerId: string, id: string): ActionResult 
   const tricksWon = result.winnerId
     ? { ...state.tricksWon, [result.winnerId]: (state.tricksWon[result.winnerId] ?? 0) + 1 }
     : state.tricksWon;
-  return {
-    ok: true,
-    state: { ...state, hands, tricksWon, phase: 'trickEnd', trick: { ...state.trick, plays, result }, turnPlayerId: null },
+  const finished: GameState = {
+    ...state,
+    hands,
+    tricksWon,
+    phase: 'trickEnd',
+    trick: { ...state.trick, plays, result },
+    turnPlayerId: null,
   };
+  return { ok: true, state: applyManilhaMagic(finished) };
 }
 
 function collectTrick(state: GameState): ActionResult {

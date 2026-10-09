@@ -113,8 +113,9 @@ export const CHARACTER_KITS: Record<CharacterId, CharacterKit> = {
     passive: {
       id: 'encrenca',
       name: 'Gol Contra',
-      blurb: 'Mexeu com ele, se deu mal.',
-      danese: 'Habilidades miradas nele têm 20% de voltar no autor.',
+      blurb: 'Mexeu com ele, se deu mal — e ele ainda acha um jeito.',
+      danese:
+        'Habilidades miradas nele têm 20% de voltar no autor. Se perder uma vaza precisando vencer, a 2ª maior carta vira manilha (20%, 1× por rodada).',
       poker: 'Habilidades miradas nele têm 20% de voltar no autor.',
     },
     special: {

@@ -54,7 +54,9 @@ Cada jogador entra com:
 
 ### Babin Tom Sahur (Babington) — atrapalha e se atrapalha
 - **Passiva "Gol Contra":** habilidades miradas nele têm **20%** de voltar no autor
-  (a espiada/troca/acusação se perde em quem tentou).
+  (a espiada/troca/acusação se perde em quem tentou). Perdendo uma vaza precisando
+  vencer, a **2ª maior carta** da mão dele pode virar a **manilha do próprio naipe**
+  (**20%**, 1× por rodada; só se essa manilha ainda estiver no baralho).
 - **Especial "Invasão de Campo":** Dane-se → zera as apostas (todos re-apostam a
   mesma mão);
   Poker → **bomb pot** (todos entram com um ante e a mão começa gorda — pode
