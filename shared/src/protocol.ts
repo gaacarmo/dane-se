@@ -70,6 +70,11 @@ export interface RoomViewBase {
   arcade: boolean;
   /** The viewer's own common talents (private: opponents never receive them). */
   yourTalents: CommonTalentId[];
+  /**
+   * Arcade: epoch ms when the talent-pick window closes (stragglers get auto-picked),
+   * or null when not counting down.
+   */
+  talentDeadline: number | null;
   /** In seat order (= play order). */
   members: RoomMember[];
   money: RoomMoney;

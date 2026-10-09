@@ -89,6 +89,35 @@ Cada jogador entra com:
 3. **Substituição** — Dane-se: 1× troca/refaz uma carta sua; Poker: 1× troca as 2 hole
    cards antes do flop.
 
+## Identidade visual
+
+Cada personagem tem uma **cor de destaque** (só estética, sem arte nova):
+
+| Personagem | Cor |
+| --- | --- |
+| Carmelo | branca |
+| Martelo | preta |
+| Colombo | marrom |
+| Dezin | verde |
+| Babin | azul |
+| Sarney | vermelha |
+
+A cor pinta o **card do kit** no lobby (borda e retrato), o anel do **especial** na
+barra de habilidades e a **aura** de especial carregado (2D e 3D). Os talentos comuns
+são iguais para todos, então usam cores fixas próprias.
+
+## Onboarding e janela de escolha
+
+- No começo de **toda partida arcade** abre um modal "**Seu kit**" com a passiva, o
+  especial e os talentos **do próprio viewer** (retrato, nome e efeito). Só o kit de
+  quem está vendo — nunca a mesa inteira.
+- O modal tem a opção "**não mostrar de novo**" (preferência local do aparelho). Mesmo
+  escondido, dá pra reabrir em **Menu → 🎴 Seu kit**.
+- A escolha de talentos no lobby tem **janela de 40s**, decidida **no servidor**
+  (`talentPickMs`): o servidor expõe o prazo (`talentDeadline`) e, quando ele vence,
+  **preenche sozinho** com os primeiros talentos que o personagem permite. A partida
+  **não** começa sozinha — o anfitrião ainda aperta "Começar".
+
 ## Arquitetura (server-authoritative, motores puros)
 
 - O **modo é um flag de sala** (`arcade`) + um **loadout por membro**
@@ -101,6 +130,9 @@ Cada jogador entra com:
 - **No lobby**, cada jogador escolhe os talentos do seu personagem; o servidor
   valida contra o personagem (1, ou 2 para o Carmelo) e publica só **"kit pronto"**
   por membro — nunca a escolha.
+- **Janela de 40s (sala):** o prazo pra escolher é um timer da camada de sala
+  (`rooms.ts`), nunca do motor. Ao vencer, ela preenche quem faltou e zera
+  `talentDeadline` no `RoomView`. O motor continua sem I/O e sem timers.
 - Helpers puros em `shared/src/arcade/` (tipos, catálogo, tuning, estado).
 - O RNG dos efeitos aleatórios (ex.: backfire do Babin) usa o RNG semeado do
   motor — nunca `Math.random`.
@@ -131,6 +163,10 @@ Cada jogador entra com:
    escolhem kits e disparam as habilidades (especial + talentos); o `auditView`
    passa a garantir que kit privado, espionagens e avisos da VAR nunca vazam para
    o jogador errado.
+7. ✅ **Identidade e onboarding:** cor de destaque por personagem (card do kit,
+   barra de habilidades e aura carregada, 2D e 3D); modal "Seu kit" no começo de
+   cada partida (com "não mostrar de novo" e reabertura no menu); janela de 40s no
+   servidor pra escolha de talentos, com preenchimento automático dos que faltarem.
 
 ## Números em aberto (balancear depois)
 

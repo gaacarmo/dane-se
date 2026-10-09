@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   GAME_CATALOG,
   type CommonTalentId,
@@ -19,7 +19,7 @@ import {
   wordLetters,
 } from '@dane-se/shared';
 import { avatarColor, initial } from '../lib/avatar';
-import { CHARACTER_NAMES, portraitUrl } from '../lib/characters';
+import { CHARACTER_NAMES, CHARACTER_COLORS, portraitUrl } from '../lib/characters';
 import { actions, notify, roomLink } from '../lib/store';
 import { CardFan } from './cards/CardFan';
 import { ChatPanel } from './ChatPanel';
@@ -425,8 +425,9 @@ function CharacterPicker({ room }: { room: RoomView }) {
             onClick={() => actions.setCharacter(id)}
             aria-pressed={mine === id}
             className={`overflow-hidden rounded-2xl bg-black/25 pb-1 text-center text-sm transition ${
-              mine === id ? 'ring-2 ring-gold-300' : 'ring-1 ring-white/10 hover:ring-white/30'
+              mine === id ? '' : 'ring-1 ring-white/10 hover:ring-white/30'
             }`}
+            style={mine === id ? { boxShadow: `0 0 0 2px ${CHARACTER_COLORS[id]}` } : undefined}
           >
             <img src={portraitUrl(id)} alt="" className="aspect-square w-full bg-stone-100 object-cover object-top" />
             {CHARACTER_NAMES[id]}
@@ -443,6 +444,18 @@ const TALENT_ICONS: Record<CommonTalentId, string> = {
   curinga: '🃏',
 };
 
+/** Ticks locally while a server deadline is in the future (0 when none is set). */
+function useCountdown(deadline: number | null): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (deadline === null) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [deadline]);
+  return deadline === null ? 0 : Math.max(0, deadline - now);
+}
+
 /**
  * Arcade mode lives above the games: the host switches it on for the room, then
  * each player picks their common talents (the kit itself is fixed per character).
@@ -456,6 +469,7 @@ function ArcadeSection({ room, isHost }: { room: RoomView; isHost: boolean }) {
   const ready = pick.length === need;
   const kit = character ? CHARACTER_KITS[character] : null;
   const gameKey = room.gameType === 'poker' ? 'poker' : 'danese';
+  const seconds = Math.ceil(useCountdown(room.talentDeadline) / 1000);
 
   function toggle(id: CommonTalentId) {
     const next = pick.includes(id) ? pick.filter((t) => t !== id) : [...pick, id].slice(-need);
@@ -466,29 +480,41 @@ function ArcadeSection({ room, isHost }: { room: RoomView; isHost: boolean }) {
     <section className="hub-panel space-y-3 p-4">
       <header className="flex items-center justify-between gap-2">
         <h2 className="text-[11px] font-semibold tracking-[0.16em] text-stone-400 uppercase">Modo arcade</h2>
-        {isHost ? (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={room.arcade}
-            onClick={() => void actions.setArcade(!room.arcade)}
-            className={`min-h-9 rounded-full px-3 text-sm font-semibold ring-1 transition ${
-              room.arcade
-                ? 'bg-fuchsia-500/25 text-fuchsia-200 ring-fuchsia-400/40'
-                : 'bg-black/30 text-stone-300 ring-white/10'
-            }`}
-          >
-            {room.arcade ? '⚡ ligado' : 'desligado'}
-          </button>
-        ) : (
-          <span
-            className={`rounded-full px-3 py-1 text-sm font-semibold ${
-              room.arcade ? 'bg-fuchsia-500/20 text-fuchsia-300' : 'bg-black/30 text-stone-400'
-            }`}
-          >
-            {room.arcade ? '⚡ ligado' : 'desligado'}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {room.arcade && room.talentDeadline !== null && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${
+                seconds <= 10 ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-stone-300'
+              }`}
+              title="Tempo pra escolher os talentos"
+            >
+              ⏳ {seconds}s
+            </span>
+          )}
+          {isHost ? (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={room.arcade}
+              onClick={() => void actions.setArcade(!room.arcade)}
+              className={`min-h-9 rounded-full px-3 text-sm font-semibold ring-1 transition ${
+                room.arcade
+                  ? 'bg-fuchsia-500/25 text-fuchsia-200 ring-fuchsia-400/40'
+                  : 'bg-black/30 text-stone-300 ring-white/10'
+              }`}
+            >
+              {room.arcade ? '⚡ ligado' : 'desligado'}
+            </button>
+          ) : (
+            <span
+              className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                room.arcade ? 'bg-fuchsia-500/20 text-fuchsia-300' : 'bg-black/30 text-stone-400'
+              }`}
+            >
+              {room.arcade ? '⚡ ligado' : 'desligado'}
+            </span>
+          )}
+        </div>
       </header>
 
       {!room.arcade && (
@@ -500,11 +526,15 @@ function ArcadeSection({ room, isHost }: { room: RoomView; isHost: boolean }) {
 
       {room.arcade && kit && (
         <>
-          <div className="flex items-start gap-3 rounded-2xl bg-black/25 p-3 ring-1 ring-white/5">
+          <div
+            className="flex items-start gap-3 rounded-2xl bg-black/25 p-3 ring-1 ring-white/5"
+            style={{ borderLeft: `3px solid ${CHARACTER_COLORS[kit.character]}` }}
+          >
             <img
               src={portraitUrl(kit.character)}
               alt=""
-              className="size-12 shrink-0 rounded-xl bg-stone-100 object-cover object-top ring-1 ring-white/10"
+              className="size-12 shrink-0 rounded-xl bg-stone-100 object-cover object-top"
+              style={{ boxShadow: `0 0 0 2px ${CHARACTER_COLORS[kit.character]}` }}
             />
             <div className="min-w-0 text-sm">
               <p className="font-bold text-white">{CHARACTER_NAMES[kit.character]}</p>
@@ -555,6 +585,11 @@ function ArcadeSection({ room, isHost }: { room: RoomView; isHost: boolean }) {
                     need - pick.length === 1 ? '' : 's'
                   }.`}
             </p>
+            {room.talentDeadline !== null && !ready && (
+              <p className="mt-1 text-[11px] text-stone-400">
+                Se o tempo acabar, o servidor preenche os talentos que faltarem.
+              </p>
+            )}
           </div>
         </>
       )}

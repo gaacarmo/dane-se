@@ -10,6 +10,8 @@ export interface Prefs {
   theme: TableTheme;
   /** Realistic mode: the table seen from your seat in 3D. Off: the simplified top-down table. */
   view3d: boolean;
+  /** Don't auto-open the arcade "your kit" onboarding at the start of a match. */
+  arcadeIntroHidden: boolean;
 }
 
 const KEY = 'dane-se:prefs';
@@ -24,7 +26,7 @@ export function recommendedView3d(): boolean {
   }
 }
 
-const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: recommendedView3d() };
+const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: recommendedView3d(), arcadeIntroHidden: false };
 
 function load(): Prefs {
   try {

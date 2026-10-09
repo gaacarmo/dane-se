@@ -24,10 +24,11 @@ import { GameOver, RoundSummary, WaitingBanner } from './Overlays';
 import { ReactionBubbles, ReactionPicker } from './Reactions';
 import { Seat } from './Seat';
 import { TableMenu } from './TableMenu';
+import { ArcadeOnboarding } from './ArcadeOnboarding';
 import { TrickArea, TrickResultLabel } from './TrickArea';
 import { Table3DBoundary } from '../table3d/Table3DBoundary';
 import { Table3DView } from '../table3d/Table3DView';
-import { usePrefs } from '../../lib/prefs';
+import { setPref, usePrefs } from '../../lib/prefs';
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
@@ -68,8 +69,17 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
   useGameEffects(room);
   const compact = useMediaQuery('(orientation: landscape) and (max-height: 500px)');
   const seatScale = compact ? 0.8 : 1;
-  const { view3d: wantsView3d } = usePrefs();
+  const { view3d: wantsView3d, arcadeIntroHidden } = usePrefs();
   const view3d = wantsView3d;
+  // The arcade "your kit" briefing auto-opens once per match, unless the player opted out.
+  const [showKit, setShowKit] = useState(
+    () => game.arcade.enabled && game.arcade.loadout !== null && !arcadeIntroHidden,
+  );
+
+  function closeKit(hideForever: boolean): void {
+    if (hideForever) setPref('arcadeIntroHidden', true);
+    setShowKit(false);
+  }
 
   const geometry = tableGeometry(size, compact);
   const n = game.players.length;
@@ -142,7 +152,9 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
         onClose={() => setMenuOpen(false)}
         onHelp={onHelp}
         onLeave={() => setConfirmLeave(true)}
+        onShowKit={game.arcade.enabled && game.arcade.loadout ? () => setShowKit(true) : undefined}
       />
+      <ArcadeOnboarding open={showKit} game={game} onClose={closeKit} />
 
       <div ref={tableRef} className="relative min-h-0 flex-1">
         {view3d && (

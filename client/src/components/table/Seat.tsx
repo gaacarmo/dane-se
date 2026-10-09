@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { PublicPlayer, RoomMember } from '@dane-se/shared';
 import { avatarColor, initial } from '../../lib/avatar';
+import { CHARACTER_COLORS, withAlpha } from '../../lib/characters';
 import { CardBack, PlayingCard } from '../cards/PlayingCard';
 import type { Point } from './geometry';
 import { Letters } from './Letters';
@@ -48,6 +49,8 @@ export function Seat({
   const out = player.eliminated;
   const showFan = !blindRound && !isYou && !out && player.cardCount > 0;
   const showForehead = blindRound && !out && player.cardCount > 0;
+  /** The charged special glows in the character's own color. */
+  const accent = member ? CHARACTER_COLORS[member.character] : '#d946ef';
 
   return (
     <motion.div
@@ -86,8 +89,8 @@ export function Seat({
         {/* Arcade: a charged 1× special glows around the avatar (public info). */}
         {player.specialCharged && !out && (
           <motion.span
-            className="absolute -inset-1 rounded-full ring-2 ring-fuchsia-400/80"
-            style={{ boxShadow: '0 0 12px 2px rgb(217 70 239 / 0.5)' }}
+            className="absolute -inset-1 rounded-full border-2"
+            style={{ borderColor: accent, boxShadow: `0 0 12px 2px ${withAlpha(accent, 0.5)}` }}
             animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.06, 1] }}
             transition={{ repeat: Infinity, duration: 2 }}
             title="Especial carregado"

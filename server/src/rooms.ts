@@ -65,6 +65,8 @@ export interface Timings {
   betweenHandsMs: number;
   /** How long a player has to act before auto check/fold (poker). */
   turnTimeoutMs: number;
+  /** Arcade lobby: how long players have to pick their common talents before auto-pick. */
+  talentPickMs: number;
 }
 
 export const DEFAULT_TIMINGS: Timings = {
@@ -78,6 +80,7 @@ export const DEFAULT_TIMINGS: Timings = {
   sweepIntervalMs: 60_000,
   betweenHandsMs: 30_000,
   turnTimeoutMs: POKER_TURN_TIMEOUT_MS,
+  talentPickMs: 40_000,
 };
 
 /** A seated player who times out this many turns in a row is sat out (bot plays). */
@@ -143,6 +146,9 @@ interface Room {
   gameTimer: NodeJS.Timeout | null;
   hostTimer: NodeJS.Timeout | null;
   emptyTimer: NodeJS.Timeout | null;
+  /** Arcade lobby: when the current talent-pick window closes (epoch ms), or null. */
+  talentDeadline: number | null;
+  talentTimer: NodeJS.Timeout | null;
   lastActivity: number;
   /** Sum of entries currently held by the room. */
   paidTotal: number;
@@ -348,12 +354,15 @@ export class RoomManager {
       gameTimer: null,
       hostTimer: null,
       emptyTimer: null,
+      talentDeadline: null,
+      talentTimer: null,
       lastActivity: Date.now(),
       paidTotal: 0,
       settled: false,
       results: null,
     };
     this.rooms.set(room.code, room);
+    this.refreshTalentTimer(room);
     this.attach(room, member, socket);
     return { ok: true, ...session(room, member) };
   }
@@ -382,6 +391,7 @@ export class RoomManager {
 
     const member = newMember(profile, room.members.map((m) => m.character));
     room.members.push(member);
+    this.refreshTalentTimer(room);
     this.attach(room, member, socket);
     return { ok: true, ...session(room, member) };
   }
@@ -425,6 +435,7 @@ export class RoomManager {
       return OK;
     }
     if (room.hostId === member.id) this.transferHost(room);
+    this.refreshTalentTimer(room);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -474,6 +485,7 @@ export class RoomManager {
     member.character = character;
     // A new character may allow a different number of talents: make them re-pick.
     if (room.arcade) member.talents = [];
+    this.refreshTalentTimer(room);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -492,6 +504,7 @@ export class RoomManager {
     } else {
       for (const m of room.members) if (m.isBot) m.talents = autoTalents(m.character);
     }
+    this.refreshTalentTimer(room);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -509,6 +522,7 @@ export class RoomManager {
     const talents = raw.filter((t): t is CommonTalentId => typeof t === 'string');
     if (talents.length !== raw.length || !isValidTalentSet(member.character, talents)) return fail('INVALID_TALENTS');
     member.talents = talents;
+    this.refreshTalentTimer(room);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -532,6 +546,7 @@ export class RoomManager {
     const bot = { ...newMember({ id: '', token: '', nickname: name, createdAt: 0 }), autoPlay: true, isBot: true };
     if (room.arcade) bot.talents = autoTalents(bot.character);
     room.members.push(bot);
+    this.refreshTalentTimer(room);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -589,6 +604,7 @@ export class RoomManager {
       m.timeouts = 0;
       m.autoPlay = m.isBot;
     }
+    this.clearTalentTimer(room);
     this.afterGameChange(room);
     return OK;
   }
@@ -622,6 +638,7 @@ export class RoomManager {
       }
     }
     if (!room.members.some((m) => m.id === room.hostId)) this.transferHost(room);
+    this.refreshTalentTimer(room);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -1043,6 +1060,7 @@ export class RoomManager {
       socket.emit('room:kicked');
     }
     if (room.hostId === member.id) this.transferHost(room);
+    this.refreshTalentTimer(room);
   }
 
   private transferHost(room: Room): void {
@@ -1110,6 +1128,7 @@ export class RoomManager {
       status: room.status,
       arcade: room.arcade,
       yourTalents: viewer ? [...viewer.talents] : [],
+      talentDeadline: room.talentDeadline,
       members: room.members.map((m) => ({
         id: m.id,
         name: m.name,
@@ -1145,8 +1164,52 @@ export class RoomManager {
   }
 
   private clearTimers(room: Room): void {
-    for (const timer of [room.gameTimer, room.hostTimer, room.emptyTimer]) if (timer) clearTimeout(timer);
-    room.gameTimer = room.hostTimer = room.emptyTimer = null;
+    for (const timer of [room.gameTimer, room.hostTimer, room.emptyTimer, room.talentTimer]) if (timer) clearTimeout(timer);
+    room.gameTimer = room.hostTimer = room.emptyTimer = room.talentTimer = null;
+    room.talentDeadline = null;
+  }
+
+  private clearTalentTimer(room: Room): void {
+    if (room.talentTimer) clearTimeout(room.talentTimer);
+    room.talentTimer = null;
+    room.talentDeadline = null;
+  }
+
+  /**
+   * Keeps the arcade talent-pick window honest: arms a single 40s countdown while
+   * someone still hasn't picked, and disarms it once everyone's ready (or the game
+   * starts). Picks made mid-window don't extend it.
+   */
+  private refreshTalentTimer(room: Room): void {
+    const waiting =
+      room.arcade &&
+      room.status === 'lobby' &&
+      room.members.some((m) => parseLoadout(m.character, m.talents) === null);
+    if (!waiting) {
+      this.clearTalentTimer(room);
+      return;
+    }
+    if (room.talentTimer) return; // already counting down
+    room.talentDeadline = Date.now() + this.timings.talentPickMs;
+    room.talentTimer = setTimeout(() => this.expireTalents(room), this.timings.talentPickMs);
+    room.talentTimer.unref();
+  }
+
+  /** The window closed: stragglers get the first talents their character allows. */
+  private expireTalents(room: Room): void {
+    room.talentTimer = null;
+    room.talentDeadline = null;
+    if (!room.arcade || room.status !== 'lobby') return;
+    let changed = false;
+    for (const m of room.members) {
+      if (parseLoadout(m.character, m.talents) === null) {
+        m.talents = autoTalents(m.character);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    this.touch(room);
+    this.broadcast(room);
   }
 
   private closeRoom(room: Room, reason: RoomClosedReason): void {

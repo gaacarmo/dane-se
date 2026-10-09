@@ -7,11 +7,14 @@ import {
   type PublicPlayer,
   type SpecialId,
 } from '@dane-se/shared';
+import { CHARACTER_COLORS } from '../../lib/characters';
 
 export interface ArcadeAbilityUi {
   id: ArcadeAbilityId;
   name: string;
   icon: string;
+  /** Accent color: the character's color for the special, a fixed one for talents. */
+  color: string;
   blurb: string;
   /** The player must point at an opponent (can be done on the seat itself). */
   needsTarget: boolean;
@@ -20,7 +23,7 @@ export interface ArcadeAbilityUi {
 }
 
 /** Icon + targeting shape of each 1× special. */
-const SPECIAL_UI: Record<SpecialId, { icon: string; target: boolean; bet: boolean }> = {
+export const SPECIAL_UI: Record<SpecialId, { icon: string; target: boolean; bet: boolean }> = {
   nuossa: { icon: '😎', target: false, bet: true },
   safadeza: { icon: '🃏', target: true, bet: false },
   bomba: { icon: '💣', target: false, bet: false },
@@ -29,10 +32,17 @@ const SPECIAL_UI: Record<SpecialId, { icon: string; target: boolean; bet: boolea
   pegaGato: { icon: '🐱', target: true, bet: false },
 };
 
-const TALENT_ICON: Record<CommonTalentId, string> = {
+export const TALENT_ICON: Record<CommonTalentId, string> = {
   escudo: '🛡️',
   radar: '📡',
   curinga: '🃏',
+};
+
+/** Talents are shared, so they carry their own color instead of a character's. */
+export const TALENT_COLOR: Record<CommonTalentId, string> = {
+  escudo: '#38bdf8',
+  radar: '#34d399',
+  curinga: '#fbbf24',
 };
 
 /**
@@ -54,6 +64,7 @@ export function arcadeSlots(game: PlayerView): ArcadeAbilityUi[] {
       id: special.id,
       name: special.name,
       icon: ui.icon,
+      color: CHARACTER_COLORS[arcade.loadout.character],
       blurb: special.danese,
       needsTarget: ui.target,
       needsBet: ui.bet,
@@ -67,6 +78,7 @@ export function arcadeSlots(game: PlayerView): ArcadeAbilityUi[] {
         id: talent,
         name: def.name,
         icon: TALENT_ICON[talent],
+        color: TALENT_COLOR[talent],
         blurb: def.danese,
         needsTarget: talent === 'radar',
         needsBet: false,

@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import type { ArcadeAbilityId, PlayerView } from '@dane-se/shared';
+import { withAlpha } from '../../lib/characters';
 import { PlayingCard } from '../cards/PlayingCard';
 import type { ArcadeAbilityUi } from './arcadeUi';
 
@@ -102,9 +103,14 @@ export function ArcadeBar({
             onClick={() => onSelect(ability)}
             title={`${ability.name} — ${ability.blurb} (tecla ${i + 1})`}
             aria-label={`${ability.name}: ${ability.blurb}`}
-            className={`relative grid size-10 place-items-center rounded-xl bg-black/70 text-xl shadow-lg ring-1 backdrop-blur transition active:scale-90 ${
-              pending === ability.id ? 'ring-2 ring-fuchsia-300' : 'ring-fuchsia-400/50 hover:ring-fuchsia-300'
-            }`}
+            className="relative grid size-10 place-items-center rounded-xl border-2 bg-black/70 text-xl shadow-lg backdrop-blur transition active:scale-90"
+            style={{
+              borderColor: ability.color,
+              boxShadow:
+                pending === ability.id
+                  ? `0 0 0 2px ${withAlpha(ability.color, 0.75)}, 0 0 14px 3px ${withAlpha(ability.color, 0.55)}`
+                  : `0 0 9px 1px ${withAlpha(ability.color, 0.4)}`,
+            }}
           >
             <span aria-hidden>{ability.icon}</span>
             <kbd className="absolute -top-1 -left-1 grid size-4 place-items-center rounded bg-fuchsia-500/80 text-[9px] font-bold text-white">
@@ -114,7 +120,10 @@ export function ArcadeBar({
         ))}
 
         {pendingDef?.needsTarget && (
-          <span className="ml-1 flex items-center gap-1.5 rounded-lg bg-black/70 px-2 py-1 text-[11px] font-semibold text-stone-100 ring-1 ring-fuchsia-400/40">
+          <span
+            className="ml-1 flex items-center gap-1.5 rounded-lg border-2 bg-black/70 px-2 py-1 text-[11px] font-semibold text-stone-100"
+            style={{ borderColor: withAlpha(pendingDef.color, 0.6) }}
+          >
             🎯 {pendingDef.name}: toque no jogador
             <button
               type="button"

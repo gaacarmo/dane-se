@@ -143,3 +143,36 @@ describe('arcade lobby', () => {
     await host.waitFor((v) => v.arcade === true && v.members.every((m) => !m.talentsReady));
   });
 });
+
+describe('arcade talent window', () => {
+  it('opens a deadline and auto-fills stragglers when it closes', async () => {
+    const app = createApp({ timings: { talentPickMs: 400 }, clientDist: '/nonexistent' });
+    const localUrl = `http://localhost:${await app.listen(0)}`;
+    const host = new BotClient(localUrl, 'Ana');
+    const guest = new BotClient(localUrl, 'Bia');
+    try {
+      const { code } = await host.create({ arcade: true });
+      // The window opens the moment arcade is switched on.
+      expect(host.view!.talentDeadline).not.toBeNull();
+
+      expect((await guest.join(code)).ok).toBe(true);
+      await host.waitFor((v) => v.members.length === 2);
+      await host.setCharacter('martelo');
+      await guest.setCharacter('carmelo');
+      await host.waitFor((v) => v.members.every((m) => !m.talentsReady));
+
+      // Nobody picks: on expiry the server fills the first talents each kit allows.
+      const settled = (v: RoomView) => v.talentDeadline === null && v.members.every((m) => m.talentsReady);
+      const [hostFilled, guestFilled] = await Promise.all([
+        host.waitFor(settled, 4000),
+        guest.waitFor(settled, 4000),
+      ]);
+      expect(hostFilled.yourTalents).toEqual(['escudo']); // Martelo: 1 talent
+      expect(guestFilled.yourTalents).toEqual(['escudo', 'radar']); // Carmelo: 2
+    } finally {
+      host.close();
+      guest.close();
+      await app.close();
+    }
+  });
+});

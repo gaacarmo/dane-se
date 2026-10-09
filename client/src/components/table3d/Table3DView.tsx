@@ -13,6 +13,7 @@ import {
 } from '@dane-se/shared';
 import { sfx } from '../../lib/sound';
 import { useClient } from '../../lib/store';
+import { CHARACTER_COLORS, withAlpha } from '../../lib/characters';
 import { Letters } from '../table/Letters';
 import { CARD_H, CARD_W, Card3D } from './Card3D';
 import { WatchSwitcher, useWatchedSeat } from './WatchSwitcher';
@@ -341,7 +342,7 @@ function Pile({ game }: { game: PlayerView }) {
  * inside the seat's billboard group, so it always faces the camera. Public
  * info — everyone sees whose special is still loaded.
  */
-function SpecialAura() {
+function SpecialAura({ color }: { color: string }) {
   const ref = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
     const m = ref.current;
@@ -354,7 +355,7 @@ function SpecialAura() {
     <mesh ref={ref} position={[0, 0.24, 0.02]}>
       <ringGeometry args={[0.31, 0.37, 48]} />
       <meshBasicMaterial
-        color="#e879f9"
+        color={color}
         transparent
         opacity={0.6}
         blending={THREE.AdditiveBlending}
@@ -367,7 +368,7 @@ function SpecialAura() {
 }
 
 /** Arcade: a short energy shock at the seat when that player's special fires. */
-function SpecialBurst3D({ burst }: { burst: number }) {
+function SpecialBurst3D({ burst, color }: { burst: number; color: string }) {
   return (
     <Html
       center
@@ -378,8 +379,8 @@ function SpecialBurst3D({ burst }: { burst: number }) {
     >
       <div key={burst} className="relative grid place-items-center">
         <motion.span
-          className="block rounded-full border-2 border-fuchsia-300"
-          style={{ width: 96, height: 96, boxShadow: '0 0 20px 5px rgb(217 70 239 / 0.6)' }}
+          className="block rounded-full border-2"
+          style={{ width: 96, height: 96, borderColor: color, boxShadow: `0 0 20px 5px ${withAlpha(color, 0.6)}` }}
           initial={{ opacity: 0.95, scale: 0.4 }}
           animate={{ opacity: 0, scale: 2.1 }}
           transition={{ duration: 1.1, ease: 'easeOut' }}
@@ -442,9 +443,11 @@ export function Table3DView({
       overhead: (
         <>
           <Reactions3D playerId={p.id} position={[0, 0.5, 0.05]} />
-          {p.specialCharged && !p.eliminated && <SpecialAura />}
+          {p.specialCharged && !p.eliminated && <SpecialAura color={CHARACTER_COLORS[member?.character ?? 'carmelo']} />}
           <NameTag player={p} member={member} isYou={p.id === room.youId} isTurn={p.id === turnId} word={word} />
-          {specialBursts?.get(p.id) !== undefined && <SpecialBurst3D burst={specialBursts.get(p.id)!} />}
+          {specialBursts?.get(p.id) !== undefined && (
+            <SpecialBurst3D burst={specialBursts.get(p.id)!} color={CHARACTER_COLORS[member?.character ?? 'carmelo']} />
+          )}
           {arcade?.targetable.has(p.id) && (
             <Html center position={[0, 0.16, 0.06]} distanceFactor={2} zIndexRange={[45, 30]}>
               <button
