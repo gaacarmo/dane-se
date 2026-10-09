@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { DaneseRoomView } from '@dane-se/shared';
+import type { DaneseRoomView, PokerRoomView } from '@dane-se/shared';
 import { haptic, sfx } from './sound';
 
 /**
@@ -96,6 +96,77 @@ export function useGameEffects(room: DaneseRoomView): void {
       }
     };
     // The lock is dropped whenever the tab is hidden; take it again on return.
+    const onVisible = () => document.visibilityState === 'visible' && void request();
+    void request();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      void lock?.release();
+    };
+  }, [playing]);
+}
+
+/**
+ * Poker counterpart of `useGameEffects`: deal/board/turn sounds, the win/lose
+ * sting, a buzz when it's your turn, and keeping the screen awake. The server
+ * clock stays authoritative; this is purely cosmetic.
+ */
+export function usePokerEffects(room: PokerRoomView): void {
+  const game = room.game;
+  const myTurn = !!game && game.handPhase === 'betting' && game.actorId === room.youId;
+  const prev = useRef<PokerRoomView | null>(null);
+
+  useEffect(() => {
+    const before = prev.current?.game;
+    prev.current = room;
+    if (!game || !before) return;
+
+    // A new hand was dealt.
+    if (game.handNumber !== before.handNumber && game.handPhase === 'betting') {
+      const dealt = game.seats.filter((s) => !s.folded && (s.chips > 0 || s.bet > 0)).length;
+      sfx.deal(Math.min(dealt * 2, 14));
+    }
+
+    // The board grew (flop/turn/river).
+    const revealedNow = game.community.length - before.community.length;
+    if (revealedNow > 0) sfx.deal(revealedNow, 0.12);
+
+    // A bet or raise landed.
+    if (game.currentBet > before.currentBet) sfx.play();
+
+    // Hand settled: a little fanfare when the chips are yours.
+    if (game.phase === 'summary' && before.phase !== 'summary' && game.lastHand) {
+      if (game.lastHand.winners.some((w) => w.playerId === room.youId)) sfx.trickWon();
+    }
+
+    // Session over.
+    if (game.status === 'finished' && before.status !== 'finished') {
+      if (game.winnerId === room.youId) sfx.win();
+      else sfx.lose();
+    }
+  }, [room, game]);
+
+  useEffect(() => {
+    if (!myTurn) return;
+    sfx.turn();
+    haptic(40);
+  }, [myTurn]);
+
+  // Keep the screen on while the game is running.
+  const playing = room.status === 'playing';
+  useEffect(() => {
+    if (!playing || !('wakeLock' in navigator)) return;
+    let lock: WakeLockSentinel | null = null;
+    let cancelled = false;
+    const request = async () => {
+      try {
+        lock = await navigator.wakeLock.request('screen');
+        if (cancelled) void lock.release();
+      } catch {
+        // Denied (e.g. battery saver): not a problem.
+      }
+    };
     const onVisible = () => document.visibilityState === 'visible' && void request();
     void request();
     document.addEventListener('visibilitychange', onVisible);

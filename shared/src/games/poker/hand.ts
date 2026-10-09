@@ -15,6 +15,19 @@ export const CATEGORIES = [
 
 export type HandCategory = (typeof CATEGORIES)[number];
 
+/** pt-BR labels for the client ("Par", "Sequência"…). UI text lives in the shared layer. */
+export const HAND_CATEGORY_NAMES_PT: Record<HandCategory, string> = {
+  high: 'Carta alta',
+  pair: 'Par',
+  twoPair: 'Dois pares',
+  trips: 'Trinca',
+  straight: 'Sequência',
+  flush: 'Flush',
+  fullHouse: 'Full house',
+  quads: 'Quadra',
+  straightFlush: 'Straight flush',
+};
+
 /** A hand's value: category + tie-break ranks (descending). */
 export interface HandValue {
   category: HandCategory;

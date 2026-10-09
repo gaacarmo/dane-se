@@ -196,10 +196,14 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
               Criar sala de {chooser.name}
             </h2>
             <p className="text-sm text-stone-400">
-              Você escolhe a entrada; todo mundo paga a mesma para entrar no pote.
+              {chooser.id === 'poker'
+                ? 'Você define a banca inicial; as apostas cegas saem dela. No lobby dá pra ajustar a banca mínima.'
+                : 'Você escolhe a entrada; todo mundo paga a mesma para entrar no pote.'}
             </p>
             <label className="block">
-              <span className="mb-1 block text-sm text-stone-400">Entrada</span>
+              <span className="mb-1 block text-sm text-stone-400">
+                {chooser.id === 'poker' ? 'Banca inicial (buy-in)' : 'Entrada'}
+              </span>
               <div className="grid grid-cols-4 gap-1.5">
                 {chooser.entryOptions.map((v) => (
                   <button

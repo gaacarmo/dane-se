@@ -23,6 +23,7 @@ import {
   CHAT_HISTORY,
   MAX_CHAT_LENGTH,
   MAX_NAME_LENGTH,
+  POKER_TURN_TIMEOUT_MS,
   REACTIONS,
   REACTION_COOLDOWN_MS,
   ROOM_CODE_LENGTH,
@@ -67,7 +68,7 @@ export const DEFAULT_TIMINGS: Timings = {
   idleRoomTtlMs: 2 * 60 * 60_000,
   sweepIntervalMs: 60_000,
   betweenHandsMs: 30_000,
-  turnTimeoutMs: 30_000,
+  turnTimeoutMs: POKER_TURN_TIMEOUT_MS,
 };
 
 /** A seated player who times out this many turns in a row is sat out (bot plays). */

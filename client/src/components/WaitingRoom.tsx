@@ -3,9 +3,14 @@ import { useState } from 'react';
 import {
   GAME_CATALOG,
   type DaneseRoomView,
+  type PokerRoomView,
+  type PokerSettings,
   type RoomView,
   CHARACTER_IDS,
+  bigBlind,
   formatMoney,
+  isPokerRoom,
+  smallBlind,
   wordLetters,
 } from '@dane-se/shared';
 import { avatarColor, initial } from '../lib/avatar';
@@ -19,11 +24,12 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
   const link = roomLink(room.code);
   const game = GAME_CATALOG.find((g) => g.id === room.gameType)!;
   const canStart = room.members.length >= game.minPlayers;
+  const poker = isPokerRoom(room);
 
   async function share() {
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Dane-se', text: `Bora jogar Dane-se! Sala ${room.code}`, url: link });
+        await navigator.share({ title: game.name, text: `Bora jogar ${game.name}! Sala ${room.code}`, url: link });
         return;
       } catch {
         // Cancelled: fall back to copying.
@@ -121,7 +127,7 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
           )}
         </section>
 
-        <MoneyPanel room={room} isHost={isHost} />
+        {poker ? <PokerMoneyPanel room={room} isHost={isHost} /> : <MoneyPanel room={room} isHost={isHost} />}
 
         <CharacterPicker room={room} />
 
@@ -286,6 +292,86 @@ function MoneyPanel({ room, isHost }: { room: RoomView; isHost: boolean }) {
       </p>
     </section>
   );
+}
+
+function PokerMoneyPanel({ room, isHost }: { room: PokerRoomView; isHost: boolean }) {
+  const { settings, money } = room;
+  const options = GAME_CATALOG.find((g) => g.id === 'poker')!.entryOptions.filter(
+    (v) => v >= settings.minBuyIn && v <= settings.maxBuyIn,
+  );
+
+  return (
+    <section className="space-y-3">
+      <div className="space-y-3 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+        <div className="flex items-baseline justify-between">
+          <h3 className="text-sm font-semibold text-stone-200">Banca (buy-in)</h3>
+          {money.practice ? (
+            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs font-semibold text-sky-300">
+              Treino: só fichas
+            </span>
+          ) : (
+            <span className="font-mono font-bold text-gold-300">{formatMoney(money.entry)}</span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Banca inicial">
+          {options.map((v) => (
+            <button
+              key={v}
+              type="button"
+              disabled={!isHost}
+              onClick={() => void actions.updateSettings({ entry: v, minBuyIn: settings.minBuyIn, maxBuyIn: settings.maxBuyIn })}
+              aria-pressed={settings.entry === v}
+              className={`min-h-11 rounded-lg px-3 text-sm font-bold ring-1 transition ${
+                settings.entry === v ? 'bg-gold-400 text-wood-900 ring-gold-300' : 'bg-black/30 text-stone-300 ring-white/10'
+              } ${isHost ? '' : 'cursor-default opacity-80'}`}
+            >
+              {formatMoney(v)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+        <div className="flex items-baseline justify-between">
+          <h3 className="text-sm font-semibold text-stone-200">Banca mínima</h3>
+          <span className="font-mono font-bold text-gold-300">{formatMoney(settings.minBuyIn)}</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Banca mínima">
+          {[1000, 2500, 5000].map((min) => (
+            <button
+              key={min}
+              type="button"
+              disabled={!isHost}
+              onClick={() => void actions.updateSettings(blindsPatch(settings, min))}
+              aria-pressed={settings.minBuyIn === min}
+              className={`min-h-11 rounded-lg px-3 text-sm font-bold ring-1 transition ${
+                settings.minBuyIn === min ? 'bg-gold-400 text-wood-900 ring-gold-300' : 'bg-black/30 text-stone-300 ring-white/10'
+              } ${isHost ? '' : 'cursor-default opacity-80'}`}
+            >
+              {formatMoney(min)}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-stone-400">
+          Blinds de {formatMoney(smallBlind(settings.minBuyIn))} / {formatMoney(bigBlind(settings.minBuyIn))} · banca máxima de{' '}
+          {formatMoney(settings.maxBuyIn)}. A banca mínima também define as apostas cegas.
+        </p>
+      </div>
+
+      <p className="text-xs text-stone-400">
+        {money.practice
+          ? 'Sala de treino: ninguém paga nada, as fichas são de brincadeira.'
+          : 'A banca sai do seu saldo quando a partida começa. Entre as mãos você pode recarregar direto da carteira.'}
+      </p>
+    </section>
+  );
+}
+
+/** Keeps `entry` inside the new [min, max] range so the server never rejects the patch. */
+function blindsPatch(settings: PokerSettings, minBuyIn: number): Partial<PokerSettings> {
+  const maxBuyIn = minBuyIn * 10;
+  const entry = settings.entry >= minBuyIn && settings.entry <= maxBuyIn ? settings.entry : minBuyIn;
+  return { minBuyIn, maxBuyIn, entry };
 }
 
 function CharacterPicker({ room }: { room: RoomView }) {

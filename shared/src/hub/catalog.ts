@@ -42,7 +42,7 @@ export const GAME_CATALOG: readonly GameCatalogEntry[] = [
     defaultEntry: 1000,
     entryOptions: [1000, 2500, 5000, 10000],
     icon: '♠️',
-    available: false,
+    available: true,
   },
 ];
 

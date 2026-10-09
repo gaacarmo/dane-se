@@ -7,6 +7,7 @@ import {
   type ErrorCode,
   type GameSettings,
   type GameType,
+  type PokerSettings,
   type ProfileView,
   type Reaction,
   type RoomView,
@@ -302,7 +303,7 @@ export const actions = {
     await call('room:leave');
     leaveRoomLocally();
   },
-  updateSettings: (patch: Partial<GameSettings>) => send('room:settings', patch),
+  updateSettings: (patch: Partial<GameSettings> & Partial<PokerSettings>) => send('room:settings', patch),
   start: () => send('room:start'),
   chat: (text: string) => send('chat:send', { text }),
   setCharacter: (character: CharacterId) => send('room:character', { character }),
@@ -311,6 +312,10 @@ export const actions = {
   skipWaiting: () => send('room:skipWaiting'),
   rematch: () => send('room:rematch'),
   bet: (bet: number) => send('game:bet', { bet }),
+  /** Named, amount-free action (poker: `fold`/`check`/`call`/`allIn`). */
+  action: (type: string, amount?: number) => send('game:action', { type, amount }),
+  /** Between-hands rebuy; the amount defaults to the room buy-in on the server. */
+  rebuy: (amount?: number) => send('game:action', { type: 'rebuy', amount }),
   play: (cardId?: string) => send('game:play', { cardId }),
   /** Fire and forget: a reaction that's too fast is simply dropped, no error toast. */
   react: (emoji: string) => call('room:react', { emoji }),

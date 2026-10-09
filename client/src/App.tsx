@@ -4,6 +4,7 @@ import { HowToPlay } from './components/HowToPlay';
 import { WaitingRoom } from './components/WaitingRoom';
 import { Preview3D } from './components/table3d/Preview3D';
 import { GameScreen } from './components/table/GameScreen';
+import { PokerScreen } from './components/poker/PokerScreen';
 import { ConnectionBanner, Toast } from './components/ui/Toast';
 import { useClient } from './lib/store';
 
@@ -14,7 +15,9 @@ export function App() {
   const openHelp = () => setHelp(true);
 
   let screen;
-  if (room?.gameType === 'danese' && room.game && room.status !== 'lobby') {
+  if (room?.gameType === 'poker' && room.game && room.status !== 'lobby') {
+    screen = <PokerScreen room={room} onHelp={openHelp} />;
+  } else if (room?.gameType === 'danese' && room.game && room.status !== 'lobby') {
     screen = <GameScreen room={room} onHelp={openHelp} />;
   } else if (room) screen = <WaitingRoom room={room} onHelp={openHelp} />;
   else if (resuming || !profileReady) screen = <Splash />;
@@ -23,7 +26,7 @@ export function App() {
   return (
     <>
       {screen}
-      <HowToPlay open={help} onClose={() => setHelp(false)} />
+      <HowToPlay open={help} onClose={() => setHelp(false)} gameType={room?.gameType} />
       <Toast />
       <ConnectionBanner />
     </>

@@ -6,6 +6,13 @@ export const POKER_MAX_PLAYERS = 8;
 /** Cheapest buy-in (and thus the smallest blinds): R$ 1.000. */
 export const POKER_MIN_BUY_IN = 1_000;
 
+/**
+ * How long a connected player has to act before the server auto check/folds.
+ * Shared so the client countdown matches the server clock (tests override the
+ * room timings, the browser never sees those).
+ */
+export const POKER_TURN_TIMEOUT_MS = 30_000;
+
 /** Default cap on the buy-in: this many times `minBuyIn`. */
 export const POKER_MAX_BUY_IN_MULTIPLE = 10;
 

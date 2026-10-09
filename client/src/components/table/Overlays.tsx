@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { type DaneseRoomView, type PlayerView, type PublicPlayer, formatMoney, wordLetters } from '@dane-se/shared';
+import { type DaneseRoomView, type PlayerView, type PublicPlayer, type RoomView, formatMoney, wordLetters } from '@dane-se/shared';
 import { avatarColor, initial } from '../../lib/avatar';
 import { actions, useClient } from '../../lib/store';
 import { PlayingCard } from '../cards/PlayingCard';
@@ -199,7 +199,7 @@ export function GameOver({ room }: { room: DaneseRoomView }) {
 }
 
 /** A disconnected player's turn: countdown until the bot plays, host can skip. */
-export function WaitingBanner({ room }: { room: DaneseRoomView }) {
+export function WaitingBanner({ room }: { room: RoomView }) {
   const waiting = room.waitingFor;
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
