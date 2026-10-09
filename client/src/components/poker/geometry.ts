@@ -56,6 +56,12 @@ export function betPoint(k: number, n: number, g: PokerGeometry): Point {
   return { x: g.center.x + rx * Math.cos(angle), y: g.center.y - ry * Math.sin(angle) };
 }
 
+/** Where a seat's own chip stack sits on the felt, inside the rim and a little to the seat's right. */
+export function stackPoint(k: number, n: number, g: PokerGeometry): Point {
+  const angle = -Math.PI / 2 - (k * 2 * Math.PI) / n + 0.32;
+  return { x: g.center.x + g.rx * 0.72 * Math.cos(angle), y: g.center.y - g.ry * 0.72 * Math.sin(angle) };
+}
+
 export function boardCardHeight(g: PokerGeometry): number {
   return g.boardCardW * CARD_RATIO;
 }

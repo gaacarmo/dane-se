@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { POKER_TURN_TIMEOUT_MS, type PokerCard, type PokerRoomView, formatMoney } from '@dane-se/shared';
+import { POKER_TURN_TIMEOUT_MS, type PokerCard, type PokerRoomView, bigBlind, formatMoney } from '@dane-se/shared';
 import { usePrefs } from '../../lib/prefs';
 import { actions } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
@@ -19,7 +19,8 @@ import { PokerControlBar } from './PokerActions';
 import { PokerHud } from './PokerHud';
 import { PokerGameOver, PokerHandSummary } from './PokerOverlays';
 import { PokerSeat } from './PokerSeat';
-import { pokerGeometry, pokerSeatPoint, betPoint } from './geometry';
+import { ChipPile, chipCount } from './Chips';
+import { pokerGeometry, pokerSeatPoint, betPoint, stackPoint } from './geometry';
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
@@ -82,6 +83,8 @@ export function PokerScreen({ room, onHelp }: { room: PokerRoomView; onHelp: () 
   const turnSecondsLeft = useTurnClock(game.actorId, onTheClock);
 
   const mySeat = game.seats.find((s) => s.id === youId);
+  const unit = bigBlind(game.settings.minBuyIn);
+  const totalBets = game.seats.reduce((sum, s) => sum + s.bet, 0);
 
   return (
     <div className="room-bg relative flex h-dvh flex-col overflow-hidden">
@@ -125,8 +128,11 @@ export function PokerScreen({ room, onHelp }: { room: PokerRoomView; onHelp: () 
               className="pointer-events-none absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
               style={{ left: geometry.center.x, top: geometry.center.y }}
             >
-              <span className="rounded-full bg-black/50 px-2.5 py-1 text-xs font-semibold text-gold-200 ring-1 ring-gold-500/30">
-                Pote {formatMoney(game.pot)}
+              <span className="flex items-end gap-1.5">
+                <ChipPile count={chipCount(game.pot - totalBets, unit, 18)} seed={3} />
+                <span className="rounded-full bg-black/50 px-2.5 py-1 text-xs font-semibold text-gold-200 ring-1 ring-gold-500/30">
+                  Pote {formatMoney(game.pot)}
+                </span>
               </span>
               <div className="flex gap-1">
                 {Array.from({ length: 5 }, (_, i) => {
@@ -151,10 +157,23 @@ export function PokerScreen({ room, onHelp }: { room: PokerRoomView; onHelp: () 
               </div>
             </div>
 
+            {/* Each player's chips on the felt, just inside the rim. */}
+            {game.seats.map((s, i) =>
+              s.chips > 0 ? (
+                <div
+                  key={`stack-${s.id}`}
+                  className="pointer-events-none absolute z-[4] -translate-x-1/2 -translate-y-full"
+                  style={{ left: stackPoint(seatK(i), n, geometry).x, top: stackPoint(seatK(i), n, geometry).y }}
+                >
+                  <ChipPile count={chipCount(s.chips, unit * 5, 12)} size={14} seed={i} />
+                </div>
+              ) : null,
+            )}
+
             {/* Street bets, between each seat and the pot. */}
             {game.seats.map((s, i) =>
               s.bet > 0 ? (
-                <BetChip key={s.id} point={betPoint(seatK(i), n, geometry)} amount={s.bet} />
+                <BetChip key={s.id} point={betPoint(seatK(i), n, geometry)} amount={s.bet} unit={unit} />
               ) : null,
             )}
 
@@ -211,14 +230,15 @@ export function PokerScreen({ room, onHelp }: { room: PokerRoomView; onHelp: () 
   );
 }
 
-function BetChip({ point, amount }: { point: Point; amount: number }) {
+function BetChip({ point, amount, unit }: { point: Point; amount: number; unit: number }) {
   return (
     <motion.div
-      className="absolute z-[5] -translate-x-1/2 -translate-y-1/2"
+      className="absolute z-[5] flex -translate-x-1/2 -translate-y-1/2 items-end gap-1"
       style={{ left: point.x, top: point.y }}
       initial={{ opacity: 0, scale: 0.6 }}
       animate={{ opacity: 1, scale: 1 }}
     >
+      <ChipPile count={chipCount(amount, unit, 6)} size={13} perStack={3} />
       <span className="rounded-full bg-wood-900/90 px-2 py-0.5 font-mono text-[11px] font-bold text-gold-200 ring-1 ring-gold-500/40">
         {formatMoney(amount)}
       </span>
