@@ -1,5 +1,6 @@
 export * from './rng.js';
 export * from './characters.js';
+export * from './arcade/index.js';
 export * from './games/danese/cards.js';
 export * from './games/danese/rules.js';
 export * from './games/danese/trick.js';
