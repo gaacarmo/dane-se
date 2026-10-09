@@ -17,27 +17,40 @@ describe('resolveTrick', () => {
     expect(resolveTrick(plays(['a', '3C'], ['b', '5D']), manilha).winnerId).toBe('b');
   });
 
-  it('same rank: the higher suit wins (Ouros < Espadas < Copas < Paus)', () => {
-    const result = resolveTrick(plays(['a', '3D'], ['b', '3C'], ['c', '7H']), manilha);
-    expect(result).toEqual({ winnerId: 'b', canceledPlayerIds: [] });
-    expect(resolveTrick(plays(['a', 'KS'], ['b', 'KH']), manilha).winnerId).toBe('b');
-    expect(resolveTrick(plays(['a', 'KD'], ['b', 'KS']), manilha).winnerId).toBe('b');
-    expect(resolveTrick(plays(['a', 'KC'], ['b', 'KH']), manilha).winnerId).toBe('a');
+  it('three cards of the same rank: the higher suit wins (Ouros < Espadas < Copas < Paus)', () => {
+    const result = resolveTrick(plays(['a', '4D'], ['b', 'KD'], ['c', 'KS'], ['d', 'KC']), manilha);
+    expect(result).toEqual({ winnerId: 'd', canceledPlayerIds: [] });
+    expect(resolveTrick(plays(['a', 'KH'], ['b', 'KD'], ['c', 'KS']), manilha).winnerId).toBe('a');
   });
 
-  it('a higher rank still beats a higher suit of a lower rank', () => {
-    expect(resolveTrick(plays(['a', '3D'], ['b', '2C']), manilha).winnerId).toBe('a');
+  it('two cards of the same rank cancel ("embucham") and the next highest wins', () => {
+    const result = resolveTrick(plays(['a', '4D'], ['b', 'KD'], ['c', 'KS'], ['d', '7S']), manilha);
+    expect(result.winnerId).toBe('d');
+    expect(result.canceledPlayerIds.sort()).toEqual(['b', 'c']);
   });
 
-  it('with several equal ranks, the best suit among the top rank wins', () => {
-    const result = resolveTrick(plays(['a', 'KD'], ['b', 'KC'], ['c', '7D'], ['d', '7S'], ['e', 'KH']), manilha);
-    expect(result.winnerId).toBe('b');
+  it('cancels again when the next rank down is also a pair', () => {
+    const result = resolveTrick(plays(['a', '3D'], ['b', '3C'], ['c', 'KH'], ['d', 'KS'], ['e', '4D']), manilha);
+    expect(result.winnerId).toBe('e');
+    expect(result.canceledPlayerIds.sort()).toEqual(['a', 'b', 'c', 'd']);
   });
 
-  it('nobody is ever canceled', () => {
-    const result = resolveTrick(plays(['a', 'KD'], ['b', 'KC']), manilha);
-    expect(result.canceledPlayerIds).toEqual([]);
-    expect(result.winnerId).not.toBeNull();
+  it('a pair cancels, then three of a lower rank are decided by suit', () => {
+    const result = resolveTrick(plays(['a', '3D'], ['b', '3C'], ['c', '7D'], ['d', '7H'], ['e', '7S']), manilha);
+    expect(result.winnerId).toBe('d');
+  });
+
+  it('four cards of the same rank cancel like a pair', () => {
+    const result = resolveTrick(plays(['a', 'KD'], ['b', 'KS'], ['c', 'KH'], ['d', 'KC'], ['e', '6D']), manilha);
+    expect(result.winnerId).toBe('e');
+  });
+
+  it('a lower pair does not affect a single highest card', () => {
+    expect(resolveTrick(plays(['a', '2D'], ['b', '2C'], ['c', '3H']), manilha)).toEqual({ winnerId: 'c', canceledPlayerIds: [] });
+  });
+
+  it('nobody wins when every card is canceled', () => {
+    expect(resolveTrick(plays(['a', 'KD'], ['b', 'KC']), manilha)).toEqual({ winnerId: null, canceledPlayerIds: ['a', 'b'] });
   });
 
   it('manilhas rank by suit', () => {
