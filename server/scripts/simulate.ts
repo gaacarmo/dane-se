@@ -7,7 +7,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import type { Card, RoomView } from '@dane-se/shared';
+import { isDaneseRoom, type Card, type RoomView } from '@dane-se/shared';
 import { createApp } from '../src/app.js';
 import { BotClient } from './botClient.js';
 
@@ -16,6 +16,7 @@ const show = (c: Card) => `${c.rank}${SUIT_SYMBOL[c.suit]}`;
 
 /** Throws if a view contains anything this player shouldn't know. */
 export function auditView(view: RoomView): void {
+  if (!isDaneseRoom(view)) return; // poker secrecy is covered by the poker tests
   const g = view.game;
   if (!g) return;
   const me = g.players.find((p) => p.id === view.youId);
@@ -50,7 +51,7 @@ export async function simulateGame(opts: {
   // Log each round summary as the host sees it.
   let lastLogged = 0;
   host.socket.on('room:state', (view) => {
-    const g = view.game;
+    const g = isDaneseRoom(view) ? view.game : null;
     const r = g?.lastRound;
     if (!g || !r || r.roundNumber === lastLogged) return;
     lastLogged = r.roundNumber;
@@ -68,12 +69,12 @@ export async function simulateGame(opts: {
   if (opts.disconnect) {
     const dropper = clients[1]!;
     const token = dropper.session!.token;
-    await host.waitFor((v) => (v.game?.roundNumber ?? 0) >= 3, 30_000);
+    await host.waitFor((v) => (isDaneseRoom(v) ? (v.game?.roundNumber ?? 0) : 0) >= 3, 30_000);
     log(`>> ${dropper.name} caiu`);
     dropper.close();
     await host.waitFor((v) => v.members.some((m) => m.name === dropper.name && m.autoPlay) || v.status === 'finished', 30_000);
     log(`>> bot assumiu o lugar de ${dropper.name}`);
-    await host.waitFor((v) => (v.game?.roundNumber ?? 0) >= 6 || v.status === 'finished', 30_000);
+    await host.waitFor((v) => (isDaneseRoom(v) ? (v.game?.roundNumber ?? 0) : 0) >= 6 || v.status === 'finished', 30_000);
     rejoined = new BotClient(opts.url, dropper.name);
     const r = await rejoined.resume(code, token);
     if (!r.ok) throw new Error(`resume failed: ${r.error}`);
@@ -90,7 +91,8 @@ export async function simulateGame(opts: {
     c.close();
   }
 
-  const g = final.game!;
+  const g = isDaneseRoom(final) ? final.game : null;
+  if (!g) throw new Error('final room is not a Dane-se game');
   const winner = g.players.find((p) => p.id === g.winnerId)?.name ?? '(ninguém)';
   return { winner, rounds: g.roundNumber, views };
 }

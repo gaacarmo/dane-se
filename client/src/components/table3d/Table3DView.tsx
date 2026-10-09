@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import {
   type Card,
+  type DaneseRoomView,
   type PlayerView,
   type PublicPlayer,
   type RoomMember,
-  type RoomView,
   wordLetters,
 } from '@dane-se/shared';
 import { sfx } from '../../lib/sound';
@@ -334,7 +334,7 @@ function Pile({ game }: { game: PlayerView }) {
   );
 }
 
-export function Table3DView({ room }: { room: RoomView }) {
+export function Table3DView({ room }: { room: DaneseRoomView }) {
   const game = room.game!;
   const word = wordLetters(game.settings.word);
   const n = game.players.length;

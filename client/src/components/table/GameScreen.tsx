@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { type PlayerView, type PublicPlayer, type RoomView, wordLetters } from '@dane-se/shared';
+import { type DaneseRoomView, type PlayerView, type PublicPlayer, wordLetters } from '@dane-se/shared';
 import { actions } from '../../lib/store';
 import { useGameEffects } from '../../lib/useGameEffects';
 import { Shrimp } from '../cards/Shrimp';
@@ -56,7 +56,7 @@ function useDealing(roundKey: string, fresh: boolean, totalSeconds: number): boo
   return seen.current.get(roundKey)! && doneKey !== roundKey;
 }
 
-export function GameScreen({ room, onHelp }: { room: RoomView; onHelp: () => void }) {
+export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () => void }) {
   const game = room.game!;
   const youId = room.youId;
   const [tableRef, size] = useElementSize<HTMLDivElement>();

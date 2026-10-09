@@ -2,6 +2,8 @@ import type { CharacterId } from './characters.js';
 import type { GameError } from './games/danese/game.js';
 import type { GameSettings } from './games/danese/rules.js';
 import type { PlayerView } from './games/danese/view.js';
+import type { PokerSettings } from './games/poker/rules.js';
+import type { PokerView } from './games/poker/view.js';
 import type { EngineError, GameType } from './hub/gameModule.js';
 import type { Money } from './hub/money.js';
 
@@ -56,22 +58,47 @@ export interface ResultsEntry {
   place: number;
 }
 
-export interface RoomView {
+export interface RoomViewBase {
   code: string;
   youId: string;
   hostId: string;
   status: RoomStatus;
-  gameType: GameType;
-  settings: GameSettings;
   /** In seat order (= play order). */
   members: RoomMember[];
-  game: PlayerView | null;
   money: RoomMoney;
   /** Filled once the game is over and the pot settled. */
   results: ResultsEntry[] | null;
   /** The current player is disconnected; a bot takes over at `deadline` (epoch ms). */
   waitingFor: { playerId: string; deadline: number } | null;
   chat: ChatMessage[];
+}
+
+/** A room of Dane-se (Fodinha): the game view is the trick-round `PlayerView`. */
+export interface DaneseRoomView extends RoomViewBase {
+  gameType: 'danese';
+  settings: GameSettings;
+  game: PlayerView | null;
+}
+
+/** A room of Texas Hold'em: the game view is the `PokerView`. */
+export interface PokerRoomView extends RoomViewBase {
+  gameType: 'poker';
+  settings: PokerSettings;
+  game: PokerView | null;
+}
+
+/**
+ * The whole room state as one client sees it. `gameType` discriminates the
+ * union so components can narrow `game`/`settings` safely.
+ */
+export type RoomView = DaneseRoomView | PokerRoomView;
+
+export function isDaneseRoom(room: RoomView): room is DaneseRoomView {
+  return room.gameType === 'danese';
+}
+
+export function isPokerRoom(room: RoomView): room is PokerRoomView {
+  return room.gameType === 'poker';
 }
 
 /** Everything the hub knows about a person. The client never sends amounts back. */
@@ -148,6 +175,12 @@ export interface ClientToServerEvents {
   'game:bet': (payload: { bet: number }, ack: AckFn) => void;
   /** In the blind round the player can't see their card, so `cardId` is omitted. */
   'game:play': (payload: { cardId?: string }, ack: AckFn) => void;
+  /**
+   * Named, amount-free game actions for games that need them (poker:
+   * `fold`/`check`/`call`/`allIn`), plus `rebuy` between hands. Engines without
+   * commands reject it.
+   */
+  'game:action': (payload: { type: string; amount?: number }, ack: AckFn) => void;
 }
 
 export type RoomClosedReason = 'everyoneLeft' | 'idle';

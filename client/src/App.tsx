@@ -14,8 +14,9 @@ export function App() {
   const openHelp = () => setHelp(true);
 
   let screen;
-  if (room?.game && room.status !== 'lobby') screen = <GameScreen room={room} onHelp={openHelp} />;
-  else if (room) screen = <WaitingRoom room={room} onHelp={openHelp} />;
+  if (room?.gameType === 'danese' && room.game && room.status !== 'lobby') {
+    screen = <GameScreen room={room} onHelp={openHelp} />;
+  } else if (room) screen = <WaitingRoom room={room} onHelp={openHelp} />;
   else if (resuming || !profileReady) screen = <Splash />;
   else screen = <Hub onHelp={openHelp} />;
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { RoomView } from '@dane-se/shared';
+import type { DaneseRoomView } from '@dane-se/shared';
 import { haptic, sfx } from './sound';
 
 /**
@@ -7,9 +7,9 @@ import { haptic, sfx } from './sound';
  * blinking tab title when it's your turn in the background, and keeping the
  * phone screen awake during a game.
  */
-export function useGameEffects(room: RoomView): void {
+export function useGameEffects(room: DaneseRoomView): void {
   const game = room.game;
-  const prev = useRef<RoomView | null>(null);
+  const prev = useRef<DaneseRoomView | null>(null);
   const myTurn =
     !!game && game.turnPlayerId === room.youId && (game.phase === 'betting' || game.phase === 'playing');
 

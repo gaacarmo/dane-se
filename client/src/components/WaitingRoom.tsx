@@ -2,10 +2,9 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 import {
   GAME_CATALOG,
+  type DaneseRoomView,
   type RoomView,
   CHARACTER_IDS,
-  MAX_PLAYERS,
-  MIN_PLAYERS,
   formatMoney,
   wordLetters,
 } from '@dane-se/shared';
@@ -18,8 +17,8 @@ import { Button } from './ui/Button';
 export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => void }) {
   const isHost = room.hostId === room.youId;
   const link = roomLink(room.code);
-  const canStart = room.members.length >= MIN_PLAYERS;
   const game = GAME_CATALOG.find((g) => g.id === room.gameType)!;
+  const canStart = room.members.length >= game.minPlayers;
 
   async function share() {
     if (navigator.share) {
@@ -66,7 +65,7 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
           <h2 className="mb-3 flex items-baseline justify-between text-stone-300">
             <span className="font-semibold">Jogadores</span>
             <span className="text-sm">
-              {room.members.length}/{MAX_PLAYERS}
+              {room.members.length}/{game.maxPlayers}
             </span>
           </h2>
           <ul className="space-y-2">
@@ -112,10 +111,10 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
               </motion.li>
             ))}
           </ul>
-          {room.members.length < MIN_PLAYERS && (
+          {room.members.length < game.minPlayers && (
             <p className="mt-3 text-center text-sm text-stone-400">Esperando mais gente entrar…</p>
           )}
-          {isHost && room.members.length < MAX_PLAYERS && (
+          {isHost && room.members.length < game.maxPlayers && (
             <Button variant="secondary" className="mt-3 w-full" onClick={() => actions.addBot()}>
               🤖 Adicionar bot
             </Button>
@@ -126,11 +125,11 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
 
         <CharacterPicker room={room} />
 
-        <Settings room={room} isHost={isHost} />
+        {room.gameType === 'danese' && <Settings room={room} isHost={isHost} />}
 
         {isHost ? (
           <Button className="w-full text-lg" disabled={!canStart} onClick={() => actions.start()}>
-            {canStart ? 'Começar partida' : `Precisa de pelo menos ${MIN_PLAYERS} jogadores`}
+            {canStart ? 'Começar partida' : `Precisa de pelo menos ${game.minPlayers} jogadores`}
           </Button>
         ) : (
           <p className="text-center text-stone-300">
@@ -149,7 +148,7 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
   );
 }
 
-function Settings({ room, isHost }: { room: RoomView; isHost: boolean }) {
+function Settings({ room, isHost }: { room: DaneseRoomView; isHost: boolean }) {
   const [word, setWord] = useState(room.settings.word);
   const { settings } = room;
   const lives = wordLetters(settings.word).length;

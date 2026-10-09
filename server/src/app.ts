@@ -102,5 +102,6 @@ function registerHandlers(socket: GameSocket, rooms: RoomManager): void {
   socket.on('room:react', handle<Body>((p) => rooms.react(socket, p.emoji)));
   socket.on('game:bet', handle<Body>((p) => rooms.bet(socket, p.bet)));
   socket.on('game:play', handle<Body>((p) => rooms.play(socket, p.cardId)));
+  socket.on('game:action', handle<Body>((p) => rooms.action(socket, p)));
   socket.on('disconnect', () => rooms.disconnect(socket));
 }

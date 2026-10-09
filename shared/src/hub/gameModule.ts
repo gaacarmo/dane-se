@@ -84,6 +84,32 @@ export interface GameModule<Settings, State, Action, View> {
   /** Builds a bet/call/raise action from an untrusted payload. */
   betAction(state: State, playerId: string, rawBet: unknown): { ok: true; action: Action } | { ok: false; error: EngineError };
 
+  /**
+   * Builds a command-style action (fold/check/call/all-in) from an untrusted
+   * payload. Optional: engines without named commands never receive the
+   * `game:action` event. Only the builder runs here — turn/phase checks stay in
+   * `apply`, so the room layer maps a malformed payload (INVALID_ACTION) to
+   * INVALID_PAYLOAD but passes real engine errors through.
+   */
+  commandAction?(state: State, playerId: string, raw: unknown): { ok: true; action: Action } | { ok: false; error: EngineError };
+
+  /**
+   * The forced action when a connected player's turn times out (check when it
+   * is free, otherwise fold). Presence also enables the server turn timer.
+   */
+  timeoutAction?(state: State, playerId: string): Action | null;
+
+  /**
+   * Builds a rebuy action plus the money it costs. The room layer charges the
+   * wallet before applying it (and refunds if the apply fails). Optional:
+   * engines without rebuys never receive the rebuy command.
+   */
+  rebuyAction?(
+    state: State,
+    playerId: string,
+    rawAmount: unknown,
+  ): { ok: true; action: Action; cost: Money } | { ok: false; error: EngineError };
+
   isFinished(state: State): boolean;
   winnerId(state: State): string | null;
 

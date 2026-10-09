@@ -10,10 +10,13 @@ import {
   type GameSettings,
   type GameType,
   type PlayerView,
+  type PokerSettings,
+  type PokerView,
   type ProfileView,
   type RoomClosedReason,
   type RoomStatus,
   type RoomView,
+  type RoomViewBase,
   type ServerToClientEvents,
   type Session,
   CHARACTER_IDS,
@@ -48,7 +51,7 @@ export interface Timings {
   /** A room with no activity at all is closed after this long. */
   idleRoomTtlMs: number;
   sweepIntervalMs: number;
-  /** Pause between hands of a cash-game (poker showdown). */
+  /** Rebuy window between hands of a cash-game (poker bust). */
   betweenHandsMs: number;
   /** How long a player has to act before auto check/fold (poker). */
   turnTimeoutMs: number;
@@ -63,9 +66,12 @@ export const DEFAULT_TIMINGS: Timings = {
   emptyRoomTtlMs: 90_000,
   idleRoomTtlMs: 2 * 60 * 60_000,
   sweepIntervalMs: 60_000,
-  betweenHandsMs: 5000,
+  betweenHandsMs: 30_000,
   turnTimeoutMs: 30_000,
 };
+
+/** A seated player who times out this many turns in a row is sat out (bot plays). */
+export const SIT_OUT_AFTER_TIMEOUTS = 2;
 
 export interface SocketData {
   code?: string;
@@ -89,6 +95,8 @@ interface Member {
   character: CharacterId;
   /** What this member paid into the room, or null if nothing (yet). */
   entry: number | null;
+  /** Consecutive turns this player let the clock run out (poker). */
+  timeouts: number;
 }
 
 interface Room {
@@ -417,6 +425,10 @@ export class RoomManager {
     room.status = 'playing';
     room.settled = false;
     room.results = null;
+    for (const m of room.members) {
+      m.timeouts = 0;
+      m.autoPlay = m.isBot;
+    }
     this.afterGameChange(room);
     return OK;
   }
@@ -440,6 +452,7 @@ export class RoomManager {
     for (const m of room.members) {
       m.autoPlay = m.isBot;
       m.entry = null;
+      m.timeouts = 0;
     }
     // Anyone who can't afford the next entry leaves (they can be replaced/rejoin).
     if (!room.practice) {
@@ -482,7 +495,7 @@ export class RoomManager {
     if (!module || !ctx.room.game) return fail('WRONG_PHASE');
     const built = module.betAction(ctx.room.game, ctx.member.id, bet);
     if (!built.ok) return fail(built.error);
-    return this.dispatch(ctx.room, built.action);
+    return this.dispatchHuman(ctx.room, ctx.member, built.action);
   }
 
   play(socket: GameSocket, rawCardId: unknown): Ack {
@@ -493,7 +506,60 @@ export class RoomManager {
     if (!module || !ctx.room.game) return fail('WRONG_PHASE');
     const built = module.playAction(ctx.room.game, ctx.member.id, rawCardId);
     if (!built.ok) return fail(built.error === 'INVALID_ACTION' ? 'INVALID_PAYLOAD' : built.error);
-    return this.dispatch(ctx.room, built.action);
+    return this.dispatchHuman(ctx.room, ctx.member, built.action);
+  }
+
+  /**
+   * Named, amount-free actions (poker: fold/check/call/all-in) and `rebuy`.
+   * Engines without `commandAction` reject everything here.
+   */
+  action(socket: GameSocket, payload: unknown): Ack {
+    const ctx = this.context(socket);
+    if (!ctx) return fail('NOT_IN_ROOM');
+    if (typeof payload !== 'object' || payload === null) return fail('INVALID_PAYLOAD');
+    const { type, amount } = payload as { type?: unknown; amount?: unknown };
+    if (type === 'rebuy') return this.rebuy(ctx, amount);
+    const module = gameModule(ctx.room.gameType);
+    if (!module || !ctx.room.game) return fail('WRONG_PHASE');
+    if (!module.commandAction) return fail('INVALID_PAYLOAD');
+    const built = module.commandAction(ctx.room.game, ctx.member.id, payload);
+    if (!built.ok) return fail(built.error === 'INVALID_ACTION' ? 'INVALID_PAYLOAD' : built.error);
+    return this.dispatchHuman(ctx.room, ctx.member, built.action);
+  }
+
+  /**
+   * Between-hands rebuy. Money rooms charge the wallet first and refund if the
+   * engine rejects the action; the amount is added to the player's escrow so
+   * the settlement still balances.
+   */
+  private rebuy(ctx: { room: Room; member: Member }, rawAmount: unknown): Ack {
+    const { room, member } = ctx;
+    const module = gameModule(room.gameType);
+    if (!module || !room.game) return fail('WRONG_PHASE');
+    if (!module.rebuyAction) return fail('INVALID_PAYLOAD');
+    const built = module.rebuyAction(room.game, member.id, rawAmount);
+    if (!built.ok) return fail(built.error === 'INVALID_ACTION' ? 'INVALID_PAYLOAD' : built.error);
+
+    const cost = room.practice ? 0 : built.cost;
+    if (cost > 0) {
+      const error = this.wallets.debit(member.profileId, cost, 'rebuy', room.code);
+      if (error) return fail(error);
+    }
+    const result = module.apply(room.game, built.action);
+    if (!result.ok) {
+      if (cost > 0) this.wallets.credit(member.profileId, cost, 'refund', room.code);
+      return fail(result.error);
+    }
+    room.game = result.state;
+    if (!room.practice) {
+      member.entry = (member.entry ?? 0) + built.cost;
+      room.paidTotal += built.cost;
+      this.pushProfileFor(member);
+    }
+    member.autoPlay = false;
+    member.timeouts = 0;
+    this.afterGameChange(room);
+    return OK;
   }
 
   /** Host: give up waiting for the disconnected player and let the bot play now. */
@@ -607,6 +673,13 @@ export class RoomManager {
     return OK;
   }
 
+  /** A human move: clears any sit-out/timeout state so sending it means "I'm back". */
+  private dispatchHuman(room: Room, member: Member, action: unknown): Ack {
+    member.autoPlay = false;
+    member.timeouts = 0;
+    return this.dispatch(room, action);
+  }
+
   /** Schedules whatever happens next and broadcasts. */
   private afterGameChange(room: Room): void {
     this.touch(room);
@@ -650,6 +723,9 @@ export class RoomManager {
           member.autoPlay = true;
           this.afterGameChange(room);
         });
+      } else if (module.timeoutAction) {
+        // Connected but slow: give them the clock, then auto check/fold.
+        later(this.timings.turnTimeoutMs, () => this.timeoutAct(room, member));
       }
     }
     this.broadcast(room);
@@ -669,6 +745,20 @@ export class RoomManager {
     if (!step) return;
     const result = this.dispatch(room, step.action);
     if (!result.ok) console.error(`[room ${room.code}] bot action failed: ${result.error}`);
+  }
+
+  /** The clock ran out: force a check/fold and sit the player out after enough misses. */
+  private timeoutAct(room: Room, member: Member): void {
+    const module = gameModule(room.gameType);
+    const game = room.game;
+    if (!module || !game || !module.timeoutAction) return;
+    if (module.actorId(game) !== member.id) return; // stale timer
+    const action = module.timeoutAction(game, member.id);
+    if (!action) return;
+    member.timeouts += 1;
+    member.autoPlay = member.timeouts >= SIT_OUT_AFTER_TIMEOUTS;
+    const result = this.dispatch(room, action);
+    if (!result.ok) console.error(`[room ${room.code}] timeout action failed: ${result.error}`);
   }
 
   private attach(room: Room, member: Member, socket: GameSocket): void {
@@ -783,13 +873,11 @@ export class RoomManager {
   private viewFor(room: Room, memberId: string): RoomView {
     const module = gameModule(room.gameType);
     const entry = module && !room.practice ? module.entryFor(room.settings) : 0;
-    return {
+    const base: RoomViewBase = {
       code: room.code,
       youId: memberId,
       hostId: room.hostId,
       status: room.status,
-      gameType: room.gameType,
-      settings: room.settings as unknown as GameSettings,
       members: room.members.map((m) => ({
         id: m.id,
         name: m.name,
@@ -800,13 +888,17 @@ export class RoomManager {
         character: m.character,
         entry: m.entry,
       })),
-      // The only game data that leaves the server: filtered per player.
-      game: room.game && module ? (module.viewFor(room.game, memberId) as PlayerView) : null,
       money: { entry, pot: room.paidTotal, practice: room.practice, settled: room.settled },
       results: room.results,
       waitingFor: room.waitingFor,
       chat: room.chat,
     };
+    // The only game data that leaves the server: filtered per player.
+    const game = room.game && module ? module.viewFor(room.game, memberId) : null;
+    if (room.gameType === 'poker') {
+      return { ...base, gameType: 'poker', settings: room.settings as unknown as PokerSettings, game: game as PokerView | null };
+    }
+    return { ...base, gameType: 'danese', settings: room.settings as unknown as GameSettings, game: game as PlayerView | null };
   }
 
   private broadcast(room: Room): void {
@@ -873,6 +965,7 @@ function newMember(profile: ProfileRow, taken: CharacterId[] = []): Member {
     lastReactionAt: 0,
     character: pickCharacter(taken),
     entry: null,
+    timeouts: 0,
   };
 }
 

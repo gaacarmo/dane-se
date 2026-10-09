@@ -7,6 +7,7 @@ import {
   type GamePlayer,
 } from '../../hub/gameModule.js';
 import { type Entry, type Payout } from '../../hub/payout.js';
+import { isValidMoney, type Money } from '../../hub/money.js';
 import { choosePokerAction } from './bot.js';
 import { type PokerAction, type PokerGameState, applyPokerAction, createPokerGame } from './game.js';
 import {
@@ -34,6 +35,48 @@ function betAction(state: PokerGameState, playerId: string, rawBet: unknown): Be
   return { ok: true, action: { type: 'bet', playerId, to: rawBet } };
 }
 
+/** Named, amount-free actions. Turn/phase legality is enforced by `apply`. */
+function commandAction(state: PokerGameState, playerId: string, raw: unknown): BetBuilder {
+  if (typeof raw !== 'object' || raw === null) return { ok: false, error: 'INVALID_ACTION' };
+  switch ((raw as { type?: unknown }).type) {
+    case 'fold':
+      return { ok: true, action: { type: 'fold', playerId } };
+    case 'check':
+      return { ok: true, action: { type: 'check', playerId } };
+    case 'call':
+      return { ok: true, action: { type: 'call', playerId } };
+    case 'allIn':
+      return { ok: true, action: { type: 'allIn', playerId } };
+    default:
+      return { ok: false, error: 'INVALID_ACTION' };
+  }
+}
+
+/** A timed-out player checks when it is free, otherwise folds. */
+function timeoutAction(state: PokerGameState, playerId: string): PokerAction | null {
+  if (state.status !== 'hand' || !state.hand) return null;
+  const hand = state.hand;
+  if (hand.phase !== 'betting' || hand.actor !== playerId) return null;
+  const seat = hand.seats[playerId];
+  if (!seat) return null;
+  return hand.currentBet === seat.streetBet ? { type: 'check', playerId } : { type: 'fold', playerId };
+}
+
+/** Rebuy amount defaults to the room's buy-in; bounded by the table limits. */
+function rebuyAction(
+  state: PokerGameState,
+  playerId: string,
+  rawAmount: unknown,
+): { ok: true; action: PokerAction; cost: Money } | { ok: false; error: EngineError } {
+  if (state.status !== 'hand' || !state.hand || state.hand.phase !== 'done') return { ok: false, error: 'WRONG_PHASE' };
+  if (!state.players.some((p) => p.id === playerId)) return { ok: false, error: 'UNKNOWN_PLAYER' };
+  const amount = rawAmount === undefined ? state.settings.entry : rawAmount;
+  if (!isValidMoney(amount) || amount < state.settings.minBuyIn || amount > state.settings.maxBuyIn) {
+    return { ok: false, error: 'INVALID_ACTION' };
+  }
+  return { ok: true, action: { type: 'rebuy', playerId, amount }, cost: amount };
+}
+
 function auto(state: PokerGameState): AutoStep<PokerAction> | null {
   if (state.status === 'finished' || !state.hand) return null;
   const hand = state.hand;
@@ -48,8 +91,10 @@ function auto(state: PokerGameState): AutoStep<PokerAction> | null {
     return { delay: 'trickPause', action };
   }
   if (hand.phase === 'done') {
-    // Result screen, then the next hand (or the finish).
-    return { delay: 'roundSummary', action: { type: 'nextHand' } };
+    // Result screen, then the next hand. Busting gives the longer "between
+    // hands" window so the player has time to rebuy before the next deal.
+    const justBusted = hand.order.some((id) => state.players.find((p) => p.id === id)!.stack === 0);
+    return { delay: justBusted ? 'betweenHands' : 'roundSummary', action: { type: 'nextHand' } };
   }
   return null;
 }
@@ -101,6 +146,9 @@ export const pokerModule: GameModule<PokerSettings, PokerGameState, PokerAction,
   auto,
   playAction,
   betAction,
+  commandAction,
+  timeoutAction,
+  rebuyAction,
   isFinished: (state) => state.status === 'finished',
   winnerId: (state) => state.winnerId,
   settle,

@@ -126,6 +126,12 @@ export class BotClient {
   play(cardId?: string) {
     return this.call('game:play', { cardId });
   }
+  action(type: string, amount?: number) {
+    return this.call('game:action', { type, amount });
+  }
+  rebuy(amount?: number) {
+    return this.action('rebuy', amount);
+  }
 
   waitFor(pred: (v: RoomView) => boolean, timeoutMs = 10_000): Promise<RoomView> {
     if (this.view && pred(this.view)) return Promise.resolve(this.view);
@@ -142,8 +148,11 @@ export class BotClient {
   }
 
   myTurn(): boolean {
-    const g = this.view?.game;
-    return !!g && g.turnPlayerId === this.view!.youId && (g.phase === 'betting' || g.phase === 'playing');
+    const room = this.view;
+    if (!room) return false;
+    if (room.gameType === 'poker') return !!room.game && room.game.actorId === room.youId;
+    const g = room.game;
+    return !!g && g.turnPlayerId === room.youId && (g.phase === 'betting' || g.phase === 'playing');
   }
 
   /** Plays automatically using the shared bot heuristics. */
@@ -154,7 +163,10 @@ export class BotClient {
 
   private maybeAct(): void {
     if (!this.autoPlay || this.acting || !this.myTurn()) return;
-    const game = this.view!.game!;
+    const room = this.view!;
+    // Poker moves are driven explicitly by the caller (raise amounts differ).
+    if (room.gameType === 'poker') return;
+    const game = room.game!;
     this.acting = true;
     const action = game.phase === 'betting' ? this.bet(chooseBotBet(game)) : this.play(chooseBotCard(game) ?? undefined);
     void action.then((r) => {
