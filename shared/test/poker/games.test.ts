@@ -8,6 +8,7 @@ import {
   type PokerHand,
   DEFAULT_POKER_SETTINGS,
   POKER_MIN_BUY_IN,
+  POKER_TURN_TIMEOUT_MS,
   applyPokerAction as applyAction,
   assertConservation,
   bigBlind,
@@ -410,5 +411,9 @@ describe('poker module', () => {
     expect(pokerModule.maxPlayers).toBe(8);
     expect(pokerModule.minEntry).toBe(1000);
     expect(pokerModule.entryOptions).toContain(1000);
+  });
+
+  it('gives every player 30 seconds per action, shared by server and client', () => {
+    expect(POKER_TURN_TIMEOUT_MS).toBe(30_000);
   });
 });

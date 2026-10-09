@@ -34,7 +34,7 @@ shared/                 Game rules, no UI, no network. Used by both server and c
                         the GameModule contract that every game implements
                         (gameModule.ts), and the public catalog (catalog.ts)
   src/games/danese/     The Dane-se engine (cards, trick, rules, game, view, bot)
-  src/games/poker/      The poker engine (Phase "poker": cards, rules, game, view, bot)
+  src/games/poker/      The Texas Hold'em engine (cards, hand, betting, rules, game, view, bot)
   src/protocol.ts       Socket event types + pt-BR error messages
   test/                 Vitest unit tests
   src/characters.ts     Avatar characters (shared with the 3D table)
@@ -55,7 +55,7 @@ client/
   src/lib/prefs.ts      Per-device preferences (mute, vibration, table color)
   src/components/       HowToPlay, WaitingRoom, chat, cards/, ui/
   src/components/hub/   The game hub: Hub, WalletHeader, GameCard (one page to pick a game)
-  src/components/poker/ Poker table (Phase "poker")
+  src/components/poker/ Texas Hold'em screen: PokerScreen, PokerSeat, PokerActions, CardFace, …
   src/components/table/ The Dane-se game screen: GameScreen, Seat, Hand, BetBar, …
 ```
 
@@ -63,7 +63,7 @@ client/
 
 1. The player taps a card → `actions.play(cardId)` in `client/src/lib/store.ts` emits `game:play`.
 2. `server/src/app.ts` passes it to `RoomManager.play()` in `server/src/rooms.ts`.
-3. The room calls `applyAction(state, action)` from `shared/src/game.ts`. The engine validates everything (turn, phase, card ownership) and returns a new state or an error code.
+3. The room calls `applyAction(state, action)` from the game engine (`shared/src/games/danese/game.ts` for this example). The engine validates everything (turn, phase, card ownership) and returns a new state or an error code.
 4. The room sends each player **their own** `getPlayerView(state, playerId)` as `room:state`.
 5. React re-renders from that view; Framer Motion animates the difference.
 
@@ -81,7 +81,7 @@ Money games also need `rules.ts` to expose `payoutWeights`/ranking (see `daneseP
 
 ## 3. Golden rules
 
-- **Never leak hidden information.** Anything game-related a client receives must come from `getPlayerView()` in `shared/src/view.ts`. Don't add other players' hands (or your own forehead card in the blind round) to any message. `npm run simulate` and the tests check this.
+- **Never leak hidden information.** Anything game-related a client receives must come from a per-game view (`getPlayerView()` in `shared/src/games/danese/view.ts`, `getPokerView()` in `shared/src/games/poker/view.ts`). Don't add other players' hands (or your own forehead card in the blind round) to any message. `npm run simulate` and the tests check this.
 - **Keep the engine pure.** `shared/` has no `Date.now()`, no `Math.random()` (use `shared/src/rng.ts`), no I/O. That keeps games deterministic and testable.
 - **Rule changes come with tests.** If you touch `shared/`, add or update a test in `shared/test/`.
 - **Code in English, UI in Brazilian Portuguese.** Identifiers and comments in English; everything the player reads in pt-BR. Server error messages live in `ERROR_MESSAGES_PT` in `shared/src/protocol.ts`.
@@ -90,7 +90,7 @@ Money games also need `rules.ts` to expose `payoutWeights`/ranking (see `daneseP
 
 ## 4. Recipes
 
-**Change a game rule.** Look in `shared/src/rules.ts` first: the debatable rules are named constants (e.g. `DEALER_PENALTY_WHEN_ALL_TRICKS_TIED`). Update the tests in `shared/test/`, and the "Como jogar" text in `client/src/components/HowToPlay.tsx` if players would notice.
+**Change a game rule.** Look in `shared/src/games/<game>/rules.ts` first: the debatable rules are named constants (e.g. `DEALER_PENALTY_WHEN_ALL_TRICKS_TIED`). Update the tests in `shared/test/`, and the "Como jogar" text in `client/src/components/HowToPlay.tsx` if players would notice.
 
 **Add a new player action** (e.g. an emote):
 1. Add the event to `ClientToServerEvents` (and `ServerToClientEvents` if needed) in `shared/src/protocol.ts`.
@@ -132,7 +132,7 @@ Workflow:
 
 Open an issue or comment on one before starting something big, so two people don't build the same thing.
 
-- Emotes / quick reactions at the table
+- Multi-table / tournament poker
 - Game log panel (who played what, who lost a letter)
 - Bot difficulty levels
 - Let the host remove a player for good in the middle of a game

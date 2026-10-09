@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CATEGORIES,
+  HAND_CATEGORY_NAMES_PT,
   type HandCategory,
   bestHand,
   compareHandValues,
@@ -83,6 +85,13 @@ describe('compareHandValues', () => {
     for (let i = 1; i < values.length; i++) {
       expect(compareHandValues(values[i]!, values[i - 1]!)).toBe(1);
       expect(compareHandValues(values[i - 1]!, values[i]!)).toBe(-1);
+    }
+  });
+
+  it('gives every category a pt-BR name', () => {
+    expect(Object.keys(HAND_CATEGORY_NAMES_PT).sort()).toEqual([...CATEGORIES].sort());
+    for (const name of Object.values(HAND_CATEGORY_NAMES_PT)) {
+      expect(name.length).toBeGreaterThan(0);
     }
   });
 

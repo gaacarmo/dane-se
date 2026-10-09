@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   DANESE_MIN_ENTRY,
+  GAME_CATALOG,
+  POKER_MAX_BUY_IN_MULTIPLE,
+  POKER_MIN_BUY_IN,
   assertConservation,
   daneseModule,
   danesePayoutWeights,
@@ -95,5 +98,23 @@ describe('daneseModule.validateSettings', () => {
     expect(daneseModule.validateSettings({ maxCards: 9 })).toBeNull();
     expect(daneseModule.validateSettings({ word: '---' })).toBeNull();
     expect(daneseModule.validateSettings({ cardCountMode: 'chaos' })).toBeNull();
+  });
+});
+
+describe('GAME_CATALOG', () => {
+  const poker = GAME_CATALOG.find((g) => g.id === 'poker')!;
+
+  it('lists both games and marks poker as live', () => {
+    expect(GAME_CATALOG.map((g) => g.id)).toEqual(['danese', 'poker']);
+    expect(poker.available).toBe(true);
+  });
+
+  it('keeps every poker buy-in option inside the allowed range', () => {
+    expect(poker.minEntry).toBe(POKER_MIN_BUY_IN);
+    expect(poker.entryOptions).toContain(poker.defaultEntry);
+    for (const v of poker.entryOptions) {
+      expect(v).toBeGreaterThanOrEqual(POKER_MIN_BUY_IN);
+      expect(v).toBeLessThanOrEqual(POKER_MIN_BUY_IN * POKER_MAX_BUY_IN_MULTIPLE);
+    }
   });
 });

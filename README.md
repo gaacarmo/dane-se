@@ -1,10 +1,11 @@
 # Game Hub (Dane-se · Poker)
 
-A real-time multiplayer **game hub** with a shared server-side wallet, built from the classic Brazilian card game **Dane-se** (a.k.a. Fodinha). You take a seat in a college cafeteria, see everyone around you, and play. The interface is in Brazilian Portuguese.
+A real-time multiplayer **game hub** with a shared server-side wallet, built around the classic Brazilian card game **Dane-se** (a.k.a. Fodinha) and a **Texas Hold'em** cash table. Take a seat in a college cafeteria, see everyone around you, and play. The interface is in Brazilian Portuguese.
 
-- 🕹️ **Game Hub**: one home screen with your balance and the catalog — **Dane-se** is live now, **Poker Texas Hold'em** is coming next
+- 🕹️ **Game Hub**: one home screen with your balance and the catalog — **Dane-se** and **Poker Texas Hold'em** are both live
 - 💰 **Shared wallet**: everyone starts with R$ 10.000 of play money on the server. Entry is charged when a money game starts, the pot is paid to the winner at the end, and nobody can touch your balance from the client
-- 2 to 6 players for Dane-se, phone-first, also fine on desktop (portrait and landscape)
+- 🃏 **Dane-se (Fodinha)**: 2 to 6 players, phone-first, also fine on desktop (portrait and landscape)
+- ♠️ **Poker Texas Hold'em**: 2 to 8 players, cash-game style — sit with a buy-in, play hand after hand, and rebuy between hands
 - Rooms with a short code and share link
 - Two ways to play, picked on the home screen: **Mobile** (the classic top-down table) or **Desktop** (first-person view from your seat). If a browser has no WebGL (3D graphics), the Desktop mode is unavailable
 - Pick a character in the lobby: the group's six friends, drawn as cartoon portraits
@@ -15,9 +16,11 @@ A real-time multiplayer **game hub** with a shared server-side wallet, built fro
 
 ## Playing
 
-**The hub.** The home screen shows your nickname and balance on top, the catalog below (Dane-se, and poker coming soon) and a join-by-code box. Pick a game, choose the entry, and create the room — or type a 4-letter code to jump into a friend's room.
+**The hub.** The home screen shows your nickname and balance on top, the catalog below (Dane-se and Poker Texas Hold'em) and a join-by-code box. Pick a game, choose the entry (Dane-se) or the buy-in (poker), and create the room — or type a 4-letter code to jump into a friend's room.
 
 **Money.** Everyone starts with R$ 10.000 of play money, held server-side (the client never knows how to move it). The entry is chosen by the host at creation (Dane-se: R$ 100 upward) and charged from each player when the game **starts**. The pot is paid to the winner (and runner-up in bigger games) at the end; the results screen shows who got what and your new balance. If everyone leaves before the game ends, entries are refunded. Run low? The wallet refills to R$ 10.000 once an hour when your balance is under R$ 100. A room with a host-added bot is **treino**: no money moves at all.
+
+**Poker money.** Poker is a cash game, so the host picks a **buy-in** up front (R$ 1.000 upward) and a **minimum stack** that also sets the blinds. Everyone pays their buy-in to the table when the game starts and plays with chips; between hands you can **rebuy** straight from your wallet (the server adds the buy-in back to your stack and charges it to your balance). At the end each player's final stack is paid back to the wallet, so the table always balances.
 
 **Lobby.** Create a room, share the link, and pick your character. The host can add bots, change the entry, the word (it's "DANE-SE" by default) and start the game.
 
@@ -36,6 +39,16 @@ A real-time multiplayer **game hub** with a shared server-side wallet, built fro
 **Losing.** Whoever doesn't make their bet gets the next letter of the word. Whoever completes the word is out; the last one standing wins.
 
 **Talking.** The 💬 button opens the room chat (a speech bubble pops up over whoever writes). The 😀 button sends an emoji reaction that floats over your character: 😂 😱 😡 😭 😎 🙏 👏 🔥 🤡 💩 😏 🦐.
+
+## Playing Poker Texas Hold'em
+
+The hub's second game is a **cash-game table** for 2 to 8 players. You pick a buy-in and a minimum stack in the lobby (the minimum also sets the blinds); when the game starts everyone pays their buy-in and sits down with chips.
+
+**The table.** Your two hole cards sit at the bottom, the community cards and the pot in the middle, and the other players around the felt with their chips and current street bet. The dealer button (D) moves one seat each hand; the **small** and **big blinds** are posted to its left and always count as the opening bet.
+
+**Streets and actions.** Betting runs through four streets — **pré-flop**, **flop** (3 cards), **turn** (1 card) and **river** (1 card). When it's your turn, the control bar offers **Desistir** (fold), **Passar** (check) or **Pagar** (call), **Aumentar** (raise, with a slider and quick min / half-pot / pot / max bets) and **All-in**. Your best five-card hand so far is shown in the HUD.
+
+**Winning.** Win the pot by making everyone fold or by showing the best hand at showdown (hands are ranked from carta alta up to straight flush). You can sit out a hand, but if you lose your whole stack you can **rebuy** between hands from your wallet and keep playing — or stay to watch as a spectator. The session ends when one player holds all the chips; final stacks are paid back to everyone's wallet.
 
 ## Quick start (local)
 
@@ -124,8 +137,8 @@ client/   React + Vite + Tailwind + Framer Motion. Hub + tables.
 
 - **Server-authoritative.** Clients send intentions ("bet 2", "play 7♣", "join this room"); the server validates turn, phase, card ownership, balances and the Pé restriction against the engine.
 - **Money is server-side.** The wallet lives in `server/src/hub/` (`WalletService` over a `WalletStore`: file- or memory-backed), with an append-only ledger, a refill cooldown, and idempotent settlements so a restart can't double-pay. Entering a room checks your balance; the entry is charged at the start and returned if the room empties before the game ends.
-- **No hidden-information leaks.** The only game data a client ever receives comes from `getPlayerView(state, playerId)` in `shared/src/games/danese/view.ts`: your own hand only, and in the blind round everyone's forehead card except yours. The simulation script and tests audit every state sent.
-- **Deterministic engines.** `shared/src/games/danese/game.ts` is a pure reducer with a seedable RNG (`shared/src/rng.ts`), so games can be replayed and tested.
+- **No hidden-information leaks.** The only game data a client ever receives comes from a per-game view: `getPlayerView(state, playerId)` in `shared/src/games/danese/view.ts` (your own hand only, and in the blind round everyone's forehead card except yours) and `getPokerView(state, viewerId)` in `shared/src/games/poker/view.ts` (your hole cards, plus other players' cards only at showdown). The simulation script and tests audit every state sent.
+- **Deterministic engines.** Each game is a pure reducer with a seedable RNG (`shared/src/rng.ts`): `shared/src/games/danese/game.ts` for Fodinha and `shared/src/games/poker/` (`game.ts`, `hand.ts`, `rules.ts`) for Hold'em, so games can be replayed and tested. The generic room layer in `server/src/rooms.ts` only schedules timers, sockets and wallets.
 - **Sessions + profiles.** A seat token in `localStorage` lets you reclaim your seat after a refresh; a wallet token keeps your balance across visits. If you're disconnected on your turn, the table waits 30 s (the host can skip), then a bot plays for you until you return. If everyone leaves, the room closes after 90 s; idle rooms close after 2 h.
 - **Sounds** are synthesized with WebAudio (no audio files). Cards and table are SVG/CSS made for this project.
 
@@ -135,9 +148,9 @@ See the in-game **Como jogar** for the player-facing summary. Decisions worth kn
 
 | Situation | Behavior | Where to change it |
 | --- | --- | --- |
-| Every trick of a round tied | Cannot happen anymore (a trick always has a winner); the rule is kept in the code. The Pé would get one letter (never two in a round) | `DEALER_PENALTY_WHEN_ALL_TRICKS_TIED`, `applyRoundTiePenalty` in `shared/src/rules.ts` |
+| Every trick of a round tied | Cannot happen anymore (a trick always has a winner); the rule is kept in the code. The Pé would get one letter (never two in a round) | `DEALER_PENALTY_WHEN_ALL_TRICKS_TIED`, `applyRoundTiePenalty` in `shared/src/games/danese/rules.ts` |
 | Everyone left would be eliminated in the same round | Nobody gets that round's letter; the round is replayed with the same card count | `REPLAY_ROUND_ON_SIMULTANEOUS_ELIMINATION` |
-| Cards of the same rank in a trick | The higher suit wins (Ouros < Espadas < Copas < Paus), so a trick always has a winner and nothing is canceled | `resolveTrick` in `shared/src/trick.ts` |
+| Cards of the same rank in a trick | The higher suit wins (Ouros < Espadas < Copas < Paus), so a trick always has a winner and nothing is canceled | `resolveTrick` in `shared/src/games/danese/trick.ts` |
 | Card count | 1 → max → 1, each end played once (`1,2,…,6,5,…,1,2,…`); "back to 1" mode in settings | `nextCardCount` |
 | Deal cap | `min(6, floor(39 / players))`; never actually limits a 2–6 player game | `maxCardsPerPlayer` |
 | Following suit | Not required: any card can be played | — |
@@ -150,3 +163,14 @@ See the in-game **Como jogar** for the player-facing summary. Decisions worth kn
 | Leaving/emptying before the end | If everyone leaves before the game ends, entries are refunded and the room closes | `rooms.ts` (`refundRoom`) |
 | Bot / practice | Host adds a bot in the lobby → the room becomes "treino": no money moves; blocked once someone paid | `rooms.ts` (`PRACTICE_LOCKED`) |
 | Refill | Below R$ 100, reset to R$ 10.000, once per hour | `REFILL_*` in `shared/src/hub/money.ts` |
+
+### Poker Texas Hold'em
+
+| Situation | Behavior | Where to change it |
+| --- | --- | --- |
+| Hand ranking | Standard five-card poker from carta alta to straight flush; equal hands split the pot | `CATEGORIES`, `bestHand`, `compareHandValues` in `shared/src/games/poker/hand.ts` |
+| Blinds | Derived from the minimum stack: small blind = min buy-in ÷ 100 (at least 1), big blind = min buy-in ÷ 50 | `smallBlind`, `bigBlind` in `shared/src/games/poker/rules.ts` |
+| Button and posts | The button moves one seat per hand; the two seats to its left post the blinds | `startHand` in `shared/src/games/poker/game.ts` |
+| Turn timeout | 30 s per action, timed by the server; a timeout auto-checks (or folds when there's nothing to call) | `POKER_TURN_TIMEOUT_MS` in `shared/src/games/poker/rules.ts` |
+| Rebuy | Between hands a player can add the buy-in to their stack; the amount is charged to the wallet and capped at ten times the minimum | `rebuyAction` in `shared/src/games/poker/module.ts`, `server/src/rooms.ts` |
+| Settlement | Final stacks are paid back to the wallets; chips always balance against the buy-ins | `settle` in `shared/src/games/poker/module.ts`, `server/src/rooms.ts` (`paidTotal`) |
