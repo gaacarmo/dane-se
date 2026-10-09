@@ -298,8 +298,11 @@ export function PokerTable3DView({ room }: { room: PokerRoomView }) {
         {game.seats.map((s, i) => {
           const k = (ordered.findIndex((o) => o.id === s.id) - youIndex + n) % n;
           const { angle } = seatPosition(k, n);
-          const side = { x: Math.cos(angle) * 0.16, z: -Math.sin(angle) * 0.16 };
-          const stackR = k === 0 ? 0.62 : 0.74;
+          // Your own chips sit a little to the right, so your hole cards at the bottom don't hide them.
+          const sideR = k === 0 ? 0.34 : 0.16;
+          const side = { x: Math.cos(angle) * sideR, z: -Math.sin(angle) * sideR };
+          const stackR = k === 0 ? 0.6 : 0.74;
+          const betSide = k === 0 ? 0.2 : 0;
           return (
             <group key={s.id}>
               <ChipPile
@@ -311,8 +314,8 @@ export function PokerTable3DView({ room }: { room: PokerRoomView }) {
               {s.bet > 0 && (
                 <ChipPile
                   count={chipsFor(s.bet, unit, 8)}
-                  x={Math.sin(angle) * 0.48}
-                  z={Math.cos(angle) * 0.48}
+                  x={Math.sin(angle) * 0.48 + Math.cos(angle) * betSide}
+                  z={Math.cos(angle) * 0.48 - Math.sin(angle) * betSide}
                   seed={i * 5 + 1}
                   perStack={4}
                 />
