@@ -8,6 +8,7 @@ import { ChatPanel } from '../ChatPanel';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { BetBar } from './BetBar';
+import { ArcadeBar } from './ArcadeBar';
 import { CenterPile } from './CenterPile';
 import { DealAnimation, dealOrder, dealTiming } from './DealAnimation';
 import { type Point, foreheadSpace, seatPoint, tableGeometry, trickPoint, useElementSize } from './geometry';
@@ -206,6 +207,7 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
           </div>
         )}
         {view3d && me && !game.isSpectator && !me.eliminated && <MyStatus game={game} me={me} word={word} compact={compact} />}
+        <ArcadeBar game={game} />
         <ReactionPicker atTop={compact} />
         <WaitingBanner room={room} />
         <RoundSummary game={game} />

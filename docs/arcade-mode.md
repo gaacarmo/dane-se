@@ -117,8 +117,9 @@ Cada jogador entra com:
    pot, troca de hole cards, escudo de fichas, multa do gato).
 4. ✅ **Sala:** flag `arcade` na criação e no lobby, validação/escolha de talentos,
    aura no `PlayerView`/protocolo (`specialCharged` público, kit privado).
-5. **UI:** aura no avatar 2D (feito) e 3D, painel do kit, botões dos especiais/
-   talentos em jogo, animações dos especiais.
+5. **UI:** aura no avatar 2D (feito); barra de habilidades em jogo, com atalhos de
+   teclado (1..n), seletor de alvo/aposta e bandeja de espionagem (feito, 2D e 3D).
+   Faltam: aura no avatar 3D e animações dos especiais.
 
 ## Números em aberto (balancear depois)
 

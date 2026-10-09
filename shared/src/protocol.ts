@@ -1,5 +1,5 @@
 import type { CharacterId } from './characters.js';
-import type { CommonTalentId } from './arcade/index.js';
+import type { ArcadeAbilityId, CommonTalentId } from './arcade/index.js';
 import type { GameError } from './games/danese/game.js';
 import type { GameSettings } from './games/danese/rules.js';
 import type { PlayerView } from './games/danese/view.js';
@@ -258,10 +258,23 @@ export interface ClientToServerEvents {
   'game:play': (payload: { cardId?: string }, ack: AckFn) => void;
   /**
    * Named, amount-free game actions for games that need them (poker:
-   * `fold`/`check`/`call`/`allIn`), plus `rebuy` between hands. Engines without
-   * commands reject it.
+   * `fold`/`check`/`call`/`allIn`), plus `rebuy` between hands. Arcade abilities
+   * ride the same event as `{ type: 'arcade', ability, targetId?, bet? }`.
+   * Engines without commands reject it.
    */
-  'game:action': (payload: { type: string; amount?: number }, ack: AckFn) => void;
+  'game:action': (
+    payload: {
+      type: string;
+      amount?: number;
+      /** Arcade only: which ability to fire. */
+      ability?: ArcadeAbilityId;
+      /** Arcade only: the chosen opponent for targeted abilities. */
+      targetId?: string;
+      /** Arcade only: NUOSSA!'s new bet. */
+      bet?: number;
+    },
+    ack: AckFn,
+  ) => void;
 }
 
 export type RoomClosedReason = 'everyoneLeft' | 'idle';

@@ -3,6 +3,7 @@ import { io, type Socket } from 'socket.io-client';
 import {
   LOOK_INTERVAL_MS,
   type Ack,
+  type ArcadeAbilityId,
   type CharacterId,
   type ClientToServerEvents,
   type CommonTalentId,
@@ -391,6 +392,9 @@ export const actions = {
   action: (type: string, amount?: number) => send('game:action', { type, amount }),
   /** Between-hands rebuy; the amount defaults to the room buy-in on the server. */
   rebuy: (amount?: number) => send('game:action', { type: 'rebuy', amount }),
+  /** Fires an arcade ability. Targeted ones take `targetId`; NUOSSA! takes `bet`. */
+  arcade: (ability: ArcadeAbilityId, targetId?: string, bet?: number) =>
+    send('game:action', { type: 'arcade', ability, targetId, bet }),
   play: (cardId?: string) => send('game:play', { cardId }),
   /** Fire and forget: a reaction that's too fast is simply dropped, no error toast. */
   react: (emoji: string) => call('room:react', { emoji }),
