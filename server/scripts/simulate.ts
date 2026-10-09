@@ -3,16 +3,36 @@
  * client ever receives hidden information.
  *
  *   npm run simulate -w server -- --players 5 --games 3 --disconnect --verbose
+ *   npm run simulate -w server -- --arcade --verbose
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { isDaneseRoom, type Card, type RoomView } from '@dane-se/shared';
+import {
+  type Card,
+  type CharacterId,
+  type CommonTalentId,
+  type RoomView,
+  CHARACTER_IDS,
+  COMMON_TALENT_IDS,
+  isCommonTalentId,
+  isDaneseRoom,
+  talentsFor,
+} from '@dane-se/shared';
 import { createApp } from '../src/app.js';
 import { BotClient } from './botClient.js';
 
 const SUIT_SYMBOL = { D: '♦', S: '♠', H: '♥', C: '♣' } as const;
 const show = (c: Card) => `${c.rank}${SUIT_SYMBOL[c.suit]}`;
+
+/** A valid common-talent set for a seat, varied by `seed` so the table isn't uniform. */
+function arcadeTalents(character: CharacterId, seed: number): CommonTalentId[] {
+  const out: CommonTalentId[] = [];
+  for (let k = 0; k < talentsFor(character); k++) {
+    out.push(COMMON_TALENT_IDS[(seed + k) % COMMON_TALENT_IDS.length]!);
+  }
+  return out;
+}
 
 /** Throws if a view contains anything this player shouldn't know. */
 export function auditView(view: RoomView): void {
@@ -28,21 +48,56 @@ export function auditView(view: RoomView): void {
     if (me && !me.eliminated && g.hand.length !== me.cardCount) throw new Error('hand size mismatch');
   }
   if (g.isSpectator && g.hand.length > 0) throw new Error('spectator received a hand');
+
+  // Arcade: only the owner gets their kit, private reveals and Farejador tips.
+  const a = g.arcade;
+  if (!a.enabled) return;
+  if (view.members.some((m) => 'talents' in m)) throw new Error('member talents leaked in the room view');
+  if (new Set(view.yourTalents).size !== view.yourTalents.length || !view.yourTalents.every(isCommonTalentId)) {
+    throw new Error(`${view.youId} got an invalid talent set`);
+  }
+  if (a.loadout) {
+    const mine = [...view.yourTalents].sort().join();
+    const theirs = [...a.loadout.talents].sort().join();
+    if (mine !== theirs) throw new Error('the room talents and the engine loadout disagree');
+  }
+  const memberIds = new Set(view.members.map((m) => m.id));
+  for (const r of a.reveals) {
+    if (r.targetId === view.youId) throw new Error(`${view.youId} was sent a reveal of their own card`);
+    if (!memberIds.has(r.targetId)) throw new Error('reveal targets an unknown player');
+    if (r.card.rank === g.vira.rank && r.card.suit === g.vira.suit) throw new Error('reveal leaked the vira');
+  }
+  for (const id of a.gatoAlerts) {
+    if (id === view.youId) throw new Error('gatoAlerts contains the viewer');
+    if (!memberIds.has(id)) throw new Error('gatoAlert targets an unknown player');
+  }
 }
 
 export async function simulateGame(opts: {
   url: string;
   players: number;
+  arcade?: boolean;
   disconnect?: boolean;
   log?: (line: string) => void;
 }): Promise<{ winner: string; rounds: number; views: number }> {
   const log = opts.log ?? (() => {});
   const clients = Array.from({ length: opts.players }, (_, i) => new BotClient(opts.url, `Bot${i + 1}`));
   const [host] = clients as [BotClient];
-  const { code } = await host.create();
+  const { code } = await host.create({ arcade: opts.arcade });
   for (const c of clients.slice(1)) {
     const r = await c.join(code);
     if (!r.ok) throw new Error(`join failed: ${r.error}`);
+  }
+  if (opts.arcade) {
+    for (let i = 0; i < clients.length; i++) {
+      const c = clients[i]!;
+      const character = CHARACTER_IDS[i % CHARACTER_IDS.length]!;
+      const char = await c.setCharacter(character);
+      if (!char.ok) throw new Error(`setCharacter failed: ${char.error}`);
+      const talents = await c.setTalents(arcadeTalents(character, i));
+      if (!talents.ok) throw new Error(`setTalents failed: ${talents.error}`);
+      c.enableArcade();
+    }
   }
   const started = await host.start();
   if (!started.ok) throw new Error(`start failed: ${started.error}`);
@@ -102,6 +157,7 @@ async function main() {
     options: {
       players: { type: 'string', default: '4' },
       games: { type: 'string', default: '1' },
+      arcade: { type: 'boolean', default: false },
       disconnect: { type: 'boolean', default: false },
       verbose: { type: 'boolean', default: false },
     },
@@ -121,6 +177,7 @@ async function main() {
       const result = await simulateGame({
         url,
         players,
+        arcade: values.arcade,
         disconnect: values.disconnect,
         log: values.verbose || games === 1 ? (line) => console.log(`  ${line}`) : undefined,
       });

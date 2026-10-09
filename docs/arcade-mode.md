@@ -122,6 +122,10 @@ Cada jogador entra com:
    apontado no próprio jogador: a cadeira dele acende e basta clicar (feito, 2D e 3D).
    Aura de especial carregado no avatar 3D (anel pulsante) e animação do momento
    em que um especial dispara (estouro de energia no assento, 2D e 3D) — feito.
+6. ✅ **Simulação:** `npm run simulate -- --arcade` monta salas arcade, os bots
+   escolhem kits e disparam as habilidades (especial + talentos); o `auditView`
+   passa a garantir que kit privado, espionagens e avisos do Farejador nunca
+   vazam para o jogador errado.
 
 ## Números em aberto (balancear depois)
 

@@ -380,6 +380,11 @@ describe('full games', () => {
     expect(result.winner).toMatch(/^Bot/);
   });
 
+  it('arcade bots pick kits and play without leaking private abilities', async () => {
+    const result = await simulateGame({ url, players: 4, arcade: true });
+    expect(result.rounds).toBeGreaterThan(1);
+  });
+
   it('eliminated players keep watching as spectators, then host can rematch', async () => {
     const { players } = await lobby(3);
     for (const p of players) p.enableAutoPlay();
