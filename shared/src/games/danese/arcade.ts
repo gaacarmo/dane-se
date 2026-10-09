@@ -50,7 +50,7 @@ function pushReveals(
 // Abilities
 // ---------------------------------------------------------------------------
 
-/** Radar (talento): 1× vê uma carta aleatória de um oponente. */
+/** Rádio Corredor (talento): 1× vê uma carta aleatória de um oponente. */
 function useRadar(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
   if (!seat.talents.includes('radar') || seat.charges <= 0) return err('ABILITY_UNAVAILABLE');
   if (!canAct(state, action.playerId)) return err('WRONG_PHASE');
@@ -70,7 +70,7 @@ function useRadar(state: GameState, seat: ArcadeSeatState, action: ArcadeAbility
   });
 }
 
-/** Curinga (talento): 1× troca uma carta aleatória da própria mão por uma do baralho. */
+/** Substituição (talento): 1× troca uma carta aleatória da própria mão por uma do baralho. */
 function useCuringa(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
   if (!seat.talents.includes('curinga') || seat.charges <= 0) return err('ABILITY_UNAVAILABLE');
   if (state.phase !== 'betting' && state.phase !== 'playing') return err('WRONG_PHASE');
@@ -89,7 +89,7 @@ function useCuringa(state: GameState, seat: ArcadeSeatState, action: ArcadeAbili
   });
 }
 
-/** Visão de Jogo (Dezin): especial, vê a mão inteira de um oponente. */
+/** Leitura de Jogo (Dezin): especial, vê a mão inteira de um oponente. */
 function useVisao(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
   if (CHARACTER_KITS[seat.character].special.id !== 'visao' || !seat.specialCharged) {
     return err('ABILITY_UNAVAILABLE');
@@ -108,7 +108,7 @@ function useVisao(state: GameState, seat: ArcadeSeatState, action: ArcadeAbility
   });
 }
 
-/** NUOSSA! (Carmelo): especial, muda a própria aposta depois de todo mundo apostar. */
+/** Catimba (Carmelo): especial, muda a própria aposta depois de todo mundo apostar. */
 function useNuossa(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
   if (CHARACTER_KITS[seat.character].special.id !== 'nuossa' || !seat.specialCharged) {
     return err('ABILITY_UNAVAILABLE');
@@ -125,7 +125,7 @@ function useNuossa(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilit
   });
 }
 
-/** A Safadeza (Martelo): especial, troca uma carta aleatória com um oponente escolhido. */
+/** Tabelinha (Martelo): especial, troca uma carta aleatória com um oponente escolhido. */
 function useSafadeza(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
   if (CHARACTER_KITS[seat.character].special.id !== 'safadeza' || !seat.specialCharged) {
     return err('ABILITY_UNAVAILABLE');
@@ -153,7 +153,7 @@ function useSafadeza(state: GameState, seat: ArcadeSeatState, action: ArcadeAbil
   });
 }
 
-/** A Bomba (Babin): especial, zera as apostas e todo mundo re-aposta a mesma mão. */
+/** Invasão de Campo (Babin): especial, zera as apostas e todo mundo re-aposta a mesma mão. */
 function useBomba(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
   if (CHARACTER_KITS[seat.character].special.id !== 'bomba' || !seat.specialCharged) {
     return err('ABILITY_UNAVAILABLE');
@@ -173,7 +173,7 @@ function useBomba(state: GameState, seat: ArcadeSeatState, action: ArcadeAbility
   });
 }
 
-/** Pega o Gato! (Colombo): acusa; acerto pune o alvo, erro devolve a letra pro acusador. */
+/** Pênalti! (Colombo): acusa; acerto pune o alvo, erro devolve a letra pro acusador. */
 function usePegaGato(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
   if (CHARACTER_KITS[seat.character].special.id !== 'pegaGato' || !seat.specialCharged) {
     return err('ABILITY_UNAVAILABLE');
@@ -190,7 +190,7 @@ function usePegaGato(state: GameState, seat: ArcadeSeatState, action: ArcadeAbil
   });
 }
 
-/** Deixa Esquentar (Sarney): especial, ganha um escudo contra a próxima letra recebida. */
+/** Carrinho (Sarney): especial, ganha um escudo contra a próxima letra recebida. */
 function useEsquentar(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
   if (CHARACTER_KITS[seat.character].special.id !== 'esquentar' || !seat.specialCharged) {
     return err('ABILITY_UNAVAILABLE');
@@ -230,7 +230,7 @@ export function applyArcadeAbility(state: GameState, action: ArcadeAbilityAction
       return usePegaGato(state, seat, action);
     case 'esquentar':
       return useEsquentar(state, seat, action);
-    // Escudo é passivo (não acionável); qualquer outro id cai aqui.
+    // Trave é passiva (não acionável); qualquer outro id cai aqui.
     default:
       return err('ABILITY_UNAVAILABLE');
   }
@@ -253,7 +253,7 @@ function isGato(state: GameState, id: string): boolean {
 }
 
 /**
- * Farejador de Gato (Colombo): marca quem apostou ≥1 e já não consegue mais
+ * VAR (Colombo): marca quem apostou ≥1 e já não consegue mais
  * bater a aposta. Só o dono da passiva recebe a lista.
  */
 export function gatoAlerts(state: GameState, viewerId: string | null): string[] {

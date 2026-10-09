@@ -520,7 +520,7 @@ function ArcadeSection({ room, isHost }: { room: RoomView; isHost: boolean }) {
           <div>
             <p className="mb-2 text-xs text-stone-400">
               Escolha {need} talento{need === 1 ? '' : 's'} comum{need === 1 ? '' : 's'}
-              {need === 2 ? ' (você é o Bonzão!)' : ''}:
+              {need === 2 ? ' (você tá no Camarote!)' : ''}:
             </p>
             <div className="grid gap-2">
               {COMMON_TALENT_IDS.map((id) => {

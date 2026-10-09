@@ -270,7 +270,7 @@ export interface ClientToServerEvents {
       ability?: ArcadeAbilityId;
       /** Arcade only: the chosen opponent for targeted abilities. */
       targetId?: string;
-      /** Arcade only: NUOSSA!'s new bet. */
+      /** Arcade only: Catimba's new bet. */
       bet?: number;
     },
     ack: AckFn,

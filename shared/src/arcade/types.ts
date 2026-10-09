@@ -15,7 +15,7 @@ export type ArcadeAbilityId = SpecialId | CommonTalentId;
 /** O que um jogador leva para uma partida arcade. */
 export interface ArcadeLoadout {
   character: CharacterId;
-  /** Talentos comuns escolhidos ("Sou o Bonzão" dá 2; o resto, 1). */
+  /** Talentos comuns escolhidos ("Camarote" dá 2; o resto, 1). */
   talents: readonly CommonTalentId[];
 }
 
@@ -31,11 +31,11 @@ export interface ArcadeSeatState {
   specialCharged: boolean;
   /** Negadores genéricos de um dano (letra no Dane-se / fichas no poker). */
   shields: number;
-  /** Usos restantes de efeitos limitados (Radar, Curinga). */
+  /** Usos restantes de efeitos limitados (Rádio Corredor, Substituição). */
   charges: number;
-  /** Letras extras antes da eliminação (Esquenta). Permanente. */
+  /** Letras extras antes da eliminação (Zagueirão). Permanente. */
   eliminationBuffer: number;
-  /** Ressurreições restantes de uso único (Zumbi). */
+  /** Ressurreições restantes de uso único (Prorrogação). */
   revives: number;
 }
 

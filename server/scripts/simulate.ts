@@ -49,7 +49,7 @@ export function auditView(view: RoomView): void {
   }
   if (g.isSpectator && g.hand.length > 0) throw new Error('spectator received a hand');
 
-  // Arcade: only the owner gets their kit, private reveals and Farejador tips.
+  // Arcade: only the owner gets their kit, private reveals and VAR tips.
   const a = g.arcade;
   if (!a.enabled) return;
   if (view.members.some((m) => 'talents' in m)) throw new Error('member talents leaked in the room view');

@@ -9,7 +9,7 @@ import type { ArcadeAbilityUi } from './arcadeUi';
  * icons anchored to the lower-left corner, plus hotkeys (1..n to fire, Esc to
  * cancel). Targeted abilities don't list opponents — the seats themselves light
  * up so you point at whoever is sitting there. The info tray (reveals + the
- * Farejador's "de gato" alerts) only ever reaches its owner.
+ * VAR's "de gato" alerts) only ever reaches its owner.
  */
 export function ArcadeBar({
   game,

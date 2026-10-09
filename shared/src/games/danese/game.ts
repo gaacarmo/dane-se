@@ -55,7 +55,7 @@ export interface RoundSummary extends RoundScore {
   vira: Card;
 }
 
-/** An opponent card shown privately to one player (Radar/Visão/Xereta). */
+/** An opponent card shown privately to one player (Rádio Corredor/Leitura de Jogo/Olheiro). */
 export interface ArcadeReveal {
   targetId: string;
   card: Card;
@@ -77,11 +77,11 @@ export interface GameState {
   vira: Card;
   manilhaRank: Rank;
   hands: Record<string, Card[]>;
-  /** Cartas que sobraram do baralho (o Curinga compra daqui). Nunca vai pro cliente. */
+  /** Cartas que sobraram do baralho (a Substituição compra daqui). Nunca vai pro cliente. */
   deck: Card[];
   /** Cartas de oponentes reveladas a cada jogador. Segredo por assento. */
   arcadePrivate: Record<string, ArcadeReveal[]>;
-  /** Letras concedidas por acusações (Pega o Gato), aplicadas no fim da rodada. */
+  /** Letras concedidas por acusações (Pênalti), aplicadas no fim da rodada. */
   pendingLetters: Record<string, number>;
   /** Alive players for this round, starting right of the Pé and ending with the Pé. */
   roundOrder: string[];
@@ -188,7 +188,7 @@ function dealRound(state: GameState): GameState {
   }
   const vira = deck.pop()!;
 
-  // Xereta (Martelo): a cada rodada espia 1 carta aleatória de um adversário.
+  // Olheiro (Martelo): a cada rodada espia 1 carta aleatória de um adversário.
   let rng = shuffled.state;
   const arcadePrivate: Record<string, ArcadeReveal[]> = {};
   for (const id of order) {
@@ -391,8 +391,8 @@ function finishRound(state: GameState): GameState {
 }
 
 /**
- * Aplica o arcade por cima das letras cruas da rodada: o Escudo anula uma letra,
- * o buffer do Esquenta sobe o limiar de eliminação e o Zumbi salva da primeira
+ * Aplica o arcade por cima das letras cruas da rodada: a Trave anula uma letra,
+ * o buffer do Zagueirão sobe o limiar de eliminação e a Prorrogação salva da primeira
  * morte (volta com 1 letra abaixo do letal). Sem arcade ligado é pass-through.
  */
 export function applyArcadeLetters(

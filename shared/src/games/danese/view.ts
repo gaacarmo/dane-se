@@ -35,13 +35,13 @@ export interface ArcadeView {
   loadout: ArcadeLoadout | null;
   /** Whether the viewer's 1× special is still loaded. */
   specialCharged: boolean;
-  /** Remaining talent uses (Radar/Curinga). */
+  /** Remaining talent uses (Rádio Corredor/Substituição). */
   charges: number;
-  /** Active shields (Escudo / Deixa Esquentar). */
+  /** Active shields (Trave / Carrinho). */
   shields: number;
   /** Opponent cards revealed privately to the viewer. */
   reveals: ArcadeReveal[];
-  /** Targets the Farejador flagged as "de gato" (only for the owner). */
+  /** Targets the VAR flagged as "de gato" (only for the owner). */
   gatoAlerts: string[];
 }
 

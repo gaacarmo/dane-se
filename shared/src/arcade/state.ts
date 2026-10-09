@@ -35,7 +35,7 @@ export function parseLoadout(character: unknown, talents: unknown): ArcadeLoadou
   return { character, talents: talents as CommonTalentId[] };
 }
 
-/** Quantos talentos comuns o personagem escolhe ("Sou o Bonzão" dá 2). */
+/** Quantos talentos comuns o personagem escolhe ("Camarote" dá 2). */
 export function talentsFor(character: CharacterId): number {
   const kit = CHARACTER_KITS[character];
   return 1 + (kit.passive.id === 'bonzao' ? ARCADE_TUNING.bonzaoTalentBonus : 0);
@@ -87,14 +87,14 @@ export function spendSpecial(match: ArcadeMatchState, id: string): ArcadeMatchSt
   return { ...match, seats: match.seats.map((s) => (s.id === id ? { ...s, specialCharged: false } : s)) };
 }
 
-/** Gasta um uso de talento (Radar/Curinga). Sem saldo, devolve o mesmo estado. */
+/** Gasta um uso de talento (Rádio Corredor/Substituição). Sem saldo, devolve o mesmo estado. */
 export function spendCharge(match: ArcadeMatchState, id: string): ArcadeMatchState {
   const seat = arcadeSeat(match, id);
   if (!seat || seat.charges <= 0) return match;
   return { ...match, seats: match.seats.map((s) => (s.id === id ? { ...s, charges: s.charges - 1 } : s)) };
 }
 
-/** Dá um escudo (Escudo inicial ou "Deixa Esquentar"). */
+/** Dá um escudo (Trave inicial ou "Carrinho"). */
 export function grantShield(match: ArcadeMatchState, id: string): ArcadeMatchState {
   const seat = arcadeSeat(match, id);
   if (!seat) return match;
@@ -116,7 +116,7 @@ export function absorbHit(match: ArcadeMatchState, id: string): ShieldResult {
   };
 }
 
-/** Vidas efetivas: base do jogo + buffer do Esquenta. */
+/** Vidas efetivas: base do jogo + buffer do Zagueirão. */
 export function eliminationThreshold(match: ArcadeMatchState, id: string, base: number): number {
   return base + (arcadeSeat(match, id)?.eliminationBuffer ?? 0);
 }
@@ -125,13 +125,13 @@ export function canRevive(match: ArcadeMatchState, id: string): boolean {
   return (arcadeSeat(match, id)?.revives ?? 0) > 0;
 }
 
-/** Gasta uma ressurreição (Zumbi). Sem saldo, devolve o mesmo estado. */
+/** Gasta uma ressurreição (Prorrogação). Sem saldo, devolve o mesmo estado. */
 export function spendRevive(match: ArcadeMatchState, id: string): ArcadeMatchState {
   if (!canRevive(match, id)) return match;
   return { ...match, seats: match.seats.map((s) => (s.id === id ? { ...s, revives: s.revives - 1 } : s)) };
 }
 
-/** Chance de uma habilidade ofensiva voltar no usuário ("Encrenca" do Babin). */
+/** Chance de uma habilidade ofensiva voltar no usuário ("Gol Contra" do Babin). */
 export function backfireChance(match: ArcadeMatchState, id: string): number {
   const seat = arcadeSeat(match, id);
   if (!seat) return 0;

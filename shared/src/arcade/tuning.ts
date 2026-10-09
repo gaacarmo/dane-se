@@ -3,13 +3,13 @@
  * limite) mora aqui pra facilitar ajuste sem caçar no meio da lógica.
  */
 export const ARCADE_TUNING = {
-  /** Chance de a habilidade do Babin voltar nele ("Encrenca"). */
+  /** Chance de a habilidade do Babin voltar nele ("Gol Contra"). */
   encrencaBackfire: 0.4,
-  /** Letras extras antes da eliminação ("Esquenta" do Sarney). */
+  /** Letras extras antes da eliminação ("Zagueirão" do Sarney). */
   esquentaLetterBuffer: 2,
-  /** Bônus de fichas iniciais no poker pra quem tem o "Esquenta". */
+  /** Bônus de fichas iniciais no poker pra quem tem o "Zagueirão". */
   esquentaChipBonus: 0.25,
-  /** Talentos comuns extras concedidos pelo "Sou o Bonzão". */
+  /** Talentos comuns extras concedidos pelo "Camarote". */
   bonzaoTalentBonus: 1,
 } as const;
 

@@ -392,7 +392,7 @@ export const actions = {
   action: (type: string, amount?: number) => send('game:action', { type, amount }),
   /** Between-hands rebuy; the amount defaults to the room buy-in on the server. */
   rebuy: (amount?: number) => send('game:action', { type: 'rebuy', amount }),
-  /** Fires an arcade ability. Targeted ones take `targetId`; NUOSSA! takes `bet`. */
+  /** Fires an arcade ability. Targeted ones take `targetId`; Catimba takes `bet`. */
   arcade: (ability: ArcadeAbilityId, targetId?: string, bet?: number) =>
     send('game:action', { type: 'arcade', ability, targetId, bet }),
   play: (cardId?: string) => send('game:play', { cardId }),

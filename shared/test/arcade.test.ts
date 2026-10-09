@@ -86,7 +86,7 @@ describe('arcade catalog', () => {
     expect(parseLoadout(null, ['radar'])).toBeNull();
   });
 
-  it('valida conjuntos parciais de talentos (Bonzão escolhe 2)', () => {
+  it('valida conjuntos parciais de talentos (Camarote escolhe 2)', () => {
     expect(isValidTalentSet('martelo', [])).toBe(true);
     expect(isValidTalentSet('martelo', ['radar'])).toBe(true);
     expect(isValidTalentSet('martelo', ['radar', 'escudo'])).toBe(false);
@@ -122,10 +122,10 @@ describe('arcade match state', () => {
 
   it('aplica os defaults de talento e passiva', () => {
     const match = createArcadeMatchState(seats);
-    // Escudo começa carregado; Sarney tem +2 letras de fôlego.
+    // Trave começa carregada; Sarney tem +2 letras de fôlego.
     expect(arcadeSeat(match, 'p1')?.shields).toBe(1);
     expect(arcadeSeat(match, 'p1')?.eliminationBuffer).toBe(ARCADE_TUNING.esquentaLetterBuffer);
-    // Radar começa com 1 carga; Dezin volta da morte 1 vez.
+    // Rádio Corredor começa com 1 carga; Dezin volta da morte 1 vez.
     expect(arcadeSeat(match, 'p2')?.charges).toBe(1);
     expect(arcadeSeat(match, 'p2')?.revives).toBe(1);
   });
@@ -171,12 +171,12 @@ describe('arcade helpers', () => {
     expect(absorbHit(match, 'rad').absorbed).toBe(false);
   });
 
-  it('o Esquenta soma +2 ao limiar de eliminação', () => {
+  it('o Zagueirão soma +2 ao limiar de eliminação', () => {
     expect(eliminationThreshold(match, 'sarney', 6)).toBe(6 + ARCADE_TUNING.esquentaLetterBuffer);
     expect(eliminationThreshold(match, 'martelo', 6)).toBe(6);
   });
 
-  it('o Zumbi ressuscita uma vez', () => {
+  it('a Prorrogação ressuscita uma vez', () => {
     expect(canRevive(match, 'dezin')).toBe(true);
     const used = spendRevive(match, 'dezin');
     expect(canRevive(used, 'dezin')).toBe(false);
@@ -184,7 +184,7 @@ describe('arcade helpers', () => {
     expect(canRevive(match, 'martelo')).toBe(false);
   });
 
-  it('a Encrenca dá chance de backfire só pro Babin', () => {
+  it('o Gol Contra dá chance de backfire só pro Babin', () => {
     expect(backfireChance(match, 'babin')).toBe(ARCADE_TUNING.encrencaBackfire);
     expect(backfireChance(match, 'martelo')).toBe(0);
   });
@@ -207,7 +207,7 @@ describe('dane-se arcade', () => {
     expect(out.eliminatedIds).toEqual([]);
   });
 
-  it('o Escudo anula a letra e some', () => {
+  it('a Trave anula a letra e some', () => {
     const seat = { id: 'a', loadout: { character: 'colombo', talents: ['escudo'] } as const };
     const out = applyArcadeLetters(createArcadeMatchState([seat]), 6, [r('a', 1)]);
     expect(out.results[0]).toMatchObject({ gainedLetter: false, lettersAfter: 0, eliminated: false });
@@ -217,7 +217,7 @@ describe('dane-se arcade', () => {
     expect(again.results[0]).toMatchObject({ gainedLetter: true, lettersAfter: 1 });
   });
 
-  it('o Esquenta só cai na 8ª letra', () => {
+  it('o Zagueirão só cai na 8ª letra', () => {
     const seat = { id: 's', loadout: { character: 'sarney', talents: ['radar'] } as const };
     const match = createArcadeMatchState([seat]);
     expect(applyArcadeLetters(match, 6, [r('s', 7)]).results[0]).toMatchObject({ lettersAfter: 7, eliminated: false });
@@ -226,7 +226,7 @@ describe('dane-se arcade', () => {
     expect(on8.eliminatedIds).toEqual(['s']);
   });
 
-  it('o Zumbi salva da primeira morte e volta 1 letra abaixo do letal', () => {
+  it('a Prorrogação salva da primeira morte e volta 1 letra abaixo do letal', () => {
     const seat = { id: 'z', loadout: { character: 'dezin', talents: ['radar'] } as const };
     const match = createArcadeMatchState([seat]);
     const first = applyArcadeLetters(match, 6, [r('z', 6)]);
@@ -309,7 +309,7 @@ describe('dane-se arcade abilities', () => {
     });
   });
 
-  it('Radar revela 1 carta de um oponente só pro dono e gasta a carga', () => {
+  it('Rádio Corredor revela 1 carta de um oponente só pro dono e gasta a carga', () => {
     const s = arcadeGame([{ character: 'colombo', talents: ['radar'] }, { character: 'sarney', talents: ['escudo'] }]);
     const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p1' });
     expect(res.ok).toBe(true);
@@ -328,7 +328,7 @@ describe('dane-se arcade abilities', () => {
     });
   });
 
-  it('Radar rejeita alvo inválido', () => {
+  it('Rádio Corredor rejeita alvo inválido', () => {
     const s = arcadeGame([{ character: 'colombo', talents: ['radar'] }, { character: 'martelo', talents: ['escudo'] }]);
     expect(applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p0' })).toEqual({
       ok: false,
@@ -340,7 +340,7 @@ describe('dane-se arcade abilities', () => {
     });
   });
 
-  it('Radar sem o talento não funciona', () => {
+  it('Rádio Corredor sem o talento não funciona', () => {
     const s = arcadeGame([{ character: 'colombo', talents: ['escudo'] }, { character: 'martelo', talents: ['escudo'] }]);
     expect(applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p1' })).toEqual({
       ok: false,
@@ -348,7 +348,7 @@ describe('dane-se arcade abilities', () => {
     });
   });
 
-  it('Curinga troca uma carta da mão e compra do baralho', () => {
+  it('Substituição troca uma carta da mão e compra do baralho', () => {
     const s = arcadeGame([{ character: 'colombo', talents: ['curinga'] }, { character: 'martelo', talents: ['escudo'] }]);
     const before = s.hands['p0']!.map(cardId);
     expect(s.deck.length).toBeGreaterThan(0);
@@ -360,7 +360,7 @@ describe('dane-se arcade abilities', () => {
     expect(seat(res.state, 'p0')?.charges).toBe(0);
   });
 
-  it('Visão de Jogo (Dezin) revela a mão inteira de um oponente, 1×', () => {
+  it('Leitura de Jogo (Dezin) revela a mão inteira de um oponente, 1×', () => {
     const s = arcadeGame([{ character: 'dezin', talents: ['escudo'] }, { character: 'sarney', talents: ['escudo'] }]);
     const targetHand = s.hands['p1']!.length;
     const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'visao', targetId: 'p1' });
@@ -375,7 +375,7 @@ describe('dane-se arcade abilities', () => {
     });
   });
 
-  it('NUOSSA! (Carmelo) muda a própria aposta depois das apostas', () => {
+  it('Catimba (Carmelo) muda a própria aposta depois das apostas', () => {
     const s = arcadeGame([{ character: 'carmelo', talents: ['escudo'] }, { character: 'martelo', talents: ['escudo'] }]);
     const betting: GameState = betAll(s, { p0: 1, p1: 1 });
     expect(betting.phase).toBe('playing');
@@ -395,7 +395,7 @@ describe('dane-se arcade abilities', () => {
     });
   });
 
-  it('Xereta (Martelo) espia 1 carta por rodada automaticamente', () => {
+  it('Olheiro (Martelo) espia 1 carta por rodada automaticamente', () => {
     const s = arcadeGame([{ character: 'martelo', talents: ['escudo'] }, { character: 'colombo', talents: ['escudo'] }]);
     const mine = getPlayerView(s, 'p0').arcade;
     expect(mine.reveals).toHaveLength(1);
@@ -403,7 +403,7 @@ describe('dane-se arcade abilities', () => {
     expect(getPlayerView(s, 'p1').arcade.reveals).toHaveLength(0);
   });
 
-  it('Farejador de Gato marca quem não consegue mais bater a aposta (só pro dono)', () => {
+  it('VAR marca quem não consegue mais bater a aposta (só pro dono)', () => {
     const s = arcadeGame([{ character: 'colombo', talents: ['escudo'] }, { character: 'martelo', talents: ['escudo'] }]);
     const rigged: GameState = {
       ...s,
@@ -431,7 +431,7 @@ describe('dane-se arcade sabotage', () => {
     eliminated: false,
   });
 
-  it('A Safadeza (Martelo) troca uma carta com o alvo, só em "playing" e 1×', () => {
+  it('Tabelinha (Martelo) troca uma carta com o alvo, só em "playing" e 1×', () => {
     const s = arcadeGame([{ character: 'martelo', talents: ['escudo'] }, { character: 'sarney', talents: ['escudo'] }]);
     const playing = betAll(s, { p0: 1, p1: 1 });
     const before0 = playing.hands['p0']!.map(cardId);
@@ -454,7 +454,7 @@ describe('dane-se arcade sabotage', () => {
     });
   });
 
-  it('A Bomba (Babin) zera as apostas e volta pra aposta, 1×', () => {
+  it('Invasão de Campo (Babin) zera as apostas e volta pra aposta, 1×', () => {
     const s = arcadeGame([{ character: 'babin', talents: ['escudo'] }, { character: 'sarney', talents: ['escudo'] }]);
     const playing = betAll(s, { p0: 1, p1: 1 });
     expect(playing.phase).toBe('playing');
@@ -471,7 +471,7 @@ describe('dane-se arcade sabotage', () => {
     });
   });
 
-  it('Pega o Gato! (Colombo) pune o alvo se for gato e o acusador se errar', () => {
+  it('Pênalti! (Colombo) pune o alvo se for gato e o acusador se errar', () => {
     const s = arcadeGame([{ character: 'colombo', talents: ['escudo'] }, { character: 'sarney', talents: ['escudo'] }]);
     const playing = betAll(s, { p0: 1, p1: 1 });
 
@@ -495,7 +495,7 @@ describe('dane-se arcade sabotage', () => {
     expect(wrong.state.pendingLetters).toEqual({ p0: 1 });
   });
 
-  it('Deixa Esquentar (Sarney) dá um escudo, 1×', () => {
+  it('Carrinho (Sarney) dá um escudo, 1×', () => {
     const s = arcadeGame([{ character: 'sarney', talents: ['escudo'] }, { character: 'colombo', talents: ['escudo'] }]);
     const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'esquentar' });
     expect(res.ok).toBe(true);

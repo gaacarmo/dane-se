@@ -15,7 +15,7 @@ export interface ArcadeAbilityUi {
   blurb: string;
   /** The player must point at an opponent (can be done on the seat itself). */
   needsTarget: boolean;
-  /** NUOSSA! asks for a new bet instead of a target. */
+  /** Catimba asks for a new bet instead of a target. */
   needsBet: boolean;
 }
 
@@ -37,7 +37,7 @@ const TALENT_ICON: Record<CommonTalentId, string> = {
 
 /**
  * The viewer's currently usable arcade abilities: the 1× special (while charged)
- * plus Radar/Curinga (while talent charges remain). Empty outside an active
+ * plus Rádio Corredor/Substituição (while talent charges remain). Empty outside an active
  * round, for spectators, or when arcade is off.
  */
 export function arcadeSlots(game: PlayerView): ArcadeAbilityUi[] {
