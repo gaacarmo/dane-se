@@ -1,6 +1,6 @@
-# Task: Build "Dane-se" (a.k.a. Fodinha), an online multiplayer card game
+# Task: Build "Dane-se", an online multiplayer card game
 
-Build a real-time multiplayer web version of the Brazilian card game "Dane-se" (also known as Fodinha). I want to play it online with friends, and it should feel as close as possible to playing with a physical deck around a real table. UI language: Brazilian Portuguese (pt-BR). Code, comments, and identifiers: English.
+Build a real-time multiplayer web version of the Brazilian card game "Dane-se". I want to play it online with friends, and it should feel as close as possible to playing with a physical deck around a real table. UI language: Brazilian Portuguese (pt-BR). Code, comments, and identifiers: English.
 
 Before writing code, read this whole spec, then give me a short implementation plan and list any open questions (max ~5). Then build in the phases defined at the end.
 

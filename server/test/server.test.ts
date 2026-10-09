@@ -99,7 +99,7 @@ describe('rooms', () => {
     const { players } = await lobby(2);
     const [host, guest] = players as [BotClient, BotClient];
     expect(await guest.start()).toEqual({ ok: false, error: 'NOT_HOST' });
-    expect(await guest.settings({ word: 'FODA' })).toEqual({ ok: false, error: 'NOT_HOST' });
+    expect(await guest.settings({ word: 'PATO' })).toEqual({ ok: false, error: 'NOT_HOST' });
     expect(await guest.kick(host.view!.youId)).toEqual({ ok: false, error: 'NOT_HOST' });
   });
 

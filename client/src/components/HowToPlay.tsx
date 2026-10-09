@@ -38,7 +38,7 @@ function GameHeading({ icon, name }: { icon: string; name: string }) {
 function DaneseRules({ heading }: { heading: boolean }) {
   return (
     <section className="space-y-4">
-      {heading && <GameHeading icon="🃏" name="Dane-se (Fodinha)" />}
+      {heading && <GameHeading icon="🃏" name="Dane-se" />}
       <section>
         <h3 className="mb-1 font-semibold text-gold-300">Objetivo</h3>
         <p>

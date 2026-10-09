@@ -73,7 +73,7 @@ export interface RoomViewBase {
   chat: ChatMessage[];
 }
 
-/** A room of Dane-se (Fodinha): the game view is the trick-round `PlayerView`. */
+/** A room of Dane-se: the game view is the trick-round `PlayerView`. */
 export interface DaneseRoomView extends RoomViewBase {
   gameType: 'danese';
   settings: GameSettings;

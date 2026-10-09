@@ -22,7 +22,7 @@ export interface GameCatalogEntry {
 export const GAME_CATALOG: readonly GameCatalogEntry[] = [
   {
     id: 'danese',
-    name: 'Dane-se (Fodinha)',
+    name: 'Dane-se',
     description: 'O clássico da mesa. Faça seu palpite, cumpra e não deixe a palavra completar.',
     minPlayers: 2,
     maxPlayers: 6,

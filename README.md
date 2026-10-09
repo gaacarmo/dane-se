@@ -1,10 +1,10 @@
 # Game Hub (Dane-se · Poker)
 
-A real-time multiplayer **game hub** with a shared server-side wallet, built around the classic Brazilian card game **Dane-se** (a.k.a. Fodinha) and a **Texas Hold'em** cash table. Take a seat in a college cafeteria, see everyone around you, and play. The interface is in Brazilian Portuguese.
+A real-time multiplayer **game hub** with a shared server-side wallet, built around the classic Brazilian card game **Dane-se** and a **Texas Hold'em** cash table. Take a seat in a college cafeteria, see everyone around you, and play. The interface is in Brazilian Portuguese.
 
 - 🕹️ **Game Hub**: one home screen with your balance and the catalog — **Dane-se** and **Poker Texas Hold'em** are both live
 - 💰 **Shared wallet**: everyone starts with R$ 10.000 of play money on the server. Entry is charged when a money game starts, the pot is paid to the winner at the end, and nobody can touch your balance from the client
-- 🃏 **Dane-se (Fodinha)**: 2 to 6 players, phone-first, also fine on desktop (portrait and landscape)
+- 🃏 **Dane-se**: 2 to 6 players, phone-first, also fine on desktop (portrait and landscape)
 - ♠️ **Poker Texas Hold'em**: 2 to 8 players, cash-game style — sit with a buy-in, play hand after hand, and rebuy between hands
 - Rooms with a short code and share link
 - Two ways to play, picked on the home screen: **Mobile** (the classic top-down table) or **Desktop** (first-person view from your seat). If a browser has no WebGL (3D graphics), the Desktop mode is unavailable
@@ -138,7 +138,7 @@ client/   React + Vite + Tailwind + Framer Motion. Hub + tables.
 - **Server-authoritative.** Clients send intentions ("bet 2", "play 7♣", "join this room"); the server validates turn, phase, card ownership, balances and the Pé restriction against the engine.
 - **Money is server-side.** The wallet lives in `server/src/hub/` (`WalletService` over a `WalletStore`: file- or memory-backed), with an append-only ledger, a refill cooldown, and idempotent settlements so a restart can't double-pay. Entering a room checks your balance; the entry is charged at the start and returned if the room empties before the game ends.
 - **No hidden-information leaks.** The only game data a client ever receives comes from a per-game view: `getPlayerView(state, playerId)` in `shared/src/games/danese/view.ts` (your own hand only, and in the blind round everyone's forehead card except yours) and `getPokerView(state, viewerId)` in `shared/src/games/poker/view.ts` (your hole cards, plus other players' cards only at showdown). The simulation script and tests audit every state sent.
-- **Deterministic engines.** Each game is a pure reducer with a seedable RNG (`shared/src/rng.ts`): `shared/src/games/danese/game.ts` for Fodinha and `shared/src/games/poker/` (`game.ts`, `hand.ts`, `rules.ts`) for Hold'em, so games can be replayed and tested. The generic room layer in `server/src/rooms.ts` only schedules timers, sockets and wallets.
+- **Deterministic engines.** Each game is a pure reducer with a seedable RNG (`shared/src/rng.ts`): `shared/src/games/danese/game.ts` for Dane-se and `shared/src/games/poker/` (`game.ts`, `hand.ts`, `rules.ts`) for Hold'em, so games can be replayed and tested. The generic room layer in `server/src/rooms.ts` only schedules timers, sockets and wallets.
 - **Sessions + profiles.** A seat token in `localStorage` lets you reclaim your seat after a refresh; a wallet token keeps your balance across visits. If you're disconnected on your turn, the table waits 30 s (the host can skip), then a bot plays for you until you return. If everyone leaves, the room closes after 90 s; idle rooms close after 2 h.
 - **Sounds** are synthesized with WebAudio (no audio files). Cards and table are SVG/CSS made for this project.
 

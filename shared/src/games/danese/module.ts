@@ -97,7 +97,7 @@ function botAction(state: GameState, playerId: string, rng: number): BotStep<Gam
 /** Dane-se adapted to the generic hub contract. The engine itself is untouched. */
 export const daneseModule: GameModule<GameSettings, GameState, GameAction, PlayerView> = {
   id: 'danese',
-  name: 'Dane-se (Fodinha)',
+  name: 'Dane-se',
   description: 'O clássico da mesa. Faça seu palpite, cumpra e não deixe a palavra completar.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: MAX_PLAYERS,
