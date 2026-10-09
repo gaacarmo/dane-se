@@ -6,6 +6,7 @@ import { Preview3D } from './components/table3d/Preview3D';
 import { GameScreen } from './components/table/GameScreen';
 import { PokerScreen } from './components/poker/PokerScreen';
 import { ConnectionBanner, Toast } from './components/ui/Toast';
+import { VoiceButton } from './components/VoiceButton';
 import { useClient } from './lib/store';
 
 export function App() {
@@ -26,6 +27,7 @@ export function App() {
   return (
     <>
       {screen}
+      {room && <VoiceButton className="fixed top-[7.25rem] right-2 z-40" />}
       <HowToPlay open={help} onClose={() => setHelp(false)} gameType={room?.gameType} />
       <Toast />
       <ConnectionBanner />
