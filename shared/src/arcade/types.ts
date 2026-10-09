@@ -15,7 +15,8 @@ export type ArcadeAbilityId = SpecialId | CommonTalentId;
 /** O que um jogador leva para uma partida arcade. */
 export interface ArcadeLoadout {
   character: CharacterId;
-  talent: CommonTalentId;
+  /** Talentos comuns escolhidos ("Sou o Bonzão" dá 2; o resto, 1). */
+  talents: readonly CommonTalentId[];
 }
 
 /**
@@ -25,7 +26,7 @@ export interface ArcadeLoadout {
 export interface ArcadeSeatState {
   id: string;
   character: CharacterId;
-  talent: CommonTalentId;
+  talents: CommonTalentId[];
   /** Vira false quando o especial (1× por partida) é gasto. */
   specialCharged: boolean;
   /** Negadores genéricos de um dano (letra no Dane-se / fichas no poker). */

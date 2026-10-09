@@ -70,6 +70,18 @@ export function Seat({
       </AnimatePresence>
 
       <div className="relative">
+        {/* Arcade: a charged 1× special glows around the avatar (public info). */}
+        {player.specialCharged && !out && (
+          <motion.span
+            className="absolute -inset-1 rounded-full ring-2 ring-fuchsia-400/80"
+            style={{ boxShadow: '0 0 12px 2px rgb(217 70 239 / 0.5)' }}
+            animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.06, 1] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            title="Especial carregado"
+            aria-label="Especial carregado"
+            aria-hidden
+          />
+        )}
         {/* Turn ring */}
         {isTurn && (
           <motion.span

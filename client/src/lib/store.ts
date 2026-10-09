@@ -5,6 +5,7 @@ import {
   type Ack,
   type CharacterId,
   type ClientToServerEvents,
+  type CommonTalentId,
   type ErrorCode,
   type GameSettings,
   type GameType,
@@ -361,7 +362,7 @@ export const actions = {
     setState({ profile: r.profile });
     return true;
   },
-  async createRoom(opts: { gameType?: GameType; settings?: Record<string, unknown> } = {}): Promise<boolean> {
+  async createRoom(opts: { gameType?: GameType; settings?: Record<string, unknown>; arcade?: boolean } = {}): Promise<boolean> {
     const r = await send<Session>('room:create', { name: state.profile?.nickname, ...opts });
     if (r.ok) remember(r);
     return r.ok;
@@ -376,6 +377,8 @@ export const actions = {
     leaveRoomLocally();
   },
   updateSettings: (patch: Partial<GameSettings> & Partial<PokerSettings>) => send('room:settings', patch),
+  setArcade: (arcade: boolean) => send('room:arcade', { arcade }),
+  setTalents: (talents: CommonTalentId[]) => send('room:talent', { talents }),
   start: () => send('room:start'),
   chat: (text: string) => send('chat:send', { text }),
   setCharacter: (character: CharacterId) => send('room:character', { character }),

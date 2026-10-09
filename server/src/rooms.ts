@@ -7,6 +7,7 @@ import {
   type CharacterId,
   type ChatMessage,
   type ClientToServerEvents,
+  type CommonTalentId,
   type Entry,
   type ErrorCode,
   type GameSettings,
@@ -23,6 +24,7 @@ import {
   type Session,
   CHARACTER_IDS,
   CHAT_HISTORY,
+  COMMON_TALENT_IDS,
   MAX_CHAT_LENGTH,
   MAX_NAME_LENGTH,
   POKER_TURN_TIMEOUT_MS,
@@ -34,7 +36,10 @@ import {
   assertConservation,
   isCharacterId,
   isValidMoney,
+  isValidTalentSet,
   normalizeRoomCode,
+  parseLoadout,
+  talentsFor,
 } from '@dane-se/shared';
 import { type AnyGameModule, gameModule } from './hub/registry.js';
 import type { ProfileRow } from './hub/store.js';
@@ -105,6 +110,8 @@ interface Member {
   lastLookAt: number;
   inVoice: boolean;
   character: CharacterId;
+  /** Common talents picked for arcade mode (empty = not picked). */
+  talents: CommonTalentId[];
   /** What this member paid into the room, or null if nothing (yet). */
   entry: number | null;
   /** Consecutive turns this player let the clock run out (poker). */
@@ -123,6 +130,8 @@ interface Room {
   settings: Record<string, unknown>;
   /** A room with bots is "treino": no money moves. */
   practice: boolean;
+  /** Arcade mode: every seat plays with a kit (passive + 1× special + talents). */
+  arcade: boolean;
   /** Join order = seat order. */
   members: Member[];
   game: unknown;
@@ -307,7 +316,7 @@ export class RoomManager {
   // Lobby
   // -------------------------------------------------------------------------
 
-  create(socket: GameSocket, payload: { name?: unknown; gameType?: unknown; settings?: unknown }): Ack<Session> {
+  create(socket: GameSocket, payload: { name?: unknown; gameType?: unknown; settings?: unknown; arcade?: unknown }): Ack<Session> {
     const gameType = typeof payload.gameType === 'string' ? (payload.gameType as GameType) : 'danese';
     const module = gameModule(gameType);
     if (!module) return fail('INVALID_GAME');
@@ -329,6 +338,7 @@ export class RoomManager {
       status: 'lobby',
       settings: settings as Record<string, unknown>,
       practice: false,
+      arcade: payload.arcade === true,
       members: [member],
       game: null,
       gameSeq: 0,
@@ -462,6 +472,43 @@ export class RoomManager {
     if (!room || !member) return fail('NOT_IN_ROOM');
     if (!isCharacterId(character)) return fail('INVALID_PAYLOAD');
     member.character = character;
+    // A new character may allow a different number of talents: make them re-pick.
+    if (room.arcade) member.talents = [];
+    this.touch(room);
+    this.broadcast(room);
+    return OK;
+  }
+
+  /** Host: toggle arcade mode in the lobby. Turning it off clears everyone's picks. */
+  setArcade(socket: GameSocket, raw: unknown): Ack {
+    const ctx = this.hostContext(socket);
+    if (!ctx.ok) return ctx;
+    const { room } = ctx;
+    if (room.status !== 'lobby') return fail('GAME_IN_PROGRESS');
+    if (typeof raw !== 'boolean') return fail('INVALID_PAYLOAD');
+    room.arcade = raw;
+    if (!raw) {
+      for (const m of room.members) m.talents = [];
+    } else {
+      for (const m of room.members) if (m.isBot) m.talents = autoTalents(m.character);
+    }
+    this.touch(room);
+    this.broadcast(room);
+    return OK;
+  }
+
+  /** A player picks their own common talents (validated against their character). */
+  setTalents(socket: GameSocket, raw: unknown): Ack {
+    const { code, playerId } = socket.data;
+    const room = code ? this.rooms.get(code) : undefined;
+    const member = room?.members.find((m) => m.id === playerId);
+    if (!room || !member) return fail('NOT_IN_ROOM');
+    if (room.status !== 'lobby') return fail('GAME_IN_PROGRESS');
+    if (!room.arcade) return fail('INVALID_TALENTS');
+    if (!Array.isArray(raw)) return fail('INVALID_TALENTS');
+    const talents = raw.filter((t): t is CommonTalentId => typeof t === 'string');
+    if (talents.length !== raw.length || !isValidTalentSet(member.character, talents)) return fail('INVALID_TALENTS');
+    member.talents = talents;
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -482,7 +529,9 @@ export class RoomManager {
 
     const taken = new Set(room.members.map((m) => m.name.toLowerCase()));
     const name = BOT_NAMES.find((n) => !taken.has(n.toLowerCase())) ?? `Bot ${room.members.length + 1}`;
-    room.members.push({ ...newMember({ id: '', token: '', nickname: name, createdAt: 0 }), autoPlay: true, isBot: true });
+    const bot = { ...newMember({ id: '', token: '', nickname: name, createdAt: 0 }), autoPlay: true, isBot: true };
+    if (room.arcade) bot.talents = autoTalents(bot.character);
+    room.members.push(bot);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -511,12 +560,23 @@ export class RoomManager {
     if (room.status !== 'lobby') return fail('GAME_IN_PROGRESS');
     if (room.members.length < module.minPlayers) return fail('NOT_ENOUGH_PLAYERS');
 
+    if (room.arcade) {
+      for (const m of room.members) {
+        if (m.isBot && parseLoadout(m.character, m.talents) === null) m.talents = autoTalents(m.character);
+      }
+      if (room.members.some((m) => parseLoadout(m.character, m.talents) === null)) return fail('TALENTS_REQUIRED');
+    }
+
     const collected = this.collectEntries(room, module);
     if (collected) return fail(collected);
 
     room.gameSeq += 1;
     const created = module.create(
-      room.members.map((m) => ({ id: m.id, name: m.name })),
+      room.members.map((m) => ({
+        id: m.id,
+        name: m.name,
+        arcade: room.arcade ? { character: m.character, talents: m.talents } : undefined,
+      })),
       room.settings,
       randomInt(2 ** 31),
     );
@@ -1042,11 +1102,14 @@ export class RoomManager {
   private viewFor(room: Room, memberId: string): RoomView {
     const module = gameModule(room.gameType);
     const entry = module && !room.practice ? module.entryFor(room.settings) : 0;
+    const viewer = room.members.find((m) => m.id === memberId);
     const base: RoomViewBase = {
       code: room.code,
       youId: memberId,
       hostId: room.hostId,
       status: room.status,
+      arcade: room.arcade,
+      yourTalents: viewer ? [...viewer.talents] : [],
       members: room.members.map((m) => ({
         id: m.id,
         name: m.name,
@@ -1055,6 +1118,7 @@ export class RoomManager {
         autoPlay: m.autoPlay,
         isBot: m.isBot,
         character: m.character,
+        talentsReady: room.arcade ? parseLoadout(m.character, m.talents) !== null : true,
         entry: m.entry,
       })),
       money: { entry, pot: room.paidTotal, practice: room.practice, settled: room.settled },
@@ -1135,10 +1199,16 @@ function newMember(profile: ProfileRow, taken: CharacterId[] = []): Member {
     lastLookAt: 0,
     inVoice: false,
     character: pickCharacter(taken),
+    talents: [],
     entry: null,
     timeouts: 0,
     left: false,
   };
+}
+
+/** Bots don't pick in the lobby: give them the first N common talents. */
+function autoTalents(character: CharacterId): CommonTalentId[] {
+  return COMMON_TALENT_IDS.slice(0, talentsFor(character)) as CommonTalentId[];
 }
 
 function session(room: Room, member: Member): Session {

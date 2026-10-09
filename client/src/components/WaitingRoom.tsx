@@ -2,15 +2,20 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 import {
   GAME_CATALOG,
+  type CommonTalentId,
   type DaneseRoomView,
   type PokerRoomView,
   type PokerSettings,
   type RoomView,
   CHARACTER_IDS,
+  CHARACTER_KITS,
+  COMMON_TALENT_IDS,
+  COMMON_TALENTS,
   bigBlind,
   formatMoney,
   isPokerRoom,
   smallBlind,
+  talentsFor,
   wordLetters,
 } from '@dane-se/shared';
 import { avatarColor, initial } from '../lib/avatar';
@@ -25,7 +30,8 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
   const isHost = room.hostId === room.youId;
   const link = roomLink(room.code);
   const game = GAME_CATALOG.find((g) => g.id === room.gameType)!;
-  const canStart = room.members.length >= game.minPlayers;
+  const allReady = !room.arcade || room.members.every((m) => m.talentsReady);
+  const canStart = room.members.length >= game.minPlayers && allReady;
   const poker = isPokerRoom(room);
   const missing = Math.max(0, game.minPlayers - room.members.length);
 
@@ -64,6 +70,9 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
             </span>
             {room.money.practice && (
               <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs font-semibold text-sky-300">🤖 treino</span>
+            )}
+            {room.arcade && (
+              <span className="rounded-full bg-fuchsia-500/20 px-2 py-0.5 text-xs font-semibold text-fuchsia-300">⚡ arcade</span>
             )}
             <button
               type="button"
@@ -113,6 +122,15 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
                   </span>
                 )}
                 {m.isBot && <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-stone-300">🤖 bot</span>}
+                {room.arcade && !m.isBot && (
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      m.talentsReady ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-stone-400'
+                    }`}
+                  >
+                    {m.talentsReady ? '✓ kit' : 'kit…'}
+                  </span>
+                )}
                 {!m.connected && <span className="shrink-0 text-[11px] text-stone-500">sem sinal</span>}
                 {isHost && m.id !== room.youId && (
                   <button
@@ -140,6 +158,8 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
 
         <CharacterPicker room={room} />
 
+        {room.gameType === 'danese' && (room.arcade || isHost) && <ArcadeSection room={room} isHost={isHost} />}
+
         {room.gameType === 'danese' && <Settings room={room} isHost={isHost} />}
 
         <div className="text-center">
@@ -153,7 +173,11 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
         <div className="rounded-2xl border border-gold-500/20 bg-felt-900/85 p-2 shadow-[0_-10px_30px_-15px_rgb(0_0_0/0.9)] backdrop-blur">
           {isHost ? (
             <Button className="w-full text-lg" disabled={!canStart} onClick={() => actions.start()}>
-              {canStart ? '▶ Começar partida' : `Faltam ${missing} jogador${missing === 1 ? '' : 'es'}`}
+              {canStart
+                ? '▶ Começar partida'
+                : missing > 0
+                  ? `Faltam ${missing} jogador${missing === 1 ? '' : 'es'}`
+                  : 'Escolham os talentos'}
             </Button>
           ) : (
             <p className="py-2 text-center text-sm text-stone-300">
@@ -409,6 +433,131 @@ function CharacterPicker({ room }: { room: RoomView }) {
           </button>
         ))}
       </div>
+    </section>
+  );
+}
+
+const TALENT_ICONS: Record<CommonTalentId, string> = {
+  escudo: '🛡️',
+  radar: '📡',
+  curinga: '🃏',
+};
+
+/**
+ * Arcade mode lives above the games: the host switches it on for the room, then
+ * each player picks their common talents (the kit itself is fixed per character).
+ * Talents stay private — only readiness is public.
+ */
+function ArcadeSection({ room, isHost }: { room: RoomView; isHost: boolean }) {
+  const me = room.members.find((m) => m.id === room.youId);
+  const character = me?.character;
+  const need = character ? talentsFor(character) : 1;
+  const pick = room.yourTalents;
+  const ready = pick.length === need;
+  const kit = character ? CHARACTER_KITS[character] : null;
+  const gameKey = room.gameType === 'poker' ? 'poker' : 'danese';
+
+  function toggle(id: CommonTalentId) {
+    const next = pick.includes(id) ? pick.filter((t) => t !== id) : [...pick, id].slice(-need);
+    void actions.setTalents(next);
+  }
+
+  return (
+    <section className="hub-panel space-y-3 p-4">
+      <header className="flex items-center justify-between gap-2">
+        <h2 className="text-[11px] font-semibold tracking-[0.16em] text-stone-400 uppercase">Modo arcade</h2>
+        {isHost ? (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={room.arcade}
+            onClick={() => void actions.setArcade(!room.arcade)}
+            className={`min-h-9 rounded-full px-3 text-sm font-semibold ring-1 transition ${
+              room.arcade
+                ? 'bg-fuchsia-500/25 text-fuchsia-200 ring-fuchsia-400/40'
+                : 'bg-black/30 text-stone-300 ring-white/10'
+            }`}
+          >
+            {room.arcade ? '⚡ ligado' : 'desligado'}
+          </button>
+        ) : (
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-semibold ${
+              room.arcade ? 'bg-fuchsia-500/20 text-fuchsia-300' : 'bg-black/30 text-stone-400'
+            }`}
+          >
+            {room.arcade ? '⚡ ligado' : 'desligado'}
+          </span>
+        )}
+      </header>
+
+      {!room.arcade && (
+        <p className="text-xs text-stone-400">
+          Cada personagem ganha uma passiva e um especial (1× por partida) e todo mundo escolhe talentos comuns. Vale
+          nos dois jogos.
+        </p>
+      )}
+
+      {room.arcade && kit && (
+        <>
+          <div className="flex items-start gap-3 rounded-2xl bg-black/25 p-3 ring-1 ring-white/5">
+            <img
+              src={portraitUrl(kit.character)}
+              alt=""
+              className="size-12 shrink-0 rounded-xl bg-stone-100 object-cover object-top ring-1 ring-white/10"
+            />
+            <div className="min-w-0 text-sm">
+              <p className="font-bold text-white">{CHARACTER_NAMES[kit.character]}</p>
+              <p className="text-xs text-stone-300">
+                <span className="font-semibold text-gold-300">{kit.passive.name}:</span> {kit.passive[gameKey]}
+              </p>
+              <p className="text-xs text-stone-300">
+                <span className="font-semibold text-fuchsia-300">{kit.special.name}:</span> {kit.special[gameKey]}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs text-stone-400">
+              Escolha {need} talento{need === 1 ? '' : 's'} comum{need === 1 ? '' : 's'}
+              {need === 2 ? ' (você é o Bonzão!)' : ''}:
+            </p>
+            <div className="grid gap-2">
+              {COMMON_TALENT_IDS.map((id) => {
+                const def = COMMON_TALENTS[id];
+                const on = pick.includes(id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => toggle(id)}
+                    aria-pressed={on}
+                    className={`flex items-center gap-3 rounded-2xl p-3 text-left ring-1 transition ${
+                      on ? 'bg-gold-400/15 ring-gold-400/60' : 'bg-black/25 ring-white/10 hover:ring-white/30'
+                    }`}
+                  >
+                    <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-xl bg-black/30 text-lg">
+                      {TALENT_ICONS[id]}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-bold text-white">{def.name}</span>
+                      <span className="block text-xs text-stone-300">{def[gameKey]}</span>
+                    </span>
+                    {on && <span className="shrink-0 text-gold-300">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <p className={`mt-2 text-xs ${ready ? 'text-emerald-300' : 'text-amber-300'}`}>
+              {ready
+                ? 'Seu kit está pronto.'
+                : `Falta${need - pick.length === 1 ? '' : 'm'} ${need - pick.length} talento${
+                    need - pick.length === 1 ? '' : 's'
+                  }.`}
+            </p>
+          </div>
+        </>
+      )}
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import type { CharacterId } from './characters.js';
+import type { CommonTalentId } from './arcade/index.js';
 import type { GameError } from './games/danese/game.js';
 import type { GameSettings } from './games/danese/rules.js';
 import type { PlayerView } from './games/danese/view.js';
@@ -20,6 +21,8 @@ export interface RoomMember {
   isBot: boolean;
   /** Who the player looks like at the 3D table. Several players may pick the same one. */
   character: CharacterId;
+  /** Arcade rooms only: true once this member has picked a full set of common talents. */
+  talentsReady: boolean;
   /** What this member put in the pot (buy-in), or null in practice rooms / before paying. */
   entry: Money | null;
 }
@@ -63,6 +66,10 @@ export interface RoomViewBase {
   youId: string;
   hostId: string;
   status: RoomStatus;
+  /** Arcade mode: every seat carries a kit (passive + 1× special + chosen talents). */
+  arcade: boolean;
+  /** The viewer's own common talents (private: opponents never receive them). */
+  yourTalents: CommonTalentId[];
   /** In seat order (= play order). */
   members: RoomMember[];
   money: RoomMoney;
@@ -178,6 +185,8 @@ export type ErrorCode =
   | 'TOO_FAST'
   | 'CHAT_TOO_FAST'
   | 'INVALID_GAME'
+  | 'INVALID_TALENTS'
+  | 'TALENTS_REQUIRED'
   | 'INSUFFICIENT_BALANCE'
   | 'INVALID_ENTRY'
   | 'PRACTICE_LOCKED'
@@ -215,13 +224,17 @@ export interface ClientToServerEvents {
   /** Call an online friend to the table you're at. */
   'friend:invite': (payload: { id: string }, ack: AckFn) => void;
   'room:create': (
-    payload: { name?: string; gameType?: GameType; settings?: Record<string, unknown> },
+    payload: { name?: string; gameType?: GameType; settings?: Record<string, unknown>; arcade?: boolean },
     ack: AckFn<Session>,
   ) => void;
   'room:join': (payload: { code: string; name?: string }, ack: AckFn<Session>) => void;
   'room:resume': (payload: { code: string; token: string }, ack: AckFn<Session>) => void;
   'room:leave': (ack: AckFn) => void;
   'room:settings': (payload: Partial<GameSettings>, ack: AckFn) => void;
+  /** Host: turn arcade mode on/off in the lobby (same for both games). */
+  'room:arcade': (payload: { arcade: boolean }, ack: AckFn) => void;
+  /** Pick your own common talents (validated against your character: 1, or 2 for Carmelo). */
+  'room:talent': (payload: { talents: CommonTalentId[] }, ack: AckFn) => void;
   'room:start': (ack: AckFn) => void;
   'room:character': (payload: { character: CharacterId }, ack: AckFn) => void;
   'chat:send': (payload: { text: string }, ack: AckFn) => void;
@@ -328,6 +341,8 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   TOO_FAST: 'Calma! Espere um pouquinho.',
   CHAT_TOO_FAST: 'Calma, mais devagar no chat.',
   INVALID_GAME: 'Esse jogo não existe.',
+  INVALID_TALENTS: 'Escolha os talentos do seu personagem.',
+  TALENTS_REQUIRED: 'Todo mundo precisa escolher os talentos antes de começar.',
   INSUFFICIENT_BALANCE: 'Saldo insuficiente para essa entrada.',
   INVALID_ENTRY: 'Essa entrada não é válida.',
   PRACTICE_LOCKED: 'Não dá para virar treino (ou adicionar bot) depois que alguém já pagou a entrada.',

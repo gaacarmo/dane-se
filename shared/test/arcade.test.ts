@@ -24,6 +24,7 @@ import {
   getPlayerView,
   isCommonTalentId,
   isSpecialCharged,
+  isValidTalentSet,
   parseLoadout,
   spendRevive,
   spendSpecial,
@@ -32,7 +33,7 @@ import {
 import { act, autoPlayRound, betAll } from './helpers.js';
 
 /** A Dane-se game where every seat carries an arcade loadout. */
-function arcadeGame(loadouts: readonly { character: CharacterId; talent: CommonTalentId }[]): GameState {
+function arcadeGame(loadouts: readonly { character: CharacterId; talents: CommonTalentId[] }[]): GameState {
   const players = loadouts.map((arcade, i) => ({ id: `p${i}`, name: `P${i}`, arcade }));
   const result = createGame(players, 1);
   if (!result.ok) throw new Error(result.error);
@@ -76,10 +77,24 @@ describe('arcade catalog', () => {
   });
 
   it('valida o loadout contra personagem e talento', () => {
-    expect(parseLoadout('martelo', 'radar')).toEqual({ character: 'martelo', talent: 'radar' });
-    expect(parseLoadout('martelo', 'invisivel')).toBeNull();
-    expect(parseLoadout('ninguem', 'radar')).toBeNull();
-    expect(parseLoadout(null, 'radar')).toBeNull();
+    expect(parseLoadout('martelo', ['radar'])).toEqual({ character: 'martelo', talents: ['radar'] });
+    expect(parseLoadout('carmelo', ['radar', 'escudo'])).toEqual({ character: 'carmelo', talents: ['radar', 'escudo'] });
+    expect(parseLoadout('martelo', ['invisivel'])).toBeNull();
+    expect(parseLoadout('martelo', ['radar', 'escudo'])).toBeNull();
+    expect(parseLoadout('carmelo', ['radar'])).toBeNull();
+    expect(parseLoadout('ninguem', ['radar'])).toBeNull();
+    expect(parseLoadout(null, ['radar'])).toBeNull();
+  });
+
+  it('valida conjuntos parciais de talentos (Bonzão escolhe 2)', () => {
+    expect(isValidTalentSet('martelo', [])).toBe(true);
+    expect(isValidTalentSet('martelo', ['radar'])).toBe(true);
+    expect(isValidTalentSet('martelo', ['radar', 'escudo'])).toBe(false);
+    expect(isValidTalentSet('martelo', ['radar', 'radar'])).toBe(false);
+    expect(isValidTalentSet('carmelo', ['radar', 'escudo'])).toBe(true);
+    expect(isValidTalentSet('carmelo', ['radar'])).toBe(true);
+    expect(isValidTalentSet('carmelo', ['radar', 'escudo', 'curinga'])).toBe(false);
+    expect(isValidTalentSet('martelo', ['invisivel' as CommonTalentId])).toBe(false);
   });
 
   it('só o Carmelo escolhe dois talentos', () => {
@@ -92,8 +107,8 @@ describe('arcade catalog', () => {
 
 describe('arcade match state', () => {
   const seats = [
-    { id: 'p1', loadout: { character: 'sarney', talent: 'escudo' } as const },
-    { id: 'p2', loadout: { character: 'dezin', talent: 'radar' } as const },
+    { id: 'p1', loadout: { character: 'sarney', talents: ['escudo'] } as const },
+    { id: 'p2', loadout: { character: 'dezin', talents: ['radar'] } as const },
   ];
 
   it('monta as cadeiras a partir dos loadouts', () => {
@@ -101,7 +116,7 @@ describe('arcade match state', () => {
     expect(match.enabled).toBe(true);
     expect(match.seats.map((s) => s.id)).toEqual(['p1', 'p2']);
     expect(arcadeSeat(match, 'p1')?.character).toBe('sarney');
-    expect(arcadeSeat(match, 'p2')?.talent).toBe('radar');
+    expect(arcadeSeat(match, 'p2')?.talents).toEqual(['radar']);
     expect(arcadeSeat(match, 'p3')).toBeUndefined();
   });
 
@@ -128,12 +143,12 @@ describe('arcade match state', () => {
 
 describe('arcade helpers', () => {
   const match = createArcadeMatchState([
-    { id: 'esc', loadout: { character: 'colombo', talent: 'escudo' } },
-    { id: 'rad', loadout: { character: 'colombo', talent: 'radar' } },
-    { id: 'babin', loadout: { character: 'babin', talent: 'curinga' } },
-    { id: 'sarney', loadout: { character: 'sarney', talent: 'radar' } },
-    { id: 'dezin', loadout: { character: 'dezin', talent: 'radar' } },
-    { id: 'martelo', loadout: { character: 'martelo', talent: 'radar' } },
+    { id: 'esc', loadout: { character: 'colombo', talents: ['escudo'] } },
+    { id: 'rad', loadout: { character: 'colombo', talents: ['radar'] } },
+    { id: 'babin', loadout: { character: 'babin', talents: ['curinga'] } },
+    { id: 'sarney', loadout: { character: 'sarney', talents: ['radar'] } },
+    { id: 'dezin', loadout: { character: 'dezin', talents: ['radar'] } },
+    { id: 'martelo', loadout: { character: 'martelo', talents: ['radar'] } },
   ]);
 
   it('o especial gasta uma vez e não volta', () => {
@@ -193,7 +208,7 @@ describe('dane-se arcade', () => {
   });
 
   it('o Escudo anula a letra e some', () => {
-    const seat = { id: 'a', loadout: { character: 'colombo', talent: 'escudo' } as const };
+    const seat = { id: 'a', loadout: { character: 'colombo', talents: ['escudo'] } as const };
     const out = applyArcadeLetters(createArcadeMatchState([seat]), 6, [r('a', 1)]);
     expect(out.results[0]).toMatchObject({ gainedLetter: false, lettersAfter: 0, eliminated: false });
     expect(arcadeSeat(out.arcade, 'a')?.shields).toBe(0);
@@ -203,7 +218,7 @@ describe('dane-se arcade', () => {
   });
 
   it('o Esquenta só cai na 8ª letra', () => {
-    const seat = { id: 's', loadout: { character: 'sarney', talent: 'radar' } as const };
+    const seat = { id: 's', loadout: { character: 'sarney', talents: ['radar'] } as const };
     const match = createArcadeMatchState([seat]);
     expect(applyArcadeLetters(match, 6, [r('s', 7)]).results[0]).toMatchObject({ lettersAfter: 7, eliminated: false });
     const on8 = applyArcadeLetters(match, 6, [r('s', 8)]);
@@ -212,7 +227,7 @@ describe('dane-se arcade', () => {
   });
 
   it('o Zumbi salva da primeira morte e volta 1 letra abaixo do letal', () => {
-    const seat = { id: 'z', loadout: { character: 'dezin', talent: 'radar' } as const };
+    const seat = { id: 'z', loadout: { character: 'dezin', talents: ['radar'] } as const };
     const match = createArcadeMatchState([seat]);
     const first = applyArcadeLetters(match, 6, [r('z', 6)]);
     expect(first.results[0]).toMatchObject({ lettersAfter: 5, eliminated: false });
@@ -224,8 +239,8 @@ describe('dane-se arcade', () => {
   it('pluga no jogo: aura pública e kit privado', () => {
     const result = createGame(
       [
-        { id: 'a', name: 'A', arcade: { character: 'sarney', talent: 'escudo' } },
-        { id: 'b', name: 'B', arcade: { character: 'dezin', talent: 'radar' } },
+        { id: 'a', name: 'A', arcade: { character: 'sarney', talents: ['escudo'] } },
+        { id: 'b', name: 'B', arcade: { character: 'dezin', talents: ['radar'] } },
       ],
       1,
     );
@@ -237,7 +252,7 @@ describe('dane-se arcade', () => {
     const viewA = getPlayerView(result.state, 'a');
     expect(viewA.arcade).toMatchObject({
       enabled: true,
-      loadout: { character: 'sarney', talent: 'escudo' },
+      loadout: { character: 'sarney', talents: ['escudo'] },
       specialCharged: true,
     });
     expect(viewA.players.every((p) => p.specialCharged)).toBe(true);
@@ -251,9 +266,9 @@ describe('dane-se arcade', () => {
   it('jogo arcade completo termina sem travar', () => {
     const result = createGame(
       [
-        { id: 'a', name: 'A', arcade: { character: 'sarney', talent: 'escudo' } },
-        { id: 'b', name: 'B', arcade: { character: 'dezin', talent: 'radar' } },
-        { id: 'c', name: 'C', arcade: { character: 'babin', talent: 'curinga' } },
+        { id: 'a', name: 'A', arcade: { character: 'sarney', talents: ['escudo'] } },
+        { id: 'b', name: 'B', arcade: { character: 'dezin', talents: ['radar'] } },
+        { id: 'c', name: 'C', arcade: { character: 'babin', talents: ['curinga'] } },
       ],
       7,
     );
@@ -271,7 +286,7 @@ describe('dane-se arcade', () => {
 
 describe('dane-se arcade abilities', () => {
   it('o commandAction monta a ação arcade e rejeita habilidade inválida', () => {
-    const s = arcadeGame([{ character: 'colombo', talent: 'radar' }, { character: 'martelo', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'colombo', talents: ['radar'] }, { character: 'martelo', talents: ['escudo'] }]);
     const built = daneseModule.commandAction!(s, 'p0', { type: 'arcade', ability: 'radar', targetId: 'p1' });
     expect(built).toEqual({ ok: true, action: { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p1' } });
     expect(daneseModule.commandAction!(s, 'p0', { type: 'arcade', ability: 'hackear' })).toEqual({
@@ -295,7 +310,7 @@ describe('dane-se arcade abilities', () => {
   });
 
   it('Radar revela 1 carta de um oponente só pro dono e gasta a carga', () => {
-    const s = arcadeGame([{ character: 'colombo', talent: 'radar' }, { character: 'sarney', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'colombo', talents: ['radar'] }, { character: 'sarney', talents: ['escudo'] }]);
     const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p1' });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
@@ -314,7 +329,7 @@ describe('dane-se arcade abilities', () => {
   });
 
   it('Radar rejeita alvo inválido', () => {
-    const s = arcadeGame([{ character: 'colombo', talent: 'radar' }, { character: 'martelo', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'colombo', talents: ['radar'] }, { character: 'martelo', talents: ['escudo'] }]);
     expect(applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p0' })).toEqual({
       ok: false,
       error: 'INVALID_TARGET',
@@ -326,7 +341,7 @@ describe('dane-se arcade abilities', () => {
   });
 
   it('Radar sem o talento não funciona', () => {
-    const s = arcadeGame([{ character: 'colombo', talent: 'escudo' }, { character: 'martelo', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'colombo', talents: ['escudo'] }, { character: 'martelo', talents: ['escudo'] }]);
     expect(applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p1' })).toEqual({
       ok: false,
       error: 'ABILITY_UNAVAILABLE',
@@ -334,7 +349,7 @@ describe('dane-se arcade abilities', () => {
   });
 
   it('Curinga troca uma carta da mão e compra do baralho', () => {
-    const s = arcadeGame([{ character: 'colombo', talent: 'curinga' }, { character: 'martelo', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'colombo', talents: ['curinga'] }, { character: 'martelo', talents: ['escudo'] }]);
     const before = s.hands['p0']!.map(cardId);
     expect(s.deck.length).toBeGreaterThan(0);
     const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'curinga' });
@@ -346,7 +361,7 @@ describe('dane-se arcade abilities', () => {
   });
 
   it('Visão de Jogo (Dezin) revela a mão inteira de um oponente, 1×', () => {
-    const s = arcadeGame([{ character: 'dezin', talent: 'escudo' }, { character: 'sarney', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'dezin', talents: ['escudo'] }, { character: 'sarney', talents: ['escudo'] }]);
     const targetHand = s.hands['p1']!.length;
     const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'visao', targetId: 'p1' });
     expect(res.ok).toBe(true);
@@ -361,7 +376,7 @@ describe('dane-se arcade abilities', () => {
   });
 
   it('NUOSSA! (Carmelo) muda a própria aposta depois das apostas', () => {
-    const s = arcadeGame([{ character: 'carmelo', talent: 'escudo' }, { character: 'martelo', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'carmelo', talents: ['escudo'] }, { character: 'martelo', talents: ['escudo'] }]);
     const betting: GameState = betAll(s, { p0: 1, p1: 1 });
     expect(betting.phase).toBe('playing');
     // Antes: só muda em "playing".
@@ -381,7 +396,7 @@ describe('dane-se arcade abilities', () => {
   });
 
   it('Xereta (Martelo) espia 1 carta por rodada automaticamente', () => {
-    const s = arcadeGame([{ character: 'martelo', talent: 'escudo' }, { character: 'colombo', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'martelo', talents: ['escudo'] }, { character: 'colombo', talents: ['escudo'] }]);
     const mine = getPlayerView(s, 'p0').arcade;
     expect(mine.reveals).toHaveLength(1);
     expect(mine.reveals[0]!.targetId).toBe('p1');
@@ -389,7 +404,7 @@ describe('dane-se arcade abilities', () => {
   });
 
   it('Farejador de Gato marca quem não consegue mais bater a aposta (só pro dono)', () => {
-    const s = arcadeGame([{ character: 'colombo', talent: 'escudo' }, { character: 'martelo', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'colombo', talents: ['escudo'] }, { character: 'martelo', talents: ['escudo'] }]);
     const rigged: GameState = {
       ...s,
       phase: 'playing',
@@ -417,7 +432,7 @@ describe('dane-se arcade sabotage', () => {
   });
 
   it('A Safadeza (Martelo) troca uma carta com o alvo, só em "playing" e 1×', () => {
-    const s = arcadeGame([{ character: 'martelo', talent: 'escudo' }, { character: 'sarney', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'martelo', talents: ['escudo'] }, { character: 'sarney', talents: ['escudo'] }]);
     const playing = betAll(s, { p0: 1, p1: 1 });
     const before0 = playing.hands['p0']!.map(cardId);
     const before1 = playing.hands['p1']!.map(cardId);
@@ -440,7 +455,7 @@ describe('dane-se arcade sabotage', () => {
   });
 
   it('A Bomba (Babin) zera as apostas e volta pra aposta, 1×', () => {
-    const s = arcadeGame([{ character: 'babin', talent: 'escudo' }, { character: 'sarney', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'babin', talents: ['escudo'] }, { character: 'sarney', talents: ['escudo'] }]);
     const playing = betAll(s, { p0: 1, p1: 1 });
     expect(playing.phase).toBe('playing');
 
@@ -457,7 +472,7 @@ describe('dane-se arcade sabotage', () => {
   });
 
   it('Pega o Gato! (Colombo) pune o alvo se for gato e o acusador se errar', () => {
-    const s = arcadeGame([{ character: 'colombo', talent: 'escudo' }, { character: 'sarney', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'colombo', talents: ['escudo'] }, { character: 'sarney', talents: ['escudo'] }]);
     const playing = betAll(s, { p0: 1, p1: 1 });
 
     // p1 apostou 2 e já fez 3 vãos: impossível bater → é gato.
@@ -481,7 +496,7 @@ describe('dane-se arcade sabotage', () => {
   });
 
   it('Deixa Esquentar (Sarney) dá um escudo, 1×', () => {
-    const s = arcadeGame([{ character: 'sarney', talent: 'escudo' }, { character: 'colombo', talent: 'escudo' }]);
+    const s = arcadeGame([{ character: 'sarney', talents: ['escudo'] }, { character: 'colombo', talents: ['escudo'] }]);
     const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'esquentar' });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
@@ -496,8 +511,8 @@ describe('dane-se arcade sabotage', () => {
 
   it('letras de acusação entram no fim da rodada, passando por escudo e fôlego', () => {
     const match = createArcadeMatchState([
-      { id: 'a', loadout: { character: 'colombo', talent: 'escudo' } },
-      { id: 'b', loadout: { character: 'sarney', talent: 'radar' } },
+      { id: 'a', loadout: { character: 'colombo', talents: ['escudo'] } },
+      { id: 'b', loadout: { character: 'sarney', talents: ['radar'] } },
     ]);
     const out = applyArcadeLetters(match, 6, [plain('a', 0), plain('b', 0)], { a: 1, b: 1 });
     const byId = (id: string) => out.results.find((r) => r.playerId === id)!;

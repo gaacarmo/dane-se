@@ -52,7 +52,7 @@ function pushReveals(
 
 /** Radar (talento): 1× vê uma carta aleatória de um oponente. */
 function useRadar(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
-  if (seat.talent !== 'radar' || seat.charges <= 0) return err('ABILITY_UNAVAILABLE');
+  if (!seat.talents.includes('radar') || seat.charges <= 0) return err('ABILITY_UNAVAILABLE');
   if (!canAct(state, action.playerId)) return err('WRONG_PHASE');
   const target = targetOpponent(state, action.playerId, action.targetId);
   if (!target) return err('INVALID_TARGET');
@@ -72,7 +72,7 @@ function useRadar(state: GameState, seat: ArcadeSeatState, action: ArcadeAbility
 
 /** Curinga (talento): 1× troca uma carta aleatória da própria mão por uma do baralho. */
 function useCuringa(state: GameState, seat: ArcadeSeatState, action: ArcadeAbilityAction): ActionResult {
-  if (seat.talent !== 'curinga' || seat.charges <= 0) return err('ABILITY_UNAVAILABLE');
+  if (!seat.talents.includes('curinga') || seat.charges <= 0) return err('ABILITY_UNAVAILABLE');
   if (state.phase !== 'betting' && state.phase !== 'playing') return err('WRONG_PHASE');
   const hand = state.hands[action.playerId] ?? [];
   if (hand.length === 0 || state.deck.length === 0) return err('ABILITY_UNAVAILABLE');

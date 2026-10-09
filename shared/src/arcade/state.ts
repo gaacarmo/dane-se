@@ -22,10 +22,17 @@ export function isArcadeAbilityId(value: unknown): value is ArcadeAbilityId {
   return isCommonTalentId(value) || isSpecialId(value);
 }
 
-/** Valida um loadout vindo do lobby; null quando personagem ou talento é inválido. */
-export function parseLoadout(character: unknown, talent: unknown): ArcadeLoadout | null {
-  if (!isCharacterId(character) || !isCommonTalentId(talent)) return null;
-  return { character, talent };
+/** Valida um loadout vindo do lobby; null quando personagem ou talentos são inválidos. */
+export function parseLoadout(character: unknown, talents: unknown): ArcadeLoadout | null {
+  if (!isCharacterId(character) || !Array.isArray(talents)) return null;
+  const expected = talentsFor(character);
+  if (talents.length !== expected) return null;
+  const unique = new Set<string>();
+  for (const t of talents) {
+    if (!isCommonTalentId(t) || unique.has(t)) return null;
+    unique.add(t);
+  }
+  return { character, talents: talents as CommonTalentId[] };
 }
 
 /** Quantos talentos comuns o personagem escolhe ("Sou o Bonzão" dá 2). */
@@ -34,15 +41,26 @@ export function talentsFor(character: CharacterId): number {
   return 1 + (kit.passive.id === 'bonzao' ? ARCADE_TUNING.bonzaoTalentBonus : 0);
 }
 
+/** Talentos válidos para um personagem: 1 uso cada, sem repetir (array vazio é válido como "nada escolhido"). */
+export function isValidTalentSet(character: CharacterId, talents: readonly CommonTalentId[]): boolean {
+  if (talents.length > talentsFor(character)) return false;
+  const unique = new Set<CommonTalentId>();
+  for (const t of talents) {
+    if (!isCommonTalentId(t) || unique.has(t)) return false;
+    unique.add(t);
+  }
+  return true;
+}
+
 function createSeatState(id: string, loadout: ArcadeLoadout): ArcadeSeatState {
   const passive = CHARACTER_KITS[loadout.character].passive.id;
   return {
     id,
     character: loadout.character,
-    talent: loadout.talent,
+    talents: [...loadout.talents],
     specialCharged: true,
-    shields: loadout.talent === 'escudo' ? 1 : 0,
-    charges: loadout.talent === 'radar' || loadout.talent === 'curinga' ? 1 : 0,
+    shields: loadout.talents.includes('escudo') ? 1 : 0,
+    charges: loadout.talents.filter((t) => t === 'radar' || t === 'curinga').length,
     eliminationBuffer: passive === 'esquenta' ? ARCADE_TUNING.esquentaLetterBuffer : 0,
     revives: passive === 'zumbi' ? 1 : 0,
   };

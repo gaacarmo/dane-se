@@ -99,6 +99,8 @@ function registerHandlers(socket: GameSocket, rooms: RoomManager): void {
   socket.on('room:resume', handle<Body>((p) => rooms.resume(socket, p.code, p.token)));
   socket.on('room:leave', handle(() => rooms.leave(socket)));
   socket.on('room:settings', handle<Body>((p) => rooms.updateSettings(socket, p)));
+  socket.on('room:arcade', handle<Body>((p) => rooms.setArcade(socket, p.arcade)));
+  socket.on('room:talent', handle<Body>((p) => rooms.setTalents(socket, p.talents)));
   socket.on('room:start', handle(() => rooms.start(socket)));
   socket.on('room:character', handle<Body>((p) => rooms.setCharacter(socket, p.character)));
   socket.on('chat:send', handle<Body>((p) => rooms.chat(socket, p.text)));

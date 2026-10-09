@@ -80,7 +80,7 @@ export class BotClient {
     return r;
   }
 
-  async create(options: { gameType?: string; settings?: object } = {}): Promise<Session> {
+  async create(options: { gameType?: string; settings?: object; arcade?: boolean } = {}): Promise<Session> {
     const r = await this.call<Session>('room:create', { name: this.name, ...options });
     if (!r.ok) throw new Error(`create failed: ${r.error}`);
     return (this.session = r);
@@ -104,6 +104,15 @@ export class BotClient {
   }
   settings(patch: object) {
     return this.call('room:settings', patch);
+  }
+  setCharacter(character: string) {
+    return this.call('room:character', { character });
+  }
+  setArcade(arcade: boolean) {
+    return this.call('room:arcade', { arcade });
+  }
+  setTalents(talents: string[]) {
+    return this.call('room:talent', { talents });
   }
   addBot() {
     return this.call('room:addBot');

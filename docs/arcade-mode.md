@@ -11,7 +11,7 @@ Cada jogador entra com:
 | --- | --- | --- |
 | **Passiva** | 1 (fixa do personagem) | sempre ligada |
 | **Especial** | 1 (fixa do personagem) | **1× por partida** |
-| **Talento comum** | 1 escolhido no começo | conforme o talento |
+| **Talento comum** | 1 escolhido no começo (2 para o Carmelo) | conforme o talento |
 
 - **Especiais recarregam 1× por partida.**
 - **Talentos comuns:** um **mesmo trio** é oferecido a todos; cada um escolhe **um**
@@ -87,12 +87,15 @@ Cada jogador entra com:
 ## Arquitetura (server-authoritative, motores puros)
 
 - O **modo é um flag de sala** (`arcade`) + um **loadout por membro**
-  (`{ character, talent }`). Isso vive na camada de sala, não no `GameSettings`
+  (`{ character, talents }`). Isso vive na camada de sala, não no `GameSettings`
   de cada jogo.
 - O motor recebe os loadouts no `create(...)` e guarda o estado arcade dentro do
   próprio `GameState` (continua puro, sem I/O e sem timers).
 - A `viewFor(...)` é a única porta: revela ao viewer **só o próprio kit** e, de
   todos, apenas `specialCharged` (a aura).
+- **No lobby**, cada jogador escolhe os talentos do seu personagem; o servidor
+  valida contra o personagem (1, ou 2 para o Carmelo) e publica só **"kit pronto"**
+  por membro — nunca a escolha.
 - Helpers puros em `shared/src/arcade/` (tipos, catálogo, tuning, estado).
 - O RNG dos efeitos aleatórios (ex.: backfire do Babin) usa o RNG semeado do
   motor — nunca `Math.random`.
@@ -106,15 +109,16 @@ Cada jogador entra com:
 
 ## Roadmap
 
-1. **Fundação** (este passo): tipos, catálogo, tuning, helpers puros, testes, spec.
-2. **Motor Dane-se:** loadout no `create`, buffer de eliminação (Esquenta), Zumbi,
-   apostas do Carmelo, trocas (Safadeza/Curinga), espia (Xereta/Radar), aviso de
-   gato, acusação, bomb/backfire.
+1. ✅ **Fundação:** tipos, catálogo, tuning, helpers puros, testes, spec.
+2. ✅ **Motor Dane-se:** loadout no `create`, buffer de eliminação (Esquenta),
+   Zumbi, apostas do Carmelo, trocas (Safadeza/Curinga), espia (Xereta/Radar),
+   aviso de gato, acusação, bomb/backfire.
 3. **Motor Poker:** equivalentes por rua (espia hole card, board adiantado, bomb
    pot, troca de hole cards, escudo de fichas, multa do gato).
-4. **Sala:** flag `arcade` na criação, escolha de talento no lobby, aura na
-   `View`/protocolo.
-5. **UI:** aura no avatar (2D e 3D), painel do kit, animações dos especiais.
+4. ✅ **Sala:** flag `arcade` na criação e no lobby, validação/escolha de talentos,
+   aura no `PlayerView`/protocolo (`specialCharged` público, kit privado).
+5. **UI:** aura no avatar 2D (feito) e 3D, painel do kit, botões dos especiais/
+   talentos em jogo, animações dos especiais.
 
 ## Números em aberto (balancear depois)
 

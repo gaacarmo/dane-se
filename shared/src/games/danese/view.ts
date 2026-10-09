@@ -129,7 +129,7 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
     winnerId: state.winnerId,
     arcade: {
       enabled: state.arcade.enabled,
-      loadout: viewerSeat ? { character: viewerSeat.character, talent: viewerSeat.talent } : null,
+      loadout: viewerSeat ? { character: viewerSeat.character, talents: [...viewerSeat.talents] } : null,
       specialCharged: viewerSeat?.specialCharged ?? false,
       charges: viewerSeat?.charges ?? 0,
       shields: viewerSeat?.shields ?? 0,
