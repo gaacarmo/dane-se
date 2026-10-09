@@ -1,10 +1,25 @@
 import { isCharacterId, type CharacterId } from '../characters.js';
-import { CHARACTER_KITS, COMMON_TALENT_IDS } from './catalog.js';
+import { CHARACTER_KITS, COMMON_TALENT_IDS, SPECIAL_IDS } from './catalog.js';
 import { ARCADE_TUNING } from './tuning.js';
-import type { ArcadeLoadout, ArcadeMatchState, ArcadeSeatState, CommonTalentId } from './types.js';
+import type {
+  ArcadeAbilityId,
+  ArcadeLoadout,
+  ArcadeMatchState,
+  ArcadeSeatState,
+  CommonTalentId,
+  SpecialId,
+} from './types.js';
 
 export function isCommonTalentId(value: unknown): value is CommonTalentId {
   return typeof value === 'string' && (COMMON_TALENT_IDS as readonly string[]).includes(value);
+}
+
+export function isSpecialId(value: unknown): value is SpecialId {
+  return typeof value === 'string' && (SPECIAL_IDS as readonly string[]).includes(value);
+}
+
+export function isArcadeAbilityId(value: unknown): value is ArcadeAbilityId {
+  return isCommonTalentId(value) || isSpecialId(value);
 }
 
 /** Valida um loadout vindo do lobby; null quando personagem ou talento é inválido. */
@@ -52,6 +67,13 @@ export function isSpecialCharged(match: ArcadeMatchState, id: string): boolean {
 export function spendSpecial(match: ArcadeMatchState, id: string): ArcadeMatchState {
   if (!isSpecialCharged(match, id)) return match;
   return { ...match, seats: match.seats.map((s) => (s.id === id ? { ...s, specialCharged: false } : s)) };
+}
+
+/** Gasta um uso de talento (Radar/Curinga). Sem saldo, devolve o mesmo estado. */
+export function spendCharge(match: ArcadeMatchState, id: string): ArcadeMatchState {
+  const seat = arcadeSeat(match, id);
+  if (!seat || seat.charges <= 0) return match;
+  return { ...match, seats: match.seats.map((s) => (s.id === id ? { ...s, charges: s.charges - 1 } : s)) };
 }
 
 export interface ShieldResult {

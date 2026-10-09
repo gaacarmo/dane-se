@@ -9,6 +9,9 @@ export type PassiveId = 'bonzao' | 'xereta' | 'encrenca' | 'zumbi' | 'esquenta' 
 /** Especial de um personagem (1× por partida). */
 export type SpecialId = 'nuossa' | 'safadeza' | 'bomba' | 'visao' | 'esquentar' | 'pegaGato';
 
+/** Qualquer habilidade acionável: um especial de personagem ou um talento comum. */
+export type ArcadeAbilityId = SpecialId | CommonTalentId;
+
 /** O que um jogador leva para uma partida arcade. */
 export interface ArcadeLoadout {
   character: CharacterId;

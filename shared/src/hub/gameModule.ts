@@ -23,7 +23,9 @@ export type EngineError =
   | 'UNKNOWN_PLAYER'
   | 'INVALID_PLAYER_COUNT'
   | 'INVALID_ACTION'
-  | 'NOT_ENOUGH_CHIPS';
+  | 'NOT_ENOUGH_CHIPS'
+  | 'ABILITY_UNAVAILABLE'
+  | 'INVALID_TARGET';
 
 export type EngineResult<S> = { ok: true; state: S } | { ok: false; error: EngineError };
 

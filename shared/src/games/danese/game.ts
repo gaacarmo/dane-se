@@ -1,14 +1,18 @@
 import { type Card, type Rank, cardId, createDeck, manilhaRankFor } from './cards.js';
 import { randomInt, shuffle } from '../../rng.js';
 import {
+  type ArcadeAbilityId,
   type ArcadeLoadout,
   type ArcadeMatchState,
+  CHARACTER_KITS,
   absorbHit,
+  arcadeSeat,
   canRevive,
   createArcadeMatchState,
   eliminationThreshold,
   spendRevive,
 } from '../../arcade/index.js';
+import { applyArcadeAbility } from './arcade.js';
 import {
   type CardDirection,
   type GameSettings,
@@ -51,6 +55,12 @@ export interface RoundSummary extends RoundScore {
   vira: Card;
 }
 
+/** An opponent card shown privately to one player (Radar/Visão/Xereta). */
+export interface ArcadeReveal {
+  targetId: string;
+  card: Card;
+}
+
 export interface GameState {
   settings: GameSettings;
   /** Arcade abilities (passives/specials). Disabled = normal match. */
@@ -67,6 +77,10 @@ export interface GameState {
   vira: Card;
   manilhaRank: Rank;
   hands: Record<string, Card[]>;
+  /** Cartas que sobraram do baralho (o Curinga compra daqui). Nunca vai pro cliente. */
+  deck: Card[];
+  /** Cartas de oponentes reveladas a cada jogador. Segredo por assento. */
+  arcadePrivate: Record<string, ArcadeReveal[]>;
   /** Alive players for this round, starting right of the Pé and ending with the Pé. */
   roundOrder: string[];
   bets: Record<string, number>;
@@ -84,7 +98,9 @@ export type GameAction =
   /** Clears a finished trick from the table (server sends it after a short pause). */
   | { type: 'collectTrick' }
   /** Starts the next round after the round summary. */
-  | { type: 'nextRound' };
+  | { type: 'nextRound' }
+  /** Arcade: fire a special or a common talent. */
+  | { type: 'arcade'; playerId: string; ability: ArcadeAbilityId; targetId?: string; bet?: number };
 
 export type GameError =
   | 'WRONG_PHASE'
@@ -92,7 +108,9 @@ export type GameError =
   | 'ILLEGAL_BET'
   | 'CARD_NOT_IN_HAND'
   | 'UNKNOWN_PLAYER'
-  | 'INVALID_PLAYER_COUNT';
+  | 'INVALID_PLAYER_COUNT'
+  | 'ABILITY_UNAVAILABLE'
+  | 'INVALID_TARGET';
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: GameError };
 
@@ -124,6 +142,8 @@ export function createGame(
     vira: { rank: '4', suit: 'D' },
     manilhaRank: '5',
     hands: {},
+    deck: [],
+    arcadePrivate: {},
     roundOrder: [],
     bets: {},
     tricksWon: {},
@@ -165,13 +185,33 @@ function dealRound(state: GameState): GameState {
   }
   const vira = deck.pop()!;
 
+  // Xereta (Martelo): a cada rodada espia 1 carta aleatória de um adversário.
+  let rng = shuffled.state;
+  const arcadePrivate: Record<string, ArcadeReveal[]> = {};
+  for (const id of order) {
+    const seat = arcadeSeat(state.arcade, id);
+    if (!seat || CHARACTER_KITS[seat.character].passive.id !== 'xereta') continue;
+    const opponents = order.filter((o) => o !== id);
+    if (opponents.length === 0) continue;
+    const who = randomInt(rng, opponents.length);
+    rng = who.state;
+    const target = opponents[who.value]!;
+    const targetHand = hands[target] ?? [];
+    if (targetHand.length === 0) continue;
+    const which = randomInt(rng, targetHand.length);
+    rng = which.state;
+    arcadePrivate[id] = [{ targetId: target, card: { ...targetHand[which.value]! } }];
+  }
+
   return {
     ...state,
     phase: 'betting',
-    rng: shuffled.state,
+    rng,
     vira,
     manilhaRank: manilhaRankFor(vira),
     hands,
+    deck,
+    arcadePrivate,
     roundOrder: order,
     bets: {},
     tricksWon: Object.fromEntries(order.map((p) => [p, 0])),
@@ -224,6 +264,8 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
       return collectTrick(state);
     case 'nextRound':
       return startNextRound(state);
+    case 'arcade':
+      return applyArcadeAbility(state, action);
   }
 }
 

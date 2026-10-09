@@ -1,6 +1,8 @@
 import type { Card, Rank } from './cards.js';
 import { type ArcadeLoadout, arcadeSeat } from '../../arcade/index.js';
+import { gatoAlerts, viewerReveals } from './arcade.js';
 import {
+  type ArcadeReveal,
   type GameState,
   type Phase,
   type RoundSummary,
@@ -31,6 +33,16 @@ export interface PublicPlayer {
 export interface ArcadeView {
   enabled: boolean;
   loadout: ArcadeLoadout | null;
+  /** Whether the viewer's 1× special is still loaded. */
+  specialCharged: boolean;
+  /** Remaining talent uses (Radar/Curinga). */
+  charges: number;
+  /** Active shields (Escudo / Deixa Esquentar). */
+  shields: number;
+  /** Opponent cards revealed privately to the viewer. */
+  reveals: ArcadeReveal[];
+  /** Targets the Farejador flagged as "de gato" (only for the owner). */
+  gatoAlerts: string[];
 }
 
 /**
@@ -118,6 +130,11 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
     arcade: {
       enabled: state.arcade.enabled,
       loadout: viewerSeat ? { character: viewerSeat.character, talent: viewerSeat.talent } : null,
+      specialCharged: viewerSeat?.specialCharged ?? false,
+      charges: viewerSeat?.charges ?? 0,
+      shields: viewerSeat?.shields ?? 0,
+      reveals: viewerReveals(state, viewerId),
+      gatoAlerts: gatoAlerts(state, viewerId),
     },
   };
 }

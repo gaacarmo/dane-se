@@ -8,6 +8,7 @@ import {
 } from '../../hub/gameModule.js';
 import { isValidMoney } from '../../hub/money.js';
 import { type Entry, type Payout, payoutsForRanking } from '../../hub/payout.js';
+import { isArcadeAbilityId } from '../../arcade/index.js';
 import { chooseBotBet, chooseBotCard } from './bot.js';
 import { type GameAction, type GameState, applyAction, createGame } from './game.js';
 import {
@@ -75,6 +76,24 @@ function betAction(
   return { ok: true, action: { type: 'bet', playerId, bet: rawBet } };
 }
 
+/**
+ * Arcade commands come through `game:action` as `{ type: 'arcade', ability,
+ * targetId?, bet? }`. Only the builder runs here; turn/phase checks stay in
+ * `apply`, so a malformed payload maps to INVALID_PAYLOAD.
+ */
+function commandAction(
+  _state: GameState,
+  playerId: string,
+  raw: unknown,
+): { ok: true; action: GameAction } | { ok: false; error: EngineError } {
+  if (typeof raw !== 'object' || raw === null) return { ok: false, error: 'INVALID_ACTION' };
+  const { ability, targetId, bet } = raw as { ability?: unknown; targetId?: unknown; bet?: unknown };
+  if (!isArcadeAbilityId(ability)) return { ok: false, error: 'INVALID_ACTION' };
+  if (targetId !== undefined && typeof targetId !== 'string') return { ok: false, error: 'INVALID_ACTION' };
+  if (bet !== undefined && (typeof bet !== 'number' || !Number.isInteger(bet))) return { ok: false, error: 'INVALID_ACTION' };
+  return { ok: true, action: { type: 'arcade', playerId, ability, targetId, bet } };
+}
+
 function auto(state: GameState): AutoStep<GameAction> | null {
   if (state.phase === 'trickEnd') return { delay: 'trickPause', action: { type: 'collectTrick' } };
   if (state.phase === 'roundSummary') return { delay: 'roundSummary', action: { type: 'nextRound' } };
@@ -123,6 +142,7 @@ export const daneseModule: GameModule<GameSettings, GameState, GameAction, Playe
   auto,
   playAction,
   betAction,
+  commandAction,
   isFinished: (state) => state.phase === 'gameOver',
   winnerId: (state) => state.winnerId,
 

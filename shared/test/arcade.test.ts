@@ -5,15 +5,22 @@ import {
   CHARACTER_KITS,
   COMMON_TALENT_IDS,
   COMMON_TALENTS,
+  type CharacterId,
+  type CommonTalentId,
+  type GameState,
   type PlayerRoundResult,
   absorbHit,
+  applyAction,
   applyArcadeLetters,
   arcadeSeat,
   backfireChance,
   canRevive,
+  cardId,
   createArcadeMatchState,
   createGame,
+  daneseModule,
   eliminationThreshold,
+  gatoAlerts,
   getPlayerView,
   isCommonTalentId,
   isSpecialCharged,
@@ -22,7 +29,17 @@ import {
   spendSpecial,
   talentsFor,
 } from '../src/index.js';
-import { act, autoPlayRound } from './helpers.js';
+import { act, autoPlayRound, betAll } from './helpers.js';
+
+/** A Dane-se game where every seat carries an arcade loadout. */
+function arcadeGame(loadouts: readonly { character: CharacterId; talent: CommonTalentId }[]): GameState {
+  const players = loadouts.map((arcade, i) => ({ id: `p${i}`, name: `P${i}`, arcade }));
+  const result = createGame(players, 1);
+  if (!result.ok) throw new Error(result.error);
+  return result.state;
+}
+
+const seat = (state: GameState, id: string) => state.arcade.seats.find((s) => s.id === id);
 
 describe('arcade catalog', () => {
   it('gives every character a kit with a passive and a special', () => {
@@ -218,7 +235,11 @@ describe('dane-se arcade', () => {
     expect(result.state.arcade.seats).toHaveLength(2);
 
     const viewA = getPlayerView(result.state, 'a');
-    expect(viewA.arcade).toEqual({ enabled: true, loadout: { character: 'sarney', talent: 'escudo' } });
+    expect(viewA.arcade).toMatchObject({
+      enabled: true,
+      loadout: { character: 'sarney', talent: 'escudo' },
+      specialCharged: true,
+    });
     expect(viewA.players.every((p) => p.specialCharged)).toBe(true);
 
     // Espectador não recebe kit nenhum, mas continua vendo a aura.
@@ -245,5 +266,141 @@ describe('dane-se arcade', () => {
     }
     expect(s.phase).toBe('gameOver');
     expect(s.winnerId).not.toBeNull();
+  });
+});
+
+describe('dane-se arcade abilities', () => {
+  it('o commandAction monta a ação arcade e rejeita habilidade inválida', () => {
+    const s = arcadeGame([{ character: 'colombo', talent: 'radar' }, { character: 'martelo', talent: 'escudo' }]);
+    const built = daneseModule.commandAction!(s, 'p0', { type: 'arcade', ability: 'radar', targetId: 'p1' });
+    expect(built).toEqual({ ok: true, action: { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p1' } });
+    expect(daneseModule.commandAction!(s, 'p0', { type: 'arcade', ability: 'hackear' })).toEqual({
+      ok: false,
+      error: 'INVALID_ACTION',
+    });
+    expect(daneseModule.commandAction!(s, 'p0', { type: 'arcade', ability: 'radar', targetId: 7 })).toEqual({
+      ok: false,
+      error: 'INVALID_ACTION',
+    });
+  });
+
+  it('sem arcade, habilidade é indisponível', () => {
+    const result = createGame([{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], 1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(applyAction(result.state, { type: 'arcade', playerId: 'a', ability: 'radar' })).toEqual({
+      ok: false,
+      error: 'ABILITY_UNAVAILABLE',
+    });
+  });
+
+  it('Radar revela 1 carta de um oponente só pro dono e gasta a carga', () => {
+    const s = arcadeGame([{ character: 'colombo', talent: 'radar' }, { character: 'sarney', talent: 'escudo' }]);
+    const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p1' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const mine = getPlayerView(res.state, 'p0').arcade;
+    expect(mine.reveals).toHaveLength(1);
+    expect(mine.reveals[0]!.targetId).toBe('p1');
+    expect(mine.charges).toBe(0);
+    // O oponente não recebe nada.
+    expect(getPlayerView(res.state, 'p1').arcade.reveals).toHaveLength(0);
+    // Sem saldo, a segunda tentativa falha.
+    expect(applyAction(res.state, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p1' })).toEqual({
+      ok: false,
+      error: 'ABILITY_UNAVAILABLE',
+    });
+  });
+
+  it('Radar rejeita alvo inválido', () => {
+    const s = arcadeGame([{ character: 'colombo', talent: 'radar' }, { character: 'martelo', talent: 'escudo' }]);
+    expect(applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p0' })).toEqual({
+      ok: false,
+      error: 'INVALID_TARGET',
+    });
+    expect(applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p9' })).toEqual({
+      ok: false,
+      error: 'INVALID_TARGET',
+    });
+  });
+
+  it('Radar sem o talento não funciona', () => {
+    const s = arcadeGame([{ character: 'colombo', talent: 'escudo' }, { character: 'martelo', talent: 'escudo' }]);
+    expect(applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'radar', targetId: 'p1' })).toEqual({
+      ok: false,
+      error: 'ABILITY_UNAVAILABLE',
+    });
+  });
+
+  it('Curinga troca uma carta da mão e compra do baralho', () => {
+    const s = arcadeGame([{ character: 'colombo', talent: 'curinga' }, { character: 'martelo', talent: 'escudo' }]);
+    const before = s.hands['p0']!.map(cardId);
+    expect(s.deck.length).toBeGreaterThan(0);
+    const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'curinga' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.state.hands['p0']!.map(cardId)).not.toEqual(before);
+    expect(res.state.deck).toHaveLength(s.deck.length - 1);
+    expect(seat(res.state, 'p0')?.charges).toBe(0);
+  });
+
+  it('Visão de Jogo (Dezin) revela a mão inteira de um oponente, 1×', () => {
+    const s = arcadeGame([{ character: 'dezin', talent: 'escudo' }, { character: 'sarney', talent: 'escudo' }]);
+    const targetHand = s.hands['p1']!.length;
+    const res = applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'visao', targetId: 'p1' });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(getPlayerView(res.state, 'p0').arcade.reveals).toHaveLength(targetHand);
+    expect(getPlayerView(res.state, 'p1').arcade.reveals).toHaveLength(0);
+    expect(seat(res.state, 'p0')?.specialCharged).toBe(false);
+    expect(applyAction(res.state, { type: 'arcade', playerId: 'p0', ability: 'visao', targetId: 'p1' })).toEqual({
+      ok: false,
+      error: 'ABILITY_UNAVAILABLE',
+    });
+  });
+
+  it('NUOSSA! (Carmelo) muda a própria aposta depois das apostas', () => {
+    const s = arcadeGame([{ character: 'carmelo', talent: 'escudo' }, { character: 'martelo', talent: 'escudo' }]);
+    const betting: GameState = betAll(s, { p0: 1, p1: 1 });
+    expect(betting.phase).toBe('playing');
+    // Antes: só muda em "playing".
+    expect(applyAction(s, { type: 'arcade', playerId: 'p0', ability: 'nuossa', bet: 0 })).toEqual({
+      ok: false,
+      error: 'WRONG_PHASE',
+    });
+    const res = applyAction(betting, { type: 'arcade', playerId: 'p0', ability: 'nuossa', bet: 0 });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.state.bets['p0']).toBe(0);
+    expect(seat(res.state, 'p0')?.specialCharged).toBe(false);
+    expect(applyAction(res.state, { type: 'arcade', playerId: 'p0', ability: 'nuossa', bet: 1 })).toEqual({
+      ok: false,
+      error: 'ABILITY_UNAVAILABLE',
+    });
+  });
+
+  it('Xereta (Martelo) espia 1 carta por rodada automaticamente', () => {
+    const s = arcadeGame([{ character: 'martelo', talent: 'escudo' }, { character: 'colombo', talent: 'escudo' }]);
+    const mine = getPlayerView(s, 'p0').arcade;
+    expect(mine.reveals).toHaveLength(1);
+    expect(mine.reveals[0]!.targetId).toBe('p1');
+    expect(getPlayerView(s, 'p1').arcade.reveals).toHaveLength(0);
+  });
+
+  it('Farejador de Gato marca quem não consegue mais bater a aposta (só pro dono)', () => {
+    const s = arcadeGame([{ character: 'colombo', talent: 'escudo' }, { character: 'martelo', talent: 'escudo' }]);
+    const rigged: GameState = {
+      ...s,
+      phase: 'playing',
+      cardsPerPlayer: 3,
+      roundOrder: ['p0', 'p1'],
+      completedTricks: [s.trick],
+      bets: { p0: 1, p1: 2 },
+      tricksWon: { p0: 0, p1: 3 },
+    };
+    expect(gatoAlerts(rigged, 'p0')).toEqual(['p1']);
+    // Quem não tem a passiva não vê alerta; o alvo também não.
+    expect(gatoAlerts(rigged, 'p1')).toEqual([]);
   });
 });

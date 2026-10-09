@@ -39,6 +39,16 @@ export interface CharacterKit {
 /** Trio padrão oferecido no começo de cada partida arcade. */
 export const COMMON_TALENT_IDS = ['escudo', 'radar', 'curinga'] as const satisfies readonly CommonTalentId[];
 
+/** Todos os especiais de personagem (um por personagem). */
+export const SPECIAL_IDS = [
+  'nuossa',
+  'safadeza',
+  'bomba',
+  'visao',
+  'esquentar',
+  'pegaGato',
+] as const satisfies readonly SpecialId[];
+
 export const COMMON_TALENTS: Record<CommonTalentId, CommonTalentDef> = {
   escudo: {
     id: 'escudo',

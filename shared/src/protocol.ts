@@ -312,6 +312,8 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   INVALID_PLAYER_COUNT: 'A partida precisa de 2 a 6 jogadores.',
   INVALID_ACTION: 'Jogada inválida.',
   NOT_ENOUGH_CHIPS: 'Fichas insuficientes para essa jogada.',
+  ABILITY_UNAVAILABLE: 'Essa habilidade não está disponível agora.',
+  INVALID_TARGET: 'Alvo inválido.',
   ROOM_NOT_FOUND: 'Essa sala não existe mais. O servidor pode ter reiniciado — crie uma nova sala.',
   SESSION_NOT_FOUND: 'Não encontramos seu lugar nessa sala.',
   ROOM_FULL: 'A sala está cheia.',

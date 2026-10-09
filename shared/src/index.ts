@@ -5,6 +5,7 @@ export * from './games/danese/cards.js';
 export * from './games/danese/rules.js';
 export * from './games/danese/trick.js';
 export * from './games/danese/game.js';
+export * from './games/danese/arcade.js';
 export * from './games/danese/view.js';
 export * from './games/danese/bot.js';
 export * from './games/danese/module.js';
