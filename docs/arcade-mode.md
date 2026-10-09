@@ -55,15 +55,16 @@ Cada jogador entra com:
 ### Babin Tom Sahur (Babington) — atrapalha e se atrapalha
 - **Passiva "Gol Contra":** habilidades miradas nele têm **20%** de voltar no autor
   (a espiada/troca/acusação se perde em quem tentou).
-- **Especial "Invasão de Campo":** Dane-se → embaralha as apostas (todos re-apostam);
+- **Especial "Invasão de Campo":** Dane-se → zera as apostas (todos re-apostam a
+  mesma mão);
   Poker → **bomb pot** (todos entram com um ante e a mão começa gorda — pode
   queimar ele também).
 
 ### Dezin du Couto — azarado, boa visão, volta da morte
 - **Passiva "Prorrogação":** Dane-se → a 1ª vez que seria eliminado, sobrevive (volta
   pra 1 letra abaixo do letal); Poker → a 1ª vez que quebraria, sobrevive com 1 ficha.
-- **Especial "Leitura de Jogo":** Dane-se → vê a próxima carta do baralho e 1 carta
-  de um oponente; Poker → vê o board adiantado (flop/turn/river) antes de decidir.
+- **Especial "Leitura de Jogo":** Dane-se → vê a mão inteira de um oponente;
+  Poker → vê o board adiantado (flop/turn/river) antes de decidir.
 
 ### Sarney — esquenta e dura
 - **Passiva "Zagueirão":** precisa de **+2 letras** pra ser eliminado (com
