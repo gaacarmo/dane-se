@@ -172,6 +172,13 @@ export interface ClientToServerEvents {
   'room:rematch': (ack: AckFn) => void;
   /** Quick emoji reaction shown over the player's seat. */
   'room:react': (payload: { emoji: string }, ack: AckFn) => void;
+  /** Where the player is looking (first-person view), relayed to the others. No ack: it's sent often. */
+  'look:update': (payload: { yaw: number; pitch: number }) => void;
+  /** Voice chat: join (the ack lists who is already in) and leave. */
+  'voice:join': (ack: AckFn<{ peers: string[] }>) => void;
+  'voice:leave': (ack: AckFn) => void;
+  /** WebRTC signaling (offer/answer/ICE candidate) for one other player in voice. */
+  'voice:signal': (payload: { to: string; data: VoiceSignal }) => void;
   'game:bet': (payload: { bet: number }, ack: AckFn) => void;
   /** In the blind round the player can't see their card, so `cardId` is omitted. */
   'game:play': (payload: { cardId?: string }, ack: AckFn) => void;
@@ -191,7 +198,27 @@ export interface ServerToClientEvents {
   'room:kicked': () => void;
   'room:closed': (reason: RoomClosedReason) => void;
   'room:reaction': (reaction: Reaction) => void;
+  'room:look': (look: { playerId: string; yaw: number; pitch: number }) => void;
+  'voice:joined': (payload: { playerId: string }) => void;
+  'voice:left': (payload: { playerId: string }) => void;
+  'voice:signal': (payload: { from: string; data: VoiceSignal }) => void;
 }
+
+/** Opaque WebRTC signaling payload: an SDP description or an ICE candidate. */
+export type VoiceSignal =
+  | { type: 'description'; description: { type: 'offer' | 'answer'; sdp: string } }
+  | {
+      type: 'candidate';
+      candidate: {
+        candidate?: string;
+        sdpMid?: string | null;
+        sdpMLineIndex?: number | null;
+        usernameFragment?: string | null;
+      };
+    };
+
+/** Minimum time between two look updates from the same player. */
+export const LOOK_INTERVAL_MS = 100;
 
 export interface Reaction {
   /** Unique per reaction, for keys/animations. */

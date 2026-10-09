@@ -103,5 +103,9 @@ function registerHandlers(socket: GameSocket, rooms: RoomManager): void {
   socket.on('game:bet', handle<Body>((p) => rooms.bet(socket, p.bet)));
   socket.on('game:play', handle<Body>((p) => rooms.play(socket, p.cardId)));
   socket.on('game:action', handle<Body>((p) => rooms.action(socket, p)));
+  socket.on('look:update', (p) => rooms.look(socket, p));
+  socket.on('voice:join', handle(() => rooms.voiceJoin(socket)));
+  socket.on('voice:leave', handle(() => rooms.voiceLeave(socket)));
+  socket.on('voice:signal', (p) => rooms.voiceSignal(socket, p));
   socket.on('disconnect', () => rooms.disconnect(socket));
 }

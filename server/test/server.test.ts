@@ -202,6 +202,63 @@ describe('reactions', () => {
   });
 });
 
+describe('head movement and voice signaling', () => {
+  const wait = (ms = 60) => new Promise((r) => setTimeout(r, ms));
+
+  it('relays where a player looks to the others, clamped and throttled', async () => {
+    const { players } = await lobby(3);
+    const [a, b, c] = players as [BotClient, BotClient, BotClient];
+    const seen: Record<string, unknown[]> = { a: [], b: [], c: [] };
+    a.socket.on('room:look', (l) => seen.a!.push(l));
+    b.socket.on('room:look', (l) => seen.b!.push(l));
+    c.socket.on('room:look', (l) => seen.c!.push(l));
+
+    a.socket.emit('look:update', { yaw: 5, pitch: -0.5 });
+    a.socket.emit('look:update', { yaw: 0.2, pitch: 0 }); // too soon: dropped
+    a.socket.emit('look:update', { yaw: 'x', pitch: 0 } as never);
+    await wait();
+    expect(seen.a).toEqual([]);
+    expect(seen.b).toEqual([{ playerId: a.view!.youId, yaw: 1, pitch: -0.5 }]);
+    expect(seen.c).toEqual(seen.b);
+  });
+
+  it('relays voice signals only between players in voice in the same room', async () => {
+    const { players } = await lobby(3);
+    const [a, b, c] = players as [BotClient, BotClient, BotClient];
+    const outsider = client('Fora');
+    await client('Host2').create();
+    const join = (p: BotClient) =>
+      new Promise<{ ok: boolean; peers?: string[] }>((r) => p.socket.emit('voice:join', r as never));
+
+    const joined: string[] = [];
+    c.socket.on('voice:joined', ({ playerId }) => joined.push(playerId));
+    expect(await join(a)).toEqual({ ok: true, peers: [] });
+    expect(await join(b)).toEqual({ ok: true, peers: [a.view!.youId] });
+    await wait();
+    expect(joined).toEqual([a.view!.youId, b.view!.youId]);
+
+    const got: Record<string, unknown[]> = { a: [], b: [], c: [] };
+    a.socket.on('voice:signal', (m) => got.a!.push(m));
+    b.socket.on('voice:signal', (m) => got.b!.push(m));
+    c.socket.on('voice:signal', (m) => got.c!.push(m));
+    const offer = { type: 'description', description: { type: 'offer', sdp: 'v=0' } } as const;
+    b.socket.emit('voice:signal', { to: a.view!.youId, data: offer });
+    b.socket.emit('voice:signal', { to: c.view!.youId, data: offer }); // c is not in voice
+    c.socket.emit('voice:signal', { to: a.view!.youId, data: offer }); // c is not in voice
+    outsider.socket.emit('voice:signal', { to: a.view!.youId, data: offer });
+    await wait();
+    expect(got.a).toEqual([{ from: b.view!.youId, data: offer }]);
+    expect(got.b).toEqual([]);
+    expect(got.c).toEqual([]);
+
+    const left: string[] = [];
+    a.socket.on('voice:left', ({ playerId }) => left.push(playerId));
+    b.close();
+    await wait(100);
+    expect(left).toEqual([b.view!.youId]);
+  });
+});
+
 describe('game validation', () => {
   it('rejects out-of-turn, illegal and malformed actions', async () => {
     const { players } = await lobby(3);

@@ -26,6 +26,8 @@ import {
   POKER_TURN_TIMEOUT_MS,
   REACTIONS,
   REACTION_COOLDOWN_MS,
+  LOOK_INTERVAL_MS,
+  type VoiceSignal,
   ROOM_CODE_LENGTH,
   assertConservation,
   isCharacterId,
@@ -81,6 +83,9 @@ export interface SocketData {
   profileId?: string;
 }
 
+/** An SDP description is a few KB; anything much bigger is not a real signal. */
+const MAX_VOICE_SIGNAL_BYTES = 16_000;
+
 export type IO = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 export type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
@@ -93,6 +98,8 @@ interface Member {
   autoPlay: boolean;
   isBot: boolean;
   lastReactionAt: number;
+  lastLookAt: number;
+  inVoice: boolean;
   character: CharacterId;
   /** What this member paid into the room, or null if nothing (yet). */
   entry: number | null;
@@ -297,6 +304,7 @@ export class RoomManager {
     const ctx = this.context(socket);
     if (!ctx) return fail('NOT_IN_ROOM');
     const { room, member } = ctx;
+    this.dropVoice(room, member);
     const profileId = socket.data.profileId;
     socket.data = profileId ? { profileId } : {};
     void socket.leave(room.code);
@@ -469,6 +477,54 @@ export class RoomManager {
   }
 
   /** Emoji reaction: not part of the game state, just relayed to everyone in the room. */
+  /** First-person head movement: relayed to the others, never stored. */
+  look(socket: GameSocket, payload: unknown): void {
+    const ctx = this.context(socket);
+    if (!ctx || !payload || typeof payload !== 'object') return;
+    const { yaw, pitch } = payload as { yaw?: unknown; pitch?: unknown };
+    if (typeof yaw !== 'number' || typeof pitch !== 'number' || !Number.isFinite(yaw) || !Number.isFinite(pitch)) return;
+    const now = Date.now();
+    if (now - ctx.member.lastLookAt < LOOK_INTERVAL_MS) return;
+    ctx.member.lastLookAt = now;
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    socket.to(ctx.room.code).emit('room:look', { playerId: ctx.member.id, yaw: clamp(yaw), pitch: clamp(pitch) });
+  }
+
+  voiceJoin(socket: GameSocket): Ack<{ peers: string[] }> {
+    const ctx = this.context(socket);
+    if (!ctx) return fail('NOT_IN_ROOM');
+    const peers = ctx.room.members.filter((m) => m !== ctx.member && m.inVoice && m.socketId).map((m) => m.id);
+    if (!ctx.member.inVoice) {
+      ctx.member.inVoice = true;
+      socket.to(ctx.room.code).emit('voice:joined', { playerId: ctx.member.id });
+    }
+    return { ok: true, peers };
+  }
+
+  voiceLeave(socket: GameSocket): Ack {
+    const ctx = this.context(socket);
+    if (!ctx) return fail('NOT_IN_ROOM');
+    this.dropVoice(ctx.room, ctx.member);
+    return OK;
+  }
+
+  /** Passes a WebRTC offer/answer/candidate to one other player in voice, in the same room. */
+  voiceSignal(socket: GameSocket, payload: unknown): void {
+    const ctx = this.context(socket);
+    if (!ctx || !ctx.member.inVoice || !payload || typeof payload !== 'object') return;
+    const { to, data } = payload as { to?: unknown; data?: unknown };
+    const target = ctx.room.members.find((m) => m.id === to && m !== ctx.member);
+    if (!target?.inVoice || !target.socketId) return;
+    if (!data || typeof data !== 'object' || JSON.stringify(data).length > MAX_VOICE_SIGNAL_BYTES) return;
+    this.io.to(target.socketId).emit('voice:signal', { from: ctx.member.id, data: data as VoiceSignal });
+  }
+
+  private dropVoice(room: Room, member: Member): void {
+    if (!member.inVoice) return;
+    member.inVoice = false;
+    this.io.to(room.code).emit('voice:left', { playerId: member.id });
+  }
+
   react(socket: GameSocket, emoji: unknown): Ack {
     const ctx = this.context(socket);
     if (!ctx) return fail('NOT_IN_ROOM');
@@ -582,6 +638,7 @@ export class RoomManager {
   disconnect(socket: GameSocket): void {
     const ctx = this.context(socket);
     if (!ctx || ctx.member.socketId !== socket.id) return;
+    this.dropVoice(ctx.room, ctx.member);
     ctx.member.socketId = null;
     this.onConnectivityChange(ctx.room, ctx.member);
   }
@@ -806,6 +863,7 @@ export class RoomManager {
   }
 
   private removeMember(room: Room, member: Member): void {
+    this.dropVoice(room, member);
     room.members = room.members.filter((m) => m !== member);
     const socket = member.socketId ? this.io.sockets.sockets.get(member.socketId) : undefined;
     if (socket) {
@@ -964,6 +1022,8 @@ function newMember(profile: ProfileRow, taken: CharacterId[] = []): Member {
     autoPlay: false,
     isBot: false,
     lastReactionAt: 0,
+    lastLookAt: 0,
+    inVoice: false,
     character: pickCharacter(taken),
     entry: null,
     timeouts: 0,
