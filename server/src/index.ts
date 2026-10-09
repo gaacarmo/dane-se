@@ -1,12 +1,17 @@
 import { createApp } from './app.js';
 import { FileWalletStore, defaultDataFile } from './hub/fileStore.js';
+import { TursoWalletStore } from './hub/tursoStore.js';
 
 const port = Number(process.env.PORT ?? 3001);
 
-// Profiles and wallets live on disk by default. On Render free the disk is
-// ephemeral (lost on redeploy/restart), so set DATABASE_URL to use a hosted
-// store instead — see README.
-const store = await FileWalletStore.open(defaultDataFile());
+// Profiles, wallets, friends and ranking live in a file by default. On Render
+// free that disk is ephemeral (lost on redeploy/restart/sleep), so set
+// DATABASE_URL (and DATABASE_AUTH_TOKEN) to keep them in Turso — see README.
+const databaseUrl = process.env.DATABASE_URL;
+const store = databaseUrl
+  ? await TursoWalletStore.open(databaseUrl, process.env.DATABASE_AUTH_TOKEN)
+  : await FileWalletStore.open(defaultDataFile());
+console.log(databaseUrl ? 'Wallets: Turso (DATABASE_URL)' : `Wallets: file ${defaultDataFile()} (lost on a Render restart)`);
 const server = createApp({ walletStore: store });
 
 const actualPort = await server.listen(port);

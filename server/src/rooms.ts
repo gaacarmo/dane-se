@@ -1,5 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import type { Server, Socket } from 'socket.io';
+import { MemoryWalletStore } from './hub/memoryStore.js';
+import { type Presence, SocialService } from './hub/socialService.js';
 import {
   type Ack,
   type CharacterId,
@@ -85,6 +87,8 @@ export interface SocketData {
 
 /** An SDP description is a few KB; anything much bigger is not a real signal. */
 const MAX_VOICE_SIGNAL_BYTES = 16_000;
+/** Minimum time between two invites from the same player to the same friend. */
+const INVITE_COOLDOWN_MS = 5000;
 
 export type IO = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 export type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -151,6 +155,7 @@ export class RoomManager {
     private readonly io: IO,
     private readonly wallets: WalletService,
     private readonly timings: Timings = DEFAULT_TIMINGS,
+    private readonly social: SocialService = new SocialService(new MemoryWalletStore()),
   ) {
     this.sweepTimer = setInterval(() => this.sweep(), timings.sweepIntervalMs);
     this.sweepTimer.unref();
@@ -181,6 +186,7 @@ export class RoomManager {
         socket.data.profileId = existing.id;
         const profile = this.wallets.profileView(existing);
         socket.emit('profile:state', profile);
+        this.onPresenceChange(existing.id);
         return { ok: true, token: existing.token, profile };
       }
     }
@@ -189,7 +195,87 @@ export class RoomManager {
     const created = this.wallets.createProfile(name);
     socket.data.profileId = created.id;
     const profile = this.wallets.profileView(created);
+    this.onPresenceChange(created.id);
     return { ok: true, token: created.token, profile };
+  }
+
+  // -------------------------------------------------------------------------
+  // Friends
+  // -------------------------------------------------------------------------
+
+  addFriend(socket: GameSocket, code: unknown): Ack {
+    const profile = this.profileFor(socket);
+    if (!profile) return fail('WALLET_NOT_FOUND');
+    const result = this.social.add(profile.id, code);
+    if ('error' in result) return fail(result.error);
+    this.pushSocial(profile.id);
+    this.pushSocial(result.other.id);
+    return OK;
+  }
+
+  respondFriend(socket: GameSocket, otherId: unknown, accept: unknown): Ack {
+    const profile = this.profileFor(socket);
+    if (!profile) return fail('WALLET_NOT_FOUND');
+    const error = this.social.respond(profile.id, otherId, accept);
+    if (error) return fail(error);
+    this.pushSocial(profile.id);
+    this.pushSocial(otherId as string);
+    return OK;
+  }
+
+  removeFriend(socket: GameSocket, otherId: unknown): Ack {
+    const profile = this.profileFor(socket);
+    if (!profile) return fail('WALLET_NOT_FOUND');
+    const error = this.social.remove(profile.id, otherId);
+    if (error) return fail(error);
+    this.pushSocial(profile.id);
+    this.pushSocial(otherId as string);
+    return OK;
+  }
+
+  /** Calls an online friend to the caller's table. */
+  inviteFriend(socket: GameSocket, otherId: unknown): Ack {
+    const ctx = this.context(socket);
+    if (!ctx) return fail('NOT_IN_ROOM');
+    const from = this.wallets.profileById(ctx.member.profileId);
+    if (!from || typeof otherId !== 'string') return fail('INVALID_PAYLOAD');
+    if (!this.social.areFriends(from.id, otherId)) return fail('NOT_FRIENDS');
+    const targets = this.socketsOf(otherId);
+    if (targets.length === 0) return fail('FRIEND_OFFLINE');
+    const now = Date.now();
+    const key = `${from.id}>${otherId}`;
+    if (now - (this.lastInviteAt.get(key) ?? 0) < INVITE_COOLDOWN_MS) return fail('TOO_FAST');
+    this.lastInviteAt.set(key, now);
+    const invite = { id: randomUUID().slice(0, 8), fromId: from.id, fromName: from.nickname, code: ctx.room.code, gameType: ctx.room.gameType };
+    for (const s of targets) s.emit('friend:invite', invite);
+    return OK;
+  }
+
+  private socketsOf(profileId: string): GameSocket[] {
+    return [...this.io.sockets.sockets.values()].filter((s) => s.data?.profileId === profileId) as GameSocket[];
+  }
+
+  private readonly presence: Presence = {
+    online: (id) => this.socketsOf(id).length > 0,
+    inRoom: (id) => !!this.roomOfProfile(id),
+  };
+
+  private readonly lastInviteAt = new Map<string, number>();
+
+  /** Sends a profile its friends, requests and ranking, on every socket it has open. */
+  private pushSocial(profileId: string): void {
+    const targets = this.socketsOf(profileId);
+    if (targets.length === 0) return;
+    const profile = this.wallets.profileById(profileId);
+    if (!profile) return;
+    const view = this.social.view(profile, this.presence);
+    for (const s of targets) s.emit('social:state', view);
+  }
+
+  /** A profile came online, went offline, or sat down or got up: refresh it and the hubs that show it. */
+  private onPresenceChange(profileId: string): void {
+    this.pushSocial(profileId);
+    for (const id of this.social.relatedIds(profileId)) this.pushSocial(id);
   }
 
   renameProfile(socket: GameSocket, nickname: unknown): Ack<{ profile: ProfileView }> {
@@ -311,6 +397,7 @@ export class RoomManager {
     const profileId = socket.data.profileId;
     socket.data = profileId ? { profileId } : {};
     void socket.leave(room.code);
+    if (profileId) setTimeout(() => this.onPresenceChange(profileId), 0);
 
     if (room.status === 'playing') {
       // Keep the seat: a bot plays for them (they can still come back with their token).
@@ -640,6 +727,8 @@ export class RoomManager {
   // -------------------------------------------------------------------------
 
   disconnect(socket: GameSocket): void {
+    const profileId = socket.data?.profileId;
+    if (profileId) setTimeout(() => this.onPresenceChange(profileId), 0);
     const ctx = this.context(socket);
     if (!ctx || ctx.member.socketId !== socket.id) return;
     this.dropVoice(ctx.room, ctx.member);
@@ -697,6 +786,22 @@ export class RoomManager {
         .map((p) => ({ profileId: byId.get(p.playerId)?.profileId ?? '', amount: p.amount, place: p.place }))
         .filter((c) => c.profileId);
       this.wallets.settle(`${room.id}:${room.gameSeq}`, credits);
+    }
+    if (!room.practice && room.paidTotal > 0) {
+      // Everyone who paid in, not just those paid out: the losers' games count too.
+      const outcomes = payers
+        .filter((m) => !m.isBot)
+        .map((m) => {
+          const payout = payouts.find((p) => p.playerId === m.id);
+          return {
+            profileId: m.profileId,
+            gameType: room.gameType,
+            won: payout?.place === 1,
+            profit: (payout?.amount ?? 0) - (m.entry ?? 0),
+          };
+        });
+      this.social.record(outcomes);
+      for (const o of outcomes) this.onPresenceChange(o.profileId);
     }
     room.settled = true;
     room.results = payouts.map((p) => ({
@@ -837,6 +942,7 @@ export class RoomManager {
     if (oldSocketId && oldSocketId !== socket.id) this.io.sockets.sockets.get(oldSocketId)?.disconnect(true);
 
     this.onConnectivityChange(room, member);
+    if (profileId) this.onPresenceChange(profileId);
   }
 
   private onConnectivityChange(room: Room, member: Member): void {

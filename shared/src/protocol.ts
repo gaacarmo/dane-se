@@ -112,6 +112,55 @@ export interface ProfileView {
   refillAt: number;
 }
 
+/** A friend as you see them in the hub. */
+export interface FriendView {
+  id: string;
+  nickname: string;
+  online: boolean;
+  /** Sitting at a table right now (invites still work; they'd have to leave it first). */
+  inRoom: boolean;
+}
+
+/** One line of the friends ranking (you and your friends; money games only). */
+export interface RankingRow {
+  id: string;
+  nickname: string;
+  isYou: boolean;
+  daneseGames: number;
+  daneseWins: number;
+  pokerGames: number;
+  /** Total won minus total put in at poker tables. */
+  pokerProfit: Money;
+}
+
+/** Your friend code, friends, pending requests and the ranking among friends. */
+export interface SocialView {
+  friendCode: string;
+  friends: FriendView[];
+  /** Requests waiting for your answer. */
+  incoming: { id: string; nickname: string }[];
+  /** Requests you sent that weren't answered yet. */
+  outgoing: { id: string; nickname: string }[];
+  ranking: RankingRow[];
+}
+
+/** A friend calling you to their table. */
+export interface FriendInvite {
+  id: string;
+  fromId: string;
+  fromName: string;
+  code: string;
+  gameType: GameType;
+}
+
+/** Friend codes: unambiguous letters and digits (no 0/O, 1/I/L). */
+export const FRIEND_CODE_LENGTH = 6;
+export const FRIEND_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+export function normalizeFriendCode(code: string): string {
+  return code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
 export type ErrorCode =
   | GameError
   | EngineError
@@ -134,6 +183,11 @@ export type ErrorCode =
   | 'PRACTICE_LOCKED'
   | 'ALREADY_IN_ROOM'
   | 'WALLET_NOT_FOUND'
+  | 'FRIEND_NOT_FOUND'
+  | 'FRIEND_SELF'
+  | 'ALREADY_FRIENDS'
+  | 'NOT_FRIENDS'
+  | 'FRIEND_OFFLINE'
   | 'REFILL_NOT_ELIGIBLE';
 
 export type Ack<T = object> = ({ ok: true } & T) | { ok: false; error: ErrorCode };
@@ -153,6 +207,13 @@ export interface ClientToServerEvents {
   ) => void;
   'profile:rename': (payload: { nickname: string }, ack: AckFn<{ profile: ProfileView }>) => void;
   'profile:refill': (ack: AckFn<{ profile: ProfileView }>) => void;
+  /** Send a friend request by friend code (accepts at once if they had already asked you). */
+  'friend:add': (payload: { code: string }, ack: AckFn) => void;
+  'friend:respond': (payload: { id: string; accept: boolean }, ack: AckFn) => void;
+  /** Unfriend, or cancel a request you sent. */
+  'friend:remove': (payload: { id: string }, ack: AckFn) => void;
+  /** Call an online friend to the table you're at. */
+  'friend:invite': (payload: { id: string }, ack: AckFn) => void;
   'room:create': (
     payload: { name?: string; gameType?: GameType; settings?: Record<string, unknown> },
     ack: AckFn<Session>,
@@ -194,6 +255,8 @@ export type RoomClosedReason = 'everyoneLeft' | 'idle';
 
 export interface ServerToClientEvents {
   'profile:state': (profile: ProfileView) => void;
+  'social:state': (social: SocialView) => void;
+  'friend:invite': (invite: FriendInvite) => void;
   'room:state': (view: RoomView) => void;
   'room:kicked': () => void;
   'room:closed': (reason: RoomClosedReason) => void;
@@ -268,5 +331,10 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   PRACTICE_LOCKED: 'Não dá para virar treino (ou adicionar bot) depois que alguém já pagou a entrada.',
   ALREADY_IN_ROOM: 'Você já está em uma sala. Saia dela antes de entrar em outra.',
   WALLET_NOT_FOUND: 'Não encontramos sua carteira. Recarregue a página.',
+  FRIEND_NOT_FOUND: 'Nenhum jogador com esse código de amigo.',
+  FRIEND_SELF: 'Esse é o seu próprio código.',
+  ALREADY_FRIENDS: 'Vocês já são amigos.',
+  NOT_FRIENDS: 'Vocês não são amigos.',
+  FRIEND_OFFLINE: 'Seu amigo não está online agora.',
   REFILL_NOT_ELIGIBLE: 'Você só pode recarregar quando o saldo estiver baixo, uma vez por hora.',
 };
