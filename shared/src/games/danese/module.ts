@@ -110,7 +110,7 @@ export const daneseModule: GameModule<GameSettings, GameState, GameAction, Playe
 
   create(players: readonly GamePlayer[], settings, seed): EngineResult<GameState> {
     return createGame(
-      players.map((p) => ({ id: p.id, name: p.name })),
+      players.map((p) => ({ id: p.id, name: p.name, arcade: p.arcade })),
       seed,
       settings,
     );

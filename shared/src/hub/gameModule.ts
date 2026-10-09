@@ -1,3 +1,4 @@
+import type { ArcadeLoadout } from '../arcade/index.js';
 import type { Money } from './money.js';
 import type { Entry, Payout } from './payout.js';
 
@@ -8,6 +9,8 @@ export type GameType = 'danese' | 'poker';
 export interface GamePlayer {
   id: string;
   name: string;
+  /** Arcade loadout, when the room has arcade mode on. */
+  arcade?: ArcadeLoadout;
 }
 
 /** Errors an engine may return. A superset of the Dane-se errors. */

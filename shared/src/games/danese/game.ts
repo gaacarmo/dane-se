@@ -1,8 +1,18 @@
 import { type Card, type Rank, cardId, createDeck, manilhaRankFor } from './cards.js';
 import { randomInt, shuffle } from '../../rng.js';
 import {
+  type ArcadeLoadout,
+  type ArcadeMatchState,
+  absorbHit,
+  canRevive,
+  createArcadeMatchState,
+  eliminationThreshold,
+  spendRevive,
+} from '../../arcade/index.js';
+import {
   type CardDirection,
   type GameSettings,
+  type PlayerRoundResult,
   type RoundScore,
   DEFAULT_SETTINGS,
   MAX_PLAYERS,
@@ -43,6 +53,8 @@ export interface RoundSummary extends RoundScore {
 
 export interface GameState {
   settings: GameSettings;
+  /** Arcade abilities (passives/specials). Disabled = normal match. */
+  arcade: ArcadeMatchState;
   lives: number;
   /** Seat order = play order (counter-clockwise): players[i + 1] sits to the right of players[i]. */
   players: PlayerState[];
@@ -89,7 +101,7 @@ export type ActionResult = { ok: true; state: GameState } | { ok: false; error: 
 // ---------------------------------------------------------------------------
 
 export function createGame(
-  players: readonly { id: string; name: string }[],
+  players: readonly { id: string; name: string; arcade?: ArcadeLoadout }[],
   seed: number,
   settings: GameSettings = DEFAULT_SETTINGS,
 ): ActionResult {
@@ -98,6 +110,9 @@ export function createGame(
   const firstDealer = randomInt(seed, players.length);
   const base: GameState = {
     settings,
+    arcade: createArcadeMatchState(
+      players.flatMap((p) => (p.arcade ? [{ id: p.id, loadout: p.arcade }] : [])),
+    ),
     lives: livesFor(settings),
     players: players.map((p) => ({ id: p.id, name: p.name, letters: 0, eliminated: false, eliminatedInRound: null })),
     phase: 'betting',
@@ -291,7 +306,8 @@ function finishRound(state: GameState): GameState {
     lives: state.lives,
   });
 
-  const resultById = new Map(score.results.map((r) => [r.playerId, r]));
+  const outcome = applyArcadeLetters(state.arcade, state.lives, score.results);
+  const resultById = new Map(outcome.results.map((r) => [r.playerId, r]));
   const players = state.players.map((p) => {
     const r = resultById.get(p.id);
     if (!r) return p;
@@ -305,6 +321,8 @@ function finishRound(state: GameState): GameState {
 
   const lastRound: RoundSummary = {
     ...score,
+    results: outcome.results,
+    eliminatedIds: outcome.eliminatedIds,
     roundNumber: state.roundNumber,
     cardsPerPlayer: state.cardsPerPlayer,
     dealerId: state.dealerId,
@@ -316,11 +334,58 @@ function finishRound(state: GameState): GameState {
   return {
     ...state,
     players,
+    arcade: outcome.arcade,
     lastRound,
     phase: gameOver ? 'gameOver' : 'roundSummary',
     trick: { leaderId: '', plays: [], result: null },
     turnPlayerId: null,
     winnerId: stillAlive.length === 1 ? stillAlive[0]!.id : null,
+  };
+}
+
+/**
+ * Aplica o arcade por cima das letras cruas da rodada: o Escudo anula uma letra,
+ * o buffer do Esquenta sobe o limiar de eliminação e o Zumbi salva da primeira
+ * morte (volta com 1 letra abaixo do letal). Sem arcade ligado é pass-through.
+ */
+export function applyArcadeLetters(
+  arcade: ArcadeMatchState,
+  lives: number,
+  results: readonly PlayerRoundResult[],
+): { arcade: ArcadeMatchState; results: PlayerRoundResult[]; eliminatedIds: string[] } {  if (!arcade.enabled) {
+    return {
+      arcade,
+      results: [...results],
+      eliminatedIds: results.filter((r) => r.eliminated).map((r) => r.playerId),
+    };
+  }
+
+  let next = arcade;
+  const adjusted = results.map((r): PlayerRoundResult => {
+    const before = r.lettersAfter - (r.gainedLetter ? 1 : 0);
+    if (!r.gainedLetter) return { ...r, lettersAfter: before, eliminated: false };
+
+    const shielded = absorbHit(next, r.playerId);
+    if (shielded.absorbed) {
+      next = shielded.state;
+      return { ...r, gainedLetter: false, lettersAfter: before, eliminated: false };
+    }
+
+    const threshold = eliminationThreshold(next, r.playerId, lives);
+    let lettersAfter = before + 1;
+    let eliminated = lettersAfter >= threshold;
+    if (eliminated && canRevive(next, r.playerId)) {
+      next = spendRevive(next, r.playerId);
+      eliminated = false;
+      lettersAfter = threshold - 1;
+    }
+    return { ...r, lettersAfter, eliminated };
+  });
+
+  return {
+    arcade: next,
+    results: adjusted,
+    eliminatedIds: adjusted.filter((r) => r.eliminated).map((r) => r.playerId),
   };
 }
 

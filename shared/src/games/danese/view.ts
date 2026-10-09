@@ -1,4 +1,5 @@
 import type { Card, Rank } from './cards.js';
+import { type ArcadeLoadout, arcadeSeat } from '../../arcade/index.js';
 import {
   type GameState,
   type Phase,
@@ -22,6 +23,14 @@ export interface PublicPlayer {
   cardCount: number;
   /** Blind round only: the card on this player's forehead. Always null for the viewer's own seat. */
   foreheadCard: Card | null;
+  /** Arcade: the public "aura" — true while this player's 1× special is still loaded. */
+  specialCharged: boolean;
+}
+
+/** The viewer's own arcade kit (private; only ever sent to its owner). */
+export interface ArcadeView {
+  enabled: boolean;
+  loadout: ArcadeLoadout | null;
 }
 
 /**
@@ -53,6 +62,7 @@ export interface PlayerView {
   tricksPlayed: number;
   lastRound: RoundSummary | null;
   winnerId: string | null;
+  arcade: ArcadeView;
 }
 
 export function getPlayerView(state: GameState, viewerId: string | null): PlayerView {
@@ -74,10 +84,12 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
       tricksWon: inRound ? (state.tricksWon[p.id] ?? 0) : 0,
       cardCount: inRound ? hand.length : 0,
       foreheadCard: blind && p.id !== viewerId && hand[0] ? { ...hand[0] } : null,
+      specialCharged: state.arcade.enabled ? (arcadeSeat(state.arcade, p.id)?.specialCharged ?? false) : false,
     };
   });
 
   const dealerTurnToBet = state.phase === 'betting' && state.turnPlayerId === state.dealerId;
+  const viewerSeat = viewerId ? arcadeSeat(state.arcade, viewerId) : undefined;
 
   return {
     viewerId: viewerId,
@@ -103,5 +115,9 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
     tricksPlayed: state.completedTricks.length,
     lastRound: state.lastRound,
     winnerId: state.winnerId,
+    arcade: {
+      enabled: state.arcade.enabled,
+      loadout: viewerSeat ? { character: viewerSeat.character, talent: viewerSeat.talent } : null,
+    },
   };
 }

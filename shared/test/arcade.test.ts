@@ -5,12 +5,16 @@ import {
   CHARACTER_KITS,
   COMMON_TALENT_IDS,
   COMMON_TALENTS,
+  type PlayerRoundResult,
   absorbHit,
+  applyArcadeLetters,
   arcadeSeat,
   backfireChance,
   canRevive,
   createArcadeMatchState,
+  createGame,
   eliminationThreshold,
+  getPlayerView,
   isCommonTalentId,
   isSpecialCharged,
   parseLoadout,
@@ -18,6 +22,7 @@ import {
   spendSpecial,
   talentsFor,
 } from '../src/index.js';
+import { act, autoPlayRound } from './helpers.js';
 
 describe('arcade catalog', () => {
   it('gives every character a kit with a passive and a special', () => {
@@ -150,5 +155,95 @@ describe('arcade helpers', () => {
   it('a Encrenca dá chance de backfire só pro Babin', () => {
     expect(backfireChance(match, 'babin')).toBe(ARCADE_TUNING.encrencaBackfire);
     expect(backfireChance(match, 'martelo')).toBe(0);
+  });
+});
+
+describe('dane-se arcade', () => {
+  const r = (playerId: string, lettersAfter: number): PlayerRoundResult => ({
+    playerId,
+    bet: 1,
+    tricksWon: 0,
+    hitBet: false,
+    gainedLetter: true,
+    lettersAfter,
+    eliminated: false,
+  });
+
+  it('sem arcade, as letras passam direto', () => {
+    const out = applyArcadeLetters(createArcadeMatchState([]), 6, [r('a', 1)]);
+    expect(out.results).toEqual([r('a', 1)]);
+    expect(out.eliminatedIds).toEqual([]);
+  });
+
+  it('o Escudo anula a letra e some', () => {
+    const seat = { id: 'a', loadout: { character: 'colombo', talent: 'escudo' } as const };
+    const out = applyArcadeLetters(createArcadeMatchState([seat]), 6, [r('a', 1)]);
+    expect(out.results[0]).toMatchObject({ gainedLetter: false, lettersAfter: 0, eliminated: false });
+    expect(arcadeSeat(out.arcade, 'a')?.shields).toBe(0);
+    // Na letra seguinte o escudo já foi: cai normalmente.
+    const again = applyArcadeLetters(out.arcade, 6, [r('a', 1)]);
+    expect(again.results[0]).toMatchObject({ gainedLetter: true, lettersAfter: 1 });
+  });
+
+  it('o Esquenta só cai na 8ª letra', () => {
+    const seat = { id: 's', loadout: { character: 'sarney', talent: 'radar' } as const };
+    const match = createArcadeMatchState([seat]);
+    expect(applyArcadeLetters(match, 6, [r('s', 7)]).results[0]).toMatchObject({ lettersAfter: 7, eliminated: false });
+    const on8 = applyArcadeLetters(match, 6, [r('s', 8)]);
+    expect(on8.results[0]).toMatchObject({ lettersAfter: 8, eliminated: true });
+    expect(on8.eliminatedIds).toEqual(['s']);
+  });
+
+  it('o Zumbi salva da primeira morte e volta 1 letra abaixo do letal', () => {
+    const seat = { id: 'z', loadout: { character: 'dezin', talent: 'radar' } as const };
+    const match = createArcadeMatchState([seat]);
+    const first = applyArcadeLetters(match, 6, [r('z', 6)]);
+    expect(first.results[0]).toMatchObject({ lettersAfter: 5, eliminated: false });
+    expect(arcadeSeat(first.arcade, 'z')?.revives).toBe(0);
+    const second = applyArcadeLetters(first.arcade, 6, [r('z', 6)]);
+    expect(second.results[0]).toMatchObject({ lettersAfter: 6, eliminated: true });
+  });
+
+  it('pluga no jogo: aura pública e kit privado', () => {
+    const result = createGame(
+      [
+        { id: 'a', name: 'A', arcade: { character: 'sarney', talent: 'escudo' } },
+        { id: 'b', name: 'B', arcade: { character: 'dezin', talent: 'radar' } },
+      ],
+      1,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.arcade.enabled).toBe(true);
+    expect(result.state.arcade.seats).toHaveLength(2);
+
+    const viewA = getPlayerView(result.state, 'a');
+    expect(viewA.arcade).toEqual({ enabled: true, loadout: { character: 'sarney', talent: 'escudo' } });
+    expect(viewA.players.every((p) => p.specialCharged)).toBe(true);
+
+    // Espectador não recebe kit nenhum, mas continua vendo a aura.
+    const spec = getPlayerView(result.state, null);
+    expect(spec.arcade.loadout).toBeNull();
+    expect(spec.players.every((p) => p.specialCharged)).toBe(true);
+  });
+
+  it('jogo arcade completo termina sem travar', () => {
+    const result = createGame(
+      [
+        { id: 'a', name: 'A', arcade: { character: 'sarney', talent: 'escudo' } },
+        { id: 'b', name: 'B', arcade: { character: 'dezin', talent: 'radar' } },
+        { id: 'c', name: 'C', arcade: { character: 'babin', talent: 'curinga' } },
+      ],
+      7,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    let s = result.state;
+    let guard = 0;
+    while (s.phase !== 'gameOver' && guard++ < 500) {
+      s = s.phase === 'roundSummary' ? act(s, { type: 'nextRound' }) : autoPlayRound(s);
+    }
+    expect(s.phase).toBe('gameOver');
+    expect(s.winnerId).not.toBeNull();
   });
 });
