@@ -10,7 +10,9 @@ import {
   type GameType,
   type PokerSettings,
   type ProfileView,
+  type FriendInvite,
   type Reaction,
+  type SocialView,
   type RoomView,
   type ServerToClientEvents,
   type Session,
@@ -105,6 +107,10 @@ export interface ClientState {
   notice: Notice | null;
   /** Emoji reactions currently floating over the table. */
   reactions: Reaction[];
+  /** Friend code, friends, requests and the ranking (pushed by the server). */
+  social: SocialView | null;
+  /** Friends calling you to their table, newest last. */
+  invites: FriendInvite[];
 }
 
 const hadSavedProfile = savedProfileToken() !== null || savedName() !== '';
@@ -118,6 +124,8 @@ let state: ClientState = {
   room: null,
   notice: null,
   reactions: [],
+  social: null,
+  invites: [],
 };
 const listeners = new Set<() => void>();
 
@@ -181,6 +189,13 @@ socket.on('disconnect', () => {
 });
 
 socket.on('profile:state', (profile) => setState({ profile }));
+socket.on('social:state', (social) => setState({ social }));
+/** An invite stays up for a minute; a new one from the same friend replaces it. */
+const INVITE_VISIBLE_MS = 60_000;
+socket.on('friend:invite', (invite) => {
+  setState({ invites: [...state.invites.filter((i) => i.fromId !== invite.fromId), invite] });
+  setTimeout(() => setState({ invites: state.invites.filter((i) => i.id !== invite.id) }), INVITE_VISIBLE_MS);
+});
 
 socket.on('room:state', (room) => {
   setState({ room, resuming: false });
@@ -306,6 +321,38 @@ export const actions = {
     if (!r.ok) return false;
     writeStorage(NAME_KEY, r.profile.nickname);
     setState({ profile: r.profile });
+    return true;
+  },
+  addFriend: (code: string) => send('friend:add', { code }),
+  respondFriend: (id: string, accept: boolean) => send('friend:respond', { id, accept }),
+  removeFriend: (id: string) => send('friend:remove', { id }),
+  inviteFriend: (id: string) => send('friend:invite', { id }),
+  dismissInvite(id: string): void {
+    setState({ invites: state.invites.filter((i) => i.id !== id) });
+  },
+  /** Joins the table a friend called you to (leaving yours first if needed). */
+  async acceptInvite(invite: FriendInvite): Promise<boolean> {
+    actions.dismissInvite(invite.id);
+    if (state.room) await actions.leave();
+    return actions.joinRoom(invite.code);
+  },
+  /** The secret that opens this profile on another device. */
+  recoveryCode(): string | null {
+    return savedProfileToken();
+  },
+  /** Switches this device to the profile behind a recovery code. */
+  async recover(code: string): Promise<boolean> {
+    const token = code.trim();
+    if (!token) return false;
+    const r = await call<{ token: string; profile: ProfileView }>('profile:hello', { token });
+    if (!r.ok || r.token !== token) {
+      notify('Código de recuperação inválido.');
+      return false;
+    }
+    writeStorage(PROFILE_KEY, r.token);
+    writeStorage(NAME_KEY, r.profile.nickname);
+    setState({ profile: r.profile, profileReady: true });
+    notify(`Pronto! Você entrou como ${r.profile.nickname}.`, 'info');
     return true;
   },
   async refill(): Promise<boolean> {

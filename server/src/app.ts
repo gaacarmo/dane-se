@@ -7,6 +7,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import type { Ack, AckFn } from '@dane-se/shared';
 import { MemoryWalletStore } from './hub/memoryStore.js';
+import { SocialService } from './hub/socialService.js';
 import type { WalletStore } from './hub/store.js';
 import { WalletService } from './hub/walletService.js';
 import { DEFAULT_TIMINGS, type GameSocket, type IO, RoomManager, type Timings } from './rooms.js';
@@ -28,8 +29,10 @@ export function createApp(options: AppOptions = {}) {
   const app = express();
   const httpServer = createServer(app);
   const io: IO = new Server(httpServer, { pingInterval: 10_000, pingTimeout: 8_000 });
-  const wallets = new WalletService(options.walletStore ?? new MemoryWalletStore());
-  const rooms = new RoomManager(io, wallets, { ...DEFAULT_TIMINGS, ...options.timings });
+  const store = options.walletStore ?? new MemoryWalletStore();
+  const wallets = new WalletService(store);
+  const social = new SocialService(store);
+  const rooms = new RoomManager(io, wallets, { ...DEFAULT_TIMINGS, ...options.timings }, social);
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true, rooms: rooms.roomCount, uptime: Math.round(process.uptime()) });
@@ -87,6 +90,10 @@ function registerHandlers(socket: GameSocket, rooms: RoomManager): void {
   socket.on('profile:hello', handle<Body>((p) => rooms.recommendHello(socket, p.token, p.nickname)));
   socket.on('profile:rename', handle<Body>((p) => rooms.renameProfile(socket, p.nickname)));
   socket.on('profile:refill', handle(() => rooms.refill(socket)));
+  socket.on('friend:add', handle<Body>((p) => rooms.addFriend(socket, p.code)));
+  socket.on('friend:respond', handle<Body>((p) => rooms.respondFriend(socket, p.id, p.accept)));
+  socket.on('friend:remove', handle<Body>((p) => rooms.removeFriend(socket, p.id)));
+  socket.on('friend:invite', handle<Body>((p) => rooms.inviteFriend(socket, p.id)));
   socket.on('room:create', handle<Body>((p) => rooms.create(socket, p)));
   socket.on('room:join', handle<Body>((p) => rooms.join(socket, p.code, p.name)));
   socket.on('room:resume', handle<Body>((p) => rooms.resume(socket, p.code, p.token)));

@@ -38,6 +38,14 @@ A real-time multiplayer **game hub** with a shared server-side wallet, built aro
 
 **Losing.** Whoever doesn't make their bet gets the next letter of the word. Whoever completes the word is out; the last one standing wins.
 
+**Friends.** Your **friend code** (6 letters/digits) is in the hub. Type a friend's code to send a request; once they accept, they show up with an online dot. In a room's lobby, **Chamar amigos** lists your online friends: they get a popup with a button that takes them straight to your table.
+
+**Ranking.** The hub ranks you and your friends: Dane-se by wins (games won, plus games played) and poker by total profit (what you took out of the tables minus what you put in). Only money games count; practice games with bots don't.
+
+**Another device.** Your profile (wallet, friends, ranking) lives behind a secret **recovery code** kept in the browser. Open "Usar este perfil em outro aparelho" in the hub to copy it, and paste it on the other device to log into the same profile. Treat it like a password.
+
+**Voice and heads.** The 🎙️ button joins a voice call with the others in the room (mute and leave too; the audio goes straight between browsers). In the Desktop mode, where you look with the mouse is shared: the others see your character turn their head.
+
 **Talking.** The 💬 button opens the room chat (a speech bubble pops up over whoever writes). The 😀 button sends an emoji reaction that floats over your character: 😂 😱 😡 😭 😎 🙏 👏 🔥 🤡 💩 😏 🦐.
 
 ## Playing Poker Texas Hold'em
@@ -94,7 +102,14 @@ Render's free web services, as of October 2026:
 
 - **Sleeps after 15 minutes** without traffic; the next visit takes **about 1 minute** to wake it up. The app shows "Acordando o servidor…" meanwhile. Tip: open the link a minute before game night.
 - **Rooms live in memory**, so they're lost when the service sleeps, restarts or redeploys. Players who come back to a room that's gone see a friendly message and are sent to the lobby to create a new one.
-- **Wallets live in a JSON file** (`.data/`) by default, which is also wiped on redeploy/restart. Set `DATABASE_URL` to a hosted store (e.g. Turso/libSQL) when you want balances to survive; see "How it's built".
+- **Profiles, wallets, friends and the ranking live in a JSON file** (`.data/`) by default, which is also wiped on redeploy, restart and sleep. To keep them, use a free [Turso](https://turso.tech) database:
+  1. Install the CLI and log in: `brew install tursodatabase/tap/turso` then `turso auth login`.
+  2. Create the database: `turso db create dane-se`.
+  3. Get its URL: `turso db show dane-se --url` (starts with `libsql://`).
+  4. Create a token: `turso db tokens create dane-se`.
+  5. In the Render dashboard, open the service → **Environment** and set `DATABASE_URL` (the URL) and `DATABASE_AUTH_TOKEN` (the token). Save; Render redeploys. The log should say `Wallets: Turso (DATABASE_URL)`.
+
+  Everything is kept as one JSON row in a `hub_state` table, created on first start. Moving from the file to Turso starts from an empty hub (the file on Render is gone anyway).
 - **750 free instance hours per month** per workspace: enough for one service running all month. If they run out, free services are suspended until the next month.
 - Render "might restart a Free web service at any time".
 - Regions: Oregon, Ohio, Virginia, Frankfurt, Singapore. There is no South America region; the Blueprint uses **Virginia** (closest to Brazil).
