@@ -118,18 +118,50 @@ describe('playing', () => {
     expect(order(s)).toEqual([b, pe, a]);
   });
 
-  it('equal ranks are broken by suit and the winner leads next', () => {
+  it('a pair cancels and the next highest wins and leads; a fully canceled trick is led again', () => {
     let s = withCards(newGame(3), 2);
     const [a, b, pe] = order(s) as [string, string, string];
     s = rig(s, { [a]: ['KD', '3C'], [b]: ['KC', '6S'], [pe]: ['7H', '4S'] }, '7D'); // manilha Q
-    s = betAll(s, { [a]: 0, [b]: 1, [pe]: 0 });
+    s = betAll(s, { [a]: 1, [b]: 0, [pe]: 0 });
 
-    // KD and KC have the same rank: Paus (KC) wins.
+    // KD and KC cancel, 7H wins.
     s = act(playTrick(s, { [a]: 'KD', [b]: 'KC', [pe]: '7H' }), { type: 'collectTrick' });
+    expect(s.trick.leaderId).toBe(pe);
+    expect(s.turnPlayerId).toBe(pe);
+    expect(s.tricksWon[pe]).toBe(1);
+
+    // Two players, both cards cancel: nobody wins and the same player leads again.
+    let t = withCards(newGame(2), 2);
+    const [x, y] = order(t) as [string, string];
+    t = rig(t, { [x]: ['KD', '3C'], [y]: ['KC', '4S'] }, '7D');
+    t = betAll(t, { [x]: 1, [y]: 0 });
+    t = act(playTrick(t, { [x]: 'KD', [y]: 'KC' }), { type: 'collectTrick' });
+    expect(t.trick.leaderId).toBe(x);
+    expect(t.tricksWon).toEqual({ [x]: 0, [y]: 0 });
+  });
+
+  it('three of the same rank: the higher suit wins and leads next', () => {
+    let s = withCards(newGame(3), 2);
+    const [a, b, pe] = order(s) as [string, string, string];
+    s = rig(s, { [a]: ['KD', '3C'], [b]: ['KC', '6S'], [pe]: ['KH', '4S'] }, '7D'); // manilha Q
+    s = betAll(s, { [a]: 0, [b]: 1, [pe]: 0 });
+    s = act(playTrick(s, { [a]: 'KD', [b]: 'KC', [pe]: 'KH' }), { type: 'collectTrick' });
     expect(s.trick.leaderId).toBe(b);
-    expect(s.turnPlayerId).toBe(b);
     expect(s.tricksWon[b]).toBe(1);
-    expect(s.tricksWon[a]).toBe(0);
+  });
+
+  it('whole-round tie gives the Pé exactly one letter', () => {
+    let s = withCards(newGame(2), 2);
+    const [a, pe] = order(s) as [string, string];
+    s = rig(s, { [a]: ['KD', '7S'], [pe]: ['KC', '7H'] }, '3D'); // manilha 4
+    s = betAll(s, { [a]: 0, [pe]: 0 });
+    s = act(playTrick(s, { [a]: 'KD', [pe]: 'KC' }), { type: 'collectTrick' });
+    s = act(playTrick(s, { [a]: '7S', [pe]: '7H' }), { type: 'collectTrick' });
+
+    expect(s.lastRound?.allTricksTied).toBe(true);
+    expect(s.lastRound?.dealerTiePenalty).toBe(true);
+    const letters = Object.fromEntries(s.players.map((p) => [p.id, p.letters]));
+    expect(letters).toEqual({ [a]: 0, [pe]: 1 });
   });
 });
 
