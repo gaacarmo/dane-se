@@ -120,7 +120,8 @@ Cada jogador entra com:
 5. **UI:** aura no avatar 2D (feito); barra de habilidades em jogo, com atalhos de
    teclado (1..n), escolha de aposta e bandeja de espionagem (feito). Alvo é
    apontado no próprio jogador: a cadeira dele acende e basta clicar (feito, 2D e 3D).
-   Faltam: aura no avatar 3D e animações dos especiais.
+   Aura de especial carregado no avatar 3D (anel pulsante) e animação do momento
+   em que um especial dispara (estouro de energia no assento, 2D e 3D) — feito.
 
 ## Números em aberto (balancear depois)
 

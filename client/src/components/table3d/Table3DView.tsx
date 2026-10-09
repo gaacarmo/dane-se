@@ -1,5 +1,6 @@
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
+import { motion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import {
@@ -335,13 +336,77 @@ function Pile({ game }: { game: PlayerView }) {
   );
 }
 
+/**
+ * Arcade: the charged 1× special as a pulsing ring around the head. Rendered
+ * inside the seat's billboard group, so it always faces the camera. Public
+ * info — everyone sees whose special is still loaded.
+ */
+function SpecialAura() {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    const m = ref.current;
+    if (!m) return;
+    const t = clock.getElapsedTime();
+    m.scale.setScalar(1 + Math.sin(t * 3) * 0.05);
+    (m.material as THREE.MeshBasicMaterial).opacity = 0.5 + Math.sin(t * 3) * 0.22;
+  });
+  return (
+    <mesh ref={ref} position={[0, 0.24, 0.02]}>
+      <ringGeometry args={[0.31, 0.37, 48]} />
+      <meshBasicMaterial
+        color="#e879f9"
+        transparent
+        opacity={0.6}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
+/** Arcade: a short energy shock at the seat when that player's special fires. */
+function SpecialBurst3D({ burst }: { burst: number }) {
+  return (
+    <Html
+      center
+      position={[0, 0.24, 0.06]}
+      distanceFactor={2}
+      style={{ pointerEvents: 'none' }}
+      zIndexRange={[25, 5]}
+    >
+      <div key={burst} className="relative grid place-items-center">
+        <motion.span
+          className="block rounded-full border-2 border-fuchsia-300"
+          style={{ width: 96, height: 96, boxShadow: '0 0 20px 5px rgb(217 70 239 / 0.6)' }}
+          initial={{ opacity: 0.95, scale: 0.4 }}
+          animate={{ opacity: 0, scale: 2.1 }}
+          transition={{ duration: 1.1, ease: 'easeOut' }}
+        />
+        <motion.span
+          className="absolute text-3xl"
+          initial={{ opacity: 1, scale: 0.4, y: 0 }}
+          animate={{ opacity: 0, scale: 1.7, y: -34 }}
+          transition={{ duration: 0.9, ease: 'easeOut' }}
+        >
+          ✨
+        </motion.span>
+      </div>
+    </Html>
+  );
+}
+
 export function Table3DView({
   room,
   arcade,
+  specialBursts,
 }: {
   room: DaneseRoomView;
   /** Arcade targeting: opponent ids the viewer may point at, and the commit callback. */
   arcade?: { targetable: ReadonlySet<string>; onTarget: (playerId: string) => void };
+  /** Arcade: per-player burst id right after a charged 1× special fires. */
+  specialBursts?: ReadonlyMap<string, number>;
 }) {
   const game = room.game!;
   const word = wordLetters(game.settings.word);
@@ -377,7 +442,9 @@ export function Table3DView({
       overhead: (
         <>
           <Reactions3D playerId={p.id} position={[0, 0.5, 0.05]} />
+          {p.specialCharged && !p.eliminated && <SpecialAura />}
           <NameTag player={p} member={member} isYou={p.id === room.youId} isTurn={p.id === turnId} word={word} />
+          {specialBursts?.get(p.id) !== undefined && <SpecialBurst3D burst={specialBursts.get(p.id)!} />}
           {arcade?.targetable.has(p.id) && (
             <Html center position={[0, 0.16, 0.06]} distanceFactor={2} zIndexRange={[45, 30]}>
               <button

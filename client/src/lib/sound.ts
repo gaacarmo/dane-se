@@ -108,6 +108,14 @@ export const sfx = {
     tone(a, { freq: 392, dur: 0.22, type: 'triangle', gain: 0.18, slideTo: 300 });
     tone(a, { freq: 294, at: 0.2, dur: 0.4, type: 'triangle', gain: 0.18, slideTo: 196 });
   },
+  /** A charged 1× arcade special just went off: a rising zap plus a shimmer. */
+  special(): void {
+    const a = audio();
+    if (!a) return;
+    tone(a, { freq: 200, dur: 0.4, type: 'sawtooth', gain: 0.09, slideTo: 900 });
+    tone(a, { freq: 660, at: 0.04, dur: 0.34, type: 'triangle', gain: 0.12, slideTo: 1400 });
+    noise(a, { dur: 0.45, freq: 3200, gain: 0.09, q: 0.6 });
+  },
   /** Someone sent an emoji reaction. */
   pop(): void {
     const a = audio();

@@ -24,6 +24,8 @@ interface SeatProps {
   /** Arcade: this opponent is a valid target right now, so the seat is clickable. */
   targetable?: boolean;
   onTarget?: () => void;
+  /** Arcade: changes when this player's 1× special just fired, triggering a one-shot burst. */
+  burst?: number;
 }
 
 export function Seat({
@@ -41,6 +43,7 @@ export function Seat({
   scale = 1,
   targetable = false,
   onTarget,
+  burst,
 }: SeatProps) {
   const out = player.eliminated;
   const showFan = !blindRound && !isYou && !out && player.cardCount > 0;
@@ -115,6 +118,35 @@ export function Seat({
               🎯
             </span>
           </>
+        )}
+        {/* Arcade: the moment a charged special goes off — an energy shock. */}
+        {burst !== undefined && (
+          <span className="pointer-events-none absolute inset-0" aria-hidden>
+            <motion.span
+              key={`${burst}-ring-a`}
+              className="absolute -inset-3 rounded-full border-2 border-fuchsia-300"
+              style={{ boxShadow: '0 0 18px 4px rgb(217 70 239 / 0.6)' }}
+              initial={{ opacity: 0.95, scale: 0.5 }}
+              animate={{ opacity: 0, scale: 2.2 }}
+              transition={{ duration: 1.1, ease: 'easeOut' }}
+            />
+            <motion.span
+              key={`${burst}-ring-b`}
+              className="absolute -inset-3 rounded-full border border-sky-300"
+              initial={{ opacity: 0.8, scale: 0.4 }}
+              animate={{ opacity: 0, scale: 1.8 }}
+              transition={{ duration: 1, ease: 'easeOut', delay: 0.08 }}
+            />
+            <motion.span
+              key={`${burst}-spark`}
+              className="absolute inset-0 grid place-items-center text-2xl drop-shadow"
+              initial={{ opacity: 1, scale: 0.4, y: 0 }}
+              animate={{ opacity: 0, scale: 1.6, y: -26 }}
+              transition={{ duration: 0.9, ease: 'easeOut' }}
+            >
+              ✨
+            </motion.span>
+          </span>
         )}
         <div
           className={`relative grid size-12 place-items-center rounded-full text-lg font-bold text-white shadow-lg ring-2 transition ${

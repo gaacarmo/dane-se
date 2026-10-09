@@ -10,6 +10,7 @@ import { Modal } from '../ui/Modal';
 import { BetBar } from './BetBar';
 import { ArcadeBar } from './ArcadeBar';
 import { arcadeOpponents, arcadeSlots, type ArcadeAbilityUi } from './arcadeUi';
+import { useSpecialBursts } from './useSpecialBursts';
 import { CenterPile } from './CenterPile';
 import { DealAnimation, dealOrder, dealTiming } from './DealAnimation';
 import { type Point, foreheadSpace, seatPoint, tableGeometry, trickPoint, useElementSize } from './geometry';
@@ -121,6 +122,9 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
     if (pendingAbility) fireArcade(pendingAbility.id, playerId);
   }
 
+  // Public flash shared by everyone when any player's 1× special goes off.
+  const specialBursts = useSpecialBursts(game.players);
+
   return (
     <div
       className="room-bg relative flex h-dvh flex-col overflow-hidden"
@@ -146,6 +150,7 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
             <Table3DView
               room={room}
               arcade={arcadeTargets ? { targetable: arcadeTargets, onTarget: targetArcade } : undefined}
+              specialBursts={specialBursts}
             />
           </Table3DBoundary>
         )}
@@ -210,6 +215,7 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
                   scale={seatScale}
                   targetable={!!arcadeTargets?.has(p.id)}
                   onTarget={() => targetArcade(p.id)}
+                  burst={specialBursts.get(p.id)}
                 />
               );
             })}
