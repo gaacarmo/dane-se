@@ -175,6 +175,23 @@ function NameTag({
   );
 }
 
+/** An eliminated viewer sees what each player still in the round is holding, fanned above their head. */
+function RevealedHand({ cards, manilhaRank }: { cards: Card[]; manilhaRank: string }) {
+  const step = CARD_W * 0.62;
+  return (
+    <group position={[0, 0.44, 0.06]} scale={0.8}>
+      {cards.map((c, i) => {
+        const k = i - (cards.length - 1) / 2;
+        return (
+          <group key={`${i}-${c.rank}${c.suit}`} position={[k * step, -Math.abs(k) * 0.012, i * 0.002]} rotation={[0, 0, -k * 0.06]}>
+            <Card3D card={c} highlight={c.rank === manilhaRank} />
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 /** One card on the table: flies in from its player, then slides to the trick's winner and shrinks away. */
 function TableCard({
   card,
@@ -375,6 +392,9 @@ export function Table3DView({ room }: { room: DaneseRoomView }) {
             const last = [...room.chat].reverse().find((m) => m.playerId === p.id);
             return last && now - last.at < BUBBLE_MS ? <Bubble key={last.id} text={last.text} /> : null;
           })()}
+          {p.revealedHand && p.id !== room.youId && (
+            <RevealedHand cards={p.revealedHand} manilhaRank={game.manilhaRank} />
+          )}
           {game.blindRound && !p.eliminated && p.cardCount > 0 && (
             <group position={[0, 0.46, 0.06]} rotation={[0, 0, p.id === room.youId ? 0 : -0.07]} scale={1.25}>
               <Card3D card={p.id === room.youId ? null : p.foreheadCard} />

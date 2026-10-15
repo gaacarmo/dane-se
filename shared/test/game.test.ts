@@ -246,6 +246,28 @@ describe('player views (hidden information)', () => {
     }
   });
 
+  it('an eliminated player watching sees the hands of everyone still in the round', () => {
+    let s = newGame(4);
+    const [a, b, c, pe] = order(s) as [string, string, string, string];
+    s = withLetters(s, { [a]: 5 });
+    s = rig(s, { [a]: ['QD'], [b]: ['3C'], [c]: ['4S'], [pe]: ['5H'] }, 'KD');
+    s = betAll(s, { [a]: 1, [b]: 1, [c]: 0, [pe]: 1 });
+    s = act(playTrick(s, { [a]: 'QD', [b]: '3C', [c]: '4S', [pe]: '5H' }), { type: 'collectTrick' });
+    s = act(s, { type: 'nextRound' });
+    expect(s.cardsPerPlayer).toBeGreaterThan(1);
+
+    const view = getPlayerView(s, a);
+    expect(view.isSpectator).toBe(true);
+    expect(view.hand).toEqual([]);
+    for (const p of view.players) {
+      expect(p.revealedHand).toEqual(s.roundOrder.includes(p.id) ? s.hands[p.id] : null);
+    }
+
+    const alive = s.roundOrder[0]!;
+    expect(getPlayerView(s, alive).players.every((p) => p.revealedHand === null)).toBe(true);
+    expect(getPlayerView(s, null).players.every((p) => p.revealedHand === null)).toBe(true);
+  });
+
   it('spectators never receive hands', () => {
     let s = newGame(3, 2);
     s = { ...s, cardsPerPlayer: 2 };
