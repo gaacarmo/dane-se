@@ -105,24 +105,27 @@ export function Seat({
           )}
         </div>
 
-        {/* Opponents' cards, face down, fanned beside the avatar. */}
+        {/* Opponents' cards fanned beside the avatar: face down, or face up for an eliminated viewer. */}
         {showFan && (
           <div
             className={`absolute top-1/2 -translate-y-1/2 ${fanLeft ? 'right-[calc(100%+2px)]' : 'left-[calc(100%+2px)]'}`}
             aria-label={`${player.cardCount} cartas`}
           >
-            {Array.from({ length: player.cardCount }, (_, i) => (
-              <motion.div
-                key={`${roundKey}-${i}`}
-                className="absolute top-0 -translate-y-1/2"
-                style={{ width: 'calc(var(--seat-card-w) * 0.62)', [fanLeft ? 'right' : 'left']: i * 6 }}
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1, rotate: (i - player.cardCount / 2) * 6 }}
-                transition={{ delay: dealDelay }}
-              >
-                <CardBack />
-              </motion.div>
-            ))}
+            {Array.from({ length: player.cardCount }, (_, i) => {
+              const card = player.revealedHand?.[i];
+              return (
+                <motion.div
+                  key={`${roundKey}-${i}`}
+                  className="absolute top-0 -translate-y-1/2"
+                  style={{ width: 'calc(var(--seat-card-w) * 0.62)', [fanLeft ? 'right' : 'left']: i * (card ? 13 : 6) }}
+                  initial={{ opacity: 0, scale: 0.6 }}
+                  animate={{ opacity: 1, scale: 1, rotate: (i - player.cardCount / 2) * (card ? 3 : 6) }}
+                  transition={{ delay: dealDelay }}
+                >
+                  {card ? <PlayingCard card={card} highlight={card.rank === manilhaRank} /> : <CardBack />}
+                </motion.div>
+              );
+            })}
           </div>
         )}
 

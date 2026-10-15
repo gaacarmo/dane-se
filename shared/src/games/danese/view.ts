@@ -22,6 +22,11 @@ export interface PublicPlayer {
   cardCount: number;
   /** Blind round only: the card on this player's forehead. Always null for the viewer's own seat. */
   foreheadCard: Card | null;
+  /**
+   * The cards this player is holding, shown only to a viewer who was eliminated and stayed to watch
+   * (they can't affect the game anymore). Null for everyone else and in the blind round.
+   */
+  revealedHand: Card[] | null;
 }
 
 /**
@@ -59,6 +64,7 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
   const blind = isBlindRound(state);
   const viewer = state.players.find((p) => p.id === viewerId);
   const playsThisRound = viewer && !viewer.eliminated && state.roundOrder.includes(viewer.id);
+  const seesAllHands = !!viewer?.eliminated && !blind;
 
   const players = state.players.map((p): PublicPlayer => {
     const hand = state.hands[p.id] ?? [];
@@ -74,6 +80,7 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
       tricksWon: inRound ? (state.tricksWon[p.id] ?? 0) : 0,
       cardCount: inRound ? hand.length : 0,
       foreheadCard: blind && p.id !== viewerId && hand[0] ? { ...hand[0] } : null,
+      revealedHand: seesAllHands && inRound && hand.length > 0 ? hand.map((c) => ({ ...c })) : null,
     };
   });
 
