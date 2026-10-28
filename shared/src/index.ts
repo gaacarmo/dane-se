@@ -16,6 +16,7 @@ export * from './games/poker/game.js';
 export * from './games/poker/view.js';
 export * from './games/poker/bot.js';
 export * from './games/poker/module.js';
+export * from './cs/index.js';
 export * from './hub/money.js';
 export * from './hub/payout.js';
 export * from './hub/gameModule.js';
