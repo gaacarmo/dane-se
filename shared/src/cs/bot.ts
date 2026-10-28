@@ -67,17 +67,17 @@ function wrapAngle(a: number): number {
   return x;
 }
 
+/** Waypoint mais próximo que o ponto enxerga; sem nenhum à vista, o mais próximo em linha reta. */
 function nearestWaypoint(map: MapDef, p: Vec3): number {
-  let best = -1;
-  let bestDist = Infinity;
-  map.waypoints.forEach((w, i) => {
-    const d = distanceXZ(w, p);
-    if (d < bestDist) {
-      bestDist = d;
-      best = i;
-    }
+  const byDistance = map.waypoints
+    .map((w, i) => ({ i, d: distanceXZ(w, p) }))
+    .sort((a, b) => a.d - b.d);
+  const from = { x: p.x, y: 0.9, z: p.z };
+  const visible = byDistance.find(({ i, d }) => {
+    const w = map.waypoints[i]!;
+    return raycast(map, from, { x: w.x - p.x, y: 0, z: w.z - p.z }, d) === null;
   });
-  return best;
+  return (visible ?? byDistance[0])?.i ?? -1;
 }
 
 /** Índices de waypoints do mais próximo de `from` ao mais próximo de `to`; vazio se não há caminho. */
