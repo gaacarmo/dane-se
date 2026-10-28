@@ -1,5 +1,6 @@
 import type { MapDef } from '../../src/cs/map.js';
 import { CANTINA } from '../../src/cs/maps/cantina.js';
+import { botInput, createBotMemory, type BotMemory } from '../../src/cs/bot.js';
 import { WEAPONS, type WeaponId } from '../../src/cs/weapons.js';
 import {
   BUY_MS,
@@ -115,4 +116,30 @@ export function duel(map: MapDef = arenaMap, weapon: WeaponId = 'tabelinha'): Wo
   world = teleport(world, 'a1', 10, 10);
   world = teleport(world, 'b1', 10, 0);
   return patchPlayer(world, 'a1', { weapon, ammo: WEAPONS[weapon].magSize, reserve: 90 });
+}
+
+/** Roda os bots indicados (e `extra` para os demais) por `ms`, em passos de `stepMs`. */
+export function runBots(
+  world: World,
+  botIds: string[],
+  ms: number,
+  opts: { stepMs?: number; seed?: number; extra?: Record<string, PlayerInput>; stopWhen?: (w: World) => boolean } = {},
+): { world: World; events: WorldEvent[]; memories: Record<string, BotMemory> } {
+  const stepMs = opts.stepMs ?? 50;
+  const memories: Record<string, BotMemory> = {};
+  botIds.forEach((id, i) => (memories[id] = createBotMemory((opts.seed ?? 1) + i * 7)));
+  let current = world;
+  const events: WorldEvent[] = [];
+  for (let t = 0; t < ms; t += stepMs) {
+    const inputs: Record<string, PlayerInput> = { ...(opts.extra ?? {}) };
+    for (const id of botIds) {
+      const out = botInput(current, id, memories[id]!, stepMs);
+      inputs[id] = out.input;
+      memories[id] = out.memory;
+    }
+    current = stepWorld(current, inputs, stepMs);
+    events.push(...current.events);
+    if (opts.stopWhen?.(current)) break;
+  }
+  return { world: current, events, memories };
 }
