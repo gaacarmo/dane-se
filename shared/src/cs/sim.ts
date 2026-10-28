@@ -1,10 +1,10 @@
-import { randomInt } from '../rng.js';
-import { DEFUSE_REWARD, PLANT_REWARD, addMoney } from './economy.js';
+import { nextRandom, randomInt } from '../rng.js';
+import { DEFUSE_REWARD, KILL_REWARD, PLANT_REWARD, addMoney } from './economy.js';
 import { sideOf } from './match.js';
 import type { Box, MapDef } from './map.js';
-import { moveBody, type Body } from './physics.js';
+import { bodyHeight, eyePos, moveBody, PLAYER_RADIUS, raycast, rayBoxDistance, type Body } from './physics.js';
 import type { Side, TeamId, Vec3 } from './types.js';
-import { WEAPONS, type WeaponId } from './weapons.js';
+import { WEAPONS, damageFor, type HitZone, type WeaponDef, type WeaponId } from './weapons.js';
 
 export const BUY_MS = 15_000;
 export const LIVE_MS = 300_000;
@@ -14,6 +14,11 @@ export const DEFUSE_MS = 7_000;
 export const MAX_HP = 100;
 
 const BOMB_REACH = 1.5;
+const SHOT_RANGE = 200;
+const SHOT_DECAY_MS = 150;
+
+/** Frações da altura do corpo onde cada zona termina (pernas, corpo; o resto é cabeça). */
+export const HITBOX = { legsTop: 0.45, bodyTop: 0.82 } as const;
 const STILL_INPUT = 0.05;
 
 export type RoundPhase = 'buy' | 'live' | 'over';
@@ -209,6 +214,7 @@ export function stepWorld(world: World, inputs: Record<string, PlayerInput>, dtM
   };
   const dt = dtMs / 1000;
   const live = next.phase === 'live';
+  const firers = new Set(next.players.filter((p) => p.alive).map((p) => p.id));
 
   for (const p of next.players) {
     if (!p.alive) continue;
@@ -235,6 +241,7 @@ export function stepWorld(world: World, inputs: Record<string, PlayerInput>, dtM
   }
 
   next.phaseLeftMs -= dtMs;
+  stepCombat(next, inputs, dtMs, firers);
   stepBomb(next, inputs, dtMs);
   if (next.phase === 'over') return next;
   checkRoundEnd(next);
@@ -326,4 +333,90 @@ function checkRoundEnd(world: World): void {
   if (!attackersAlive) return finish(world, 'defense', 'elimination');
   if (!defendersAlive) return finish(world, 'attack', 'elimination');
   if (world.phaseLeftMs <= 0) finish(world, 'defense', 'time');
+}
+
+export function spreadFor(player: SimPlayer, weapon: WeaponDef): number {
+  const speed = Math.hypot(player.body.vel.x, player.body.vel.z);
+  const moving = speed > 1 || !player.body.onGround;
+  const spread = weapon.spreadBase + (moving ? weapon.spreadMove : 0) + player.shots * weapon.spreadPerShot;
+  return Math.min(weapon.spreadMax, spread);
+}
+
+function stepCombat(world: World, inputs: Record<string, PlayerInput>, dtMs: number, firers: Set<string>): void {
+  for (const p of world.players) {
+    if (!firers.has(p.id)) continue;
+    const input = inputs[p.id] ?? IDLE_INPUT;
+    const weapon = WEAPONS[p.weapon];
+    p.cooldownMs = Math.max(0, p.cooldownMs - dtMs);
+
+    if (p.reloadLeftMs > 0) {
+      p.reloadLeftMs = Math.max(0, p.reloadLeftMs - dtMs);
+      if (p.reloadLeftMs === 0) {
+        const taken = Math.min(p.reserve, weapon.magSize - p.ammo);
+        p.ammo += taken;
+        p.reserve -= taken;
+      }
+    } else if (input.reload && p.ammo < weapon.magSize && p.reserve > 0) {
+      p.reloadLeftMs = weapon.reloadMs;
+    }
+
+    if (input.fire && p.cooldownMs === 0 && p.ammo > 0 && p.reloadLeftMs === 0) {
+      fireShot(world, p, weapon);
+      p.ammo -= 1;
+      p.cooldownMs = weapon.fireIntervalMs;
+      p.shots += 1;
+    } else if (!input.fire) {
+      p.shots = Math.max(0, p.shots - dtMs / SHOT_DECAY_MS);
+    }
+
+    if (p.ammo === 0 && p.reserve > 0 && p.reloadLeftMs === 0) p.reloadLeftMs = weapon.reloadMs;
+  }
+}
+
+function fireShot(world: World, shooter: SimPlayer, weapon: WeaponDef): void {
+  const angle = nextRandom(world.rng);
+  const radius = nextRandom(angle.state);
+  world.rng = radius.state;
+
+  const spread = Math.tan((spreadFor(shooter, weapon) * Math.PI) / 180) * Math.sqrt(radius.value);
+  const theta = angle.value * Math.PI * 2;
+  const forward = lookDirection(shooter.yaw, shooter.pitch);
+  const right = { x: Math.cos(shooter.yaw), y: 0, z: -Math.sin(shooter.yaw) };
+  const up = {
+    x: right.y * forward.z - right.z * forward.y,
+    y: right.z * forward.x - right.x * forward.z,
+    z: right.x * forward.y - right.y * forward.x,
+  };
+  const dx = forward.x + (right.x * Math.cos(theta) + up.x * Math.sin(theta)) * spread;
+  const dy = forward.y + (right.y * Math.cos(theta) + up.y * Math.sin(theta)) * spread;
+  const dz = forward.z + (right.z * Math.cos(theta) + up.z * Math.sin(theta)) * spread;
+  const length = Math.hypot(dx, dy, dz);
+  const dir = { x: dx / length, y: dy / length, z: dz / length };
+  const origin = eyePos(shooter.body);
+
+  const wall = raycast(world.map, origin, dir, SHOT_RANGE) ?? Infinity;
+  let victim: SimPlayer | null = null;
+  let nearest = Infinity;
+  for (const enemy of world.players) {
+    if (!enemy.alive || enemy.team === shooter.team) continue;
+    const feet = enemy.body.pos;
+    const box = {
+      min: { x: feet.x - PLAYER_RADIUS, y: feet.y, z: feet.z - PLAYER_RADIUS },
+      max: { x: feet.x + PLAYER_RADIUS, y: feet.y + bodyHeight(enemy.body), z: feet.z + PLAYER_RADIUS },
+    };
+    const t = rayBoxDistance(origin, dir, box, SHOT_RANGE);
+    if (t !== null && t < wall && t < nearest) {
+      nearest = t;
+      victim = enemy;
+    }
+  }
+  if (!victim) return;
+
+  const fraction = (origin.y + dir.y * nearest - victim.body.pos.y) / bodyHeight(victim.body);
+  const zone: HitZone = fraction < HITBOX.legsTop ? 'legs' : fraction < HITBOX.bodyTop ? 'body' : 'head';
+  victim.hp = Math.max(0, victim.hp - damageFor(weapon, zone));
+  if (victim.hp > 0) return;
+  victim.alive = false;
+  shooter.money = addMoney(shooter.money, KILL_REWARD);
+  world.events.push({ type: 'kill', killer: shooter.id, victim: victim.id, headshot: zone === 'head' });
 }

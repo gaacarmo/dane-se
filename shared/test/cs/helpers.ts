@@ -1,8 +1,10 @@
 import type { MapDef } from '../../src/cs/map.js';
 import { CANTINA } from '../../src/cs/maps/cantina.js';
+import { WEAPONS, type WeaponId } from '../../src/cs/weapons.js';
 import {
   BUY_MS,
   IDLE_INPUT,
+  aimAt,
   createWorld,
   stepWorld,
   type PlayerInput,
@@ -65,4 +67,52 @@ export function run(
 
 export function skipBuy(world: World): World {
   return stepWorld(world, {}, BUY_MS);
+}
+
+const arenaBox = (x1: number, y1: number, z1: number, x2: number, y2: number, z2: number) => ({
+  min: { x: x1, y: y1, z: z1 },
+  max: { x: x2, y: y2, z: z2 },
+});
+
+/** Arena aberta 40 × 30 m, sem cobertura, para testes de tiro. */
+export const arenaMap: MapDef = {
+  id: 'arena',
+  name: 'Arena',
+  bounds: arenaBox(0, 0, 0, 40, 6, 30),
+  solids: [],
+  sites: { A: arenaBox(2, 0, 2, 6, 3, 6), B: arenaBox(34, 0, 24, 38, 3, 28) },
+  spawns: {
+    attack: [{ x: 3, y: 0, z: 28 }, { x: 5, y: 0, z: 28 }, { x: 7, y: 0, z: 28 }],
+    defense: [{ x: 33, y: 0, z: 2 }, { x: 35, y: 0, z: 2 }, { x: 37, y: 0, z: 2 }],
+  },
+  waypoints: [{ x: 5, y: 0, z: 25 }, { x: 35, y: 0, z: 5 }],
+  links: [[0, 1]],
+};
+
+export const wallArena: MapDef = { ...arenaMap, id: 'wall-arena', solids: [arenaBox(0, 0, 4.9, 40, 4, 5.1)] };
+
+const ZONE_FRACTION = { head: 0.91, body: 0.64, legs: 0.22 } as const;
+
+/** Input que mira o centro da zona do alvo, com as outras teclas em `patch`. */
+export function aimInput(
+  world: World,
+  shooterId: string,
+  targetId: string,
+  zone: keyof typeof ZONE_FRACTION,
+  patch: Partial<PlayerInput> = {},
+): PlayerInput {
+  const shooter = player(world, shooterId);
+  const target = player(world, targetId);
+  const eye = { x: shooter.body.pos.x, y: shooter.body.pos.y + 1.65, z: shooter.body.pos.z };
+  const point = { x: target.body.pos.x, y: target.body.pos.y + 1.8 * ZONE_FRACTION[zone], z: target.body.pos.z };
+  const look = aimAt(eye, point);
+  return input({ yaw: look.yaw, pitch: look.pitch, ...patch });
+}
+
+/** Rodada ao vivo na arena com a1 em (10, 10) e b1 em (10, 0), olho no olho. */
+export function duel(map: MapDef = arenaMap, weapon: WeaponId = 'tabelinha'): World {
+  let world = skipBuy(makeWorld(map));
+  world = teleport(world, 'a1', 10, 10);
+  world = teleport(world, 'b1', 10, 0);
+  return patchPlayer(world, 'a1', { weapon, ammo: WEAPONS[weapon].magSize, reserve: 90 });
 }
