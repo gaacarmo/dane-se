@@ -200,6 +200,7 @@ function CsGame({ onExit }: { onExit: () => void }) {
     let acc = 0;
     let sinceHud = 0;
     let feedId = 0;
+    let feedKey = '';
     let hudId = 0;
     let lastMoney = matchRef.current.world.players.find((p) => p.id === meId)!.money;
     let round = matchRef.current.roundIndex;
@@ -266,7 +267,12 @@ function CsGame({ onExit }: { onExit: () => void }) {
       if (sinceHud >= HUD_REFRESH_MS) {
         sinceHud = 0;
         while (items.length > 0 && now - items[0]!.at > FEED_TTL_MS) items.shift();
-        setFeed(items.slice(-FEED_SIZE).map(({ id, text }) => ({ id, text })));
+        const visible = items.slice(-FEED_SIZE);
+        const key = visible.map((item) => item.id).join(',');
+        if (key !== feedKey) {
+          feedKey = key;
+          setFeed(visible.map(({ id, text, tone }) => ({ id, text, tone })));
+        }
         setHud(matchRef.current);
         if (mine) {
           if (mine.money - lastMoney >= 50) setMoneyGain({ id: ++hudId, amount: mine.money - lastMoney });
@@ -281,10 +287,13 @@ function CsGame({ onExit }: { onExit: () => void }) {
   }, [stage, meId, input, send, director]);
 
   useEffect(() => {
+    if (stage !== 'play') return;
     const onKey = (e: KeyboardEvent) => {
       // O slider da pausa mantém o foco; só campos de texto precisam ficar com o teclado.
       if (e.target instanceof HTMLInputElement && e.target.type !== 'range') return;
       if (e.code === 'Tab') {
+        // Na pausa o Tab continua navegando entre os botões.
+        if (flowRef.current.overlay === 'pause') return;
         e.preventDefault();
         if (!e.repeat) send({ type: 'key', key: 'map' });
         return;
@@ -297,7 +306,7 @@ function CsGame({ onExit }: { onExit: () => void }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [input, send, pingAhead, buy]);
+  }, [stage, input, send, pingAhead, buy]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -385,7 +394,7 @@ function CsGame({ onExit }: { onExit: () => void }) {
 }
 
 function PauseMenu({ onResume, onGiveUp, onExit }: { onResume: () => void; onGiveUp: () => void; onExit: () => void }) {
-  const { csSensitivity } = usePrefs();
+  const { csSensitivity, muted } = usePrefs();
   return (
     <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/75 font-mono text-stone-200">
       <p className="mb-2 text-sm tracking-[0.2em] uppercase">Pausa</p>
@@ -402,6 +411,9 @@ function PauseMenu({ onResume, onGiveUp, onExit }: { onResume: () => void; onGiv
         <span className="text-stone-500">{(csSensitivity * 1000).toFixed(1)}</span>
       </label>
       <Button onClick={onResume}>Continuar</Button>
+      <Button variant="secondary" onClick={() => setPref('muted', !muted)}>
+        {muted ? 'Ligar o som' : 'Desligar o som'}
+      </Button>
       <Button variant="danger" onClick={onGiveUp}>
         Desistir
       </Button>

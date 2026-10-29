@@ -35,6 +35,8 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
   const keys = useRef(new Set<string>());
   const lookRef = useRef({ yaw: 0, pitch: 0 });
   const firing = useRef(false);
+  /** Um clique mais curto que um passo da simulação ainda vale um disparo. */
+  const fireTap = useRef(false);
   const reloadEdge = useRef(false);
   const slotEdge = useRef<0 | 1 | 2 | 3>(0);
   const lastWheel = useRef(0);
@@ -51,6 +53,8 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
         const slot = locked ? slotEdge.current : 0;
         reloadEdge.current = false;
         slotEdge.current = 0;
+        const fireNow = fireTap.current;
+        fireTap.current = false;
         const base: PlayerInput = {
           ...IDLE_INPUT,
           moveX: (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0),
@@ -60,7 +64,7 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
           jump: k.has('Space'),
           crouch: k.has('KeyC'),
           walk: k.has('ShiftLeft') || k.has('ShiftRight'),
-          fire: locked && firing.current,
+          fire: locked && (firing.current || fireNow),
           reload,
           use: locked && k.has('KeyE'),
           slot,
@@ -123,7 +127,10 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
       look.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch - e.movementY * sensitivity));
     };
     const onMouseDown = (e: MouseEvent) => {
-      if (e.button === 0 && api.isLocked()) firing.current = true;
+      if (e.button === 0 && api.isLocked()) {
+        firing.current = true;
+        fireTap.current = true;
+      }
     };
     const onMouseUp = (e: MouseEvent) => {
       if (e.button === 0) firing.current = false;

@@ -182,6 +182,7 @@ function createEffects() {
   }
 
   function impactWall(to: THREE.Vector3, normal: THREE.Vector3): void {
+    if (normal.lengthSq() < 1e-6) return;
     let decal = decals[nextDecal];
     if (!decal) {
       decal = new THREE.Mesh(holeGeometry, holeMaterial);

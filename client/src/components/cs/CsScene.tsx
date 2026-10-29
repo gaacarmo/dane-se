@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Suspense, useMemo, useRef, type MutableRefObject } from 'react';
+import { Suspense, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import * as THREE from 'three';
 import { bodyHeight, type CharacterId, type Match, type MapDef, type TeamId, type WorldEvent } from '@dane-se/shared';
 import { CHARACTER_SPECS } from '../table3d/characterSpecs';
@@ -74,6 +74,7 @@ function CsFigure({
   const group = useRef<THREE.Group>(null);
   const spec = CHARACTER_SPECS[character];
   const shirt = useMemo(() => bodyTexture(spec), [spec]);
+  useEffect(() => () => shirt.dispose(), [shirt]);
   const team = matchRef.current.world.players.find((x) => x.id === id)!.team;
 
   useFrame(({ camera }) => {

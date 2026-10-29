@@ -1,11 +1,11 @@
 # Modo CS
 
-Jogo escondido no hub: tiro em primeira pessoa, 2 times, plantar e desarmar bomba. Design em
+Jogo do hub: tiro em primeira pessoa, 2 times, plantar e desarmar bomba. Design em
 `docs/superpowers/specs/2026-10-28-cs-mode-design.md`.
 
 ## Como entrar
 
-Dê 5 cliques seguidos, em até 2 s, no título "Dane-se" do hub. Não há dica na tela.
+Card **Modo CS** na lista de jogos do hub. Abre direto, sem sala, sem entrada e sem prêmio.
 
 ## Controles (desktop)
 
