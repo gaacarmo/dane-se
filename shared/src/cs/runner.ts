@@ -3,14 +3,29 @@ import { shuffle } from '../rng.js';
 import { BOT_SKILLS, botBuy, botInput, createBotMemory, varySkill, type BotMemory, type Difficulty } from './bot.js';
 import { buyWeapon } from './buy.js';
 import { START_MONEY, addMoney, nextLossStreak, roundReward } from './economy.js';
-import { SWAP_EVERY, matchWinner, sideOf } from './match.js';
+import { isSideSwapRound, matchWinner, sideOf } from './match.js';
 import { drawMap } from './map.js';
-import { IDLE_INPUT, createWorld, stepWorld, type PlayerInput, type RosterEntry, type SimPlayer, type World } from './sim.js';
+import {
+  IDLE_INPUT,
+  createWorld,
+  stepWorld,
+  type PlayerInput,
+  type RosterEntry,
+  type SimPlayer,
+  type World,
+  type WorldEvent,
+} from './sim.js';
 import type { TeamId } from './types.js';
 import { STARTER_WEAPON, slotOf, type WeaponId } from './weapons.js';
 
 export const TEAM_SIZE = 3;
 export const ROUND_PAUSE_MS = 3000;
+
+export interface PlayerStats {
+  kills: number;
+  deaths: number;
+  headshots: number;
+}
 
 export interface Match {
   world: World;
@@ -22,6 +37,9 @@ export interface Match {
   memories: Record<string, BotMemory>;
   roster: RosterEntry[];
   mapId: string;
+  difficulty: Difficulty;
+  /** Abates, mortes e headshots de cada jogador na partida inteira. */
+  stats: Record<string, PlayerStats>;
   rng: number;
   /** Pausa entre rodadas; nula enquanto a rodada está rolando. */
   pauseMs: number | null;
@@ -32,15 +50,29 @@ function otherTeam(team: TeamId): TeamId {
   return team === 'A' ? 'B' : 'A';
 }
 
-/** Humanos ocupam o time A até 3 e depois o B; bots completam os dois times até 3. */
-export function createMatch(humans: { id: string; name: string }[], seed: number, difficulty: Difficulty = 'normal'): Match {
+interface HumanSeat {
+  id: string;
+  name: string;
+  /** Time escolhido no lobby; sem ele o humano ocupa o A e depois o B. */
+  team?: TeamId;
+}
+
+const zeroStats = (): PlayerStats => ({ kills: 0, deaths: 0, headshots: 0 });
+
+/** Humanos nos times que escolheram (ou A e depois B); bots completam os dois times até 3. */
+export function createMatch(humans: HumanSeat[], seed: number, difficulty: Difficulty = 'normal'): Match {
   const roster: RosterEntry[] = [];
   const memories: Record<string, BotMemory> = {};
   const characters: CharacterId[] = shuffle(CHARACTER_IDS, seed).items;
-  const seats: Record<TeamId, { id: string; name: string }[]> = {
-    A: humans.slice(0, TEAM_SIZE),
-    B: humans.slice(TEAM_SIZE, TEAM_SIZE * 2),
-  };
+  const seats: Record<TeamId, HumanSeat[]> = { A: [], B: [] };
+  for (const h of humans) if (h.team) seats[h.team].push(h);
+  if (seats.A.length > TEAM_SIZE || seats.B.length > TEAM_SIZE) throw new Error('TEAM_FULL');
+  for (const h of humans) {
+    if (h.team) continue;
+    const team: TeamId = seats.A.length < TEAM_SIZE ? 'A' : 'B';
+    if (seats[team].length >= TEAM_SIZE) throw new Error('TEAM_FULL');
+    seats[team].push(h);
+  }
 
   for (const team of ['A', 'B'] as const) {
     for (const h of seats[team]) {
@@ -80,10 +112,50 @@ export function createMatch(humans: { id: string; name: string }[], seed: number
     memories,
     roster,
     mapId: drawn.map.id,
+    difficulty,
+    stats: Object.fromEntries(roster.map((r) => [r.id, zeroStats()])),
     rng: drawn.rng,
     pauseMs: null,
     botsBought: false,
   };
+}
+
+function idSeed(id: string): number {
+  let sum = 17;
+  for (const ch of id) sum = (sum * 31 + ch.charCodeAt(0)) | 0;
+  return sum;
+}
+
+/** Liga ou desliga o bot de um jogador: quem sai da sala vira bot, quem volta retoma o controle. */
+export function setBotControl(match: Match, playerId: string, bot: boolean): Match {
+  const entry = match.roster.find((r) => r.id === playerId);
+  if (!entry || entry.bot === bot) return match;
+  const memories = { ...match.memories };
+  if (bot) {
+    const seed = match.rng + idSeed(playerId);
+    memories[playerId] = createBotMemory(seed, varySkill(BOT_SKILLS[match.difficulty], seed));
+  } else {
+    delete memories[playerId];
+  }
+  return {
+    ...match,
+    memories,
+    roster: match.roster.map((r) => (r.id === playerId ? { ...r, bot } : r)),
+    world: { ...match.world, players: match.world.players.map((p) => (p.id === playerId ? { ...p, bot } : p)) },
+  };
+}
+
+function withStats(stats: Record<string, PlayerStats>, events: WorldEvent[]): Record<string, PlayerStats> {
+  let next = stats;
+  for (const e of events) {
+    if (e.type !== 'kill') continue;
+    if (next === stats) next = { ...stats };
+    const killer = next[e.killer] ?? zeroStats();
+    const victim = next[e.victim] ?? zeroStats();
+    next[e.killer] = { ...killer, kills: killer.kills + 1, headshots: killer.headshots + (e.headshot ? 1 : 0) };
+    next[e.victim] = { ...victim, deaths: victim.deaths + 1 };
+  }
+  return next;
 }
 
 /** Compra de um humano; devolve a mesma partida se o mercado recusar. */
@@ -137,7 +209,7 @@ function settleRound(match: Match): Match {
 
 function startNextRound(match: Match): Match {
   const roundIndex = match.roundIndex + 1;
-  const swapping = roundIndex % SWAP_EVERY === 0;
+  const swapping = isSideSwapRound(roundIndex);
   const roster = swapping
     ? match.roster.map((r) => withLoadout(r, START_MONEY, { weapon: STARTER_WEAPON }))
     : match.roster;
@@ -182,5 +254,6 @@ export function stepMatch(match: Match, humanInputs: Record<string, PlayerInput>
     memories[p.id] = out.memory;
   }
 
-  return { ...match, world: stepWorld(world, inputs, dtMs), memories, botsBought: true };
+  const next = stepWorld(world, inputs, dtMs);
+  return { ...match, world: next, memories, botsBought: true, stats: withStats(match.stats, next.events) };
 }

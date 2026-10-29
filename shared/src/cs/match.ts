@@ -15,3 +15,8 @@ export function matchWinner(a: number, b: number): TeamId | null {
   if (b >= MAX_ROUNDS_WON || b - a >= LEAD_TO_WIN) return 'B';
   return null;
 }
+
+/** A primeira rodada depois de cada troca de lados (3, 6, 9...). */
+export function isSideSwapRound(roundIndex: number): boolean {
+  return roundIndex > 0 && roundIndex % SWAP_EVERY === 0;
+}

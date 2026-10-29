@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { START_MONEY } from '../../src/cs/economy.js';
 import { MAX_ROUNDS_WON, SWAP_EVERY, matchWinner, sideOf } from '../../src/cs/match.js';
-import { createMatch, forfeit, stepMatch, type Match } from '../../src/cs/runner.js';
+import { createMatch, forfeit, setBotControl, stepMatch, type Match } from '../../src/cs/runner.js';
 import type { TeamId } from '../../src/cs/types.js';
 import { CHARACTER_IDS } from '../../src/characters.js';
 
@@ -97,6 +97,102 @@ describe('carry-over between rounds', () => {
     expect(next('h1').holstered?.weapon).toBe('tamanco');
     expect(next('bot-A2').weapon).toBe('chinelo');
     expect(next('bot-A2').holstered).toBeNull();
+  });
+});
+
+describe('chosen teams', () => {
+  const on = (id: string, team: TeamId) => ({ id, name: id, team });
+
+  it('puts humans in the teams they chose and fills each team with bots up to 3', () => {
+    const match = createMatch([on('h1', 'B'), on('h2', 'B')], 1);
+    expect(teamOf(match, 'B').map((r) => r.id.startsWith('bot') ? 'bot' : r.id)).toEqual(['h1', 'h2', 'bot']);
+    expect(teamOf(match, 'A').every((r) => r.bot)).toBe(true);
+    expect(match.roster).toHaveLength(6);
+  });
+
+  it('seats humans without a team in A first, then B, around the ones who chose', () => {
+    const match = createMatch([on('h1', 'A'), { id: 'h2', name: 'h2' }, { id: 'h3', name: 'h3' }, { id: 'h4', name: 'h4' }], 1);
+    expect(teamOf(match, 'A').filter((r) => !r.bot).map((r) => r.id)).toEqual(['h1', 'h2', 'h3']);
+    expect(teamOf(match, 'B').filter((r) => !r.bot).map((r) => r.id)).toEqual(['h4']);
+  });
+
+  it('refuses more than 3 humans in a team', () => {
+    expect(() => createMatch([on('h1', 'A'), on('h2', 'A'), on('h3', 'A'), on('h4', 'A')], 1)).toThrow('TEAM_FULL');
+  });
+
+  it('keeps each human a different character, bots included', () => {
+    const match = createMatch([on('h1', 'A'), on('h2', 'B')], 4);
+    expect(new Set(match.roster.map((r) => r.character)).size).toBe(6);
+  });
+});
+
+describe('match stats', () => {
+  it('counts every kill, death and headshot across rounds', () => {
+    let match = createMatch([], 2);
+    const seen = { kills: new Map<string, number>(), deaths: new Map<string, number>(), heads: new Map<string, number>() };
+    for (let ms = 0; ms < 8 * 60_000 && !match.winner; ms += 50) {
+      const before = match.world;
+      match = stepMatch(match, {}, 50);
+      if (match.world === before) continue;
+      for (const e of match.world.events) {
+        if (e.type !== 'kill') continue;
+        seen.kills.set(e.killer, (seen.kills.get(e.killer) ?? 0) + 1);
+        seen.deaths.set(e.victim, (seen.deaths.get(e.victim) ?? 0) + 1);
+        if (e.headshot) seen.heads.set(e.killer, (seen.heads.get(e.killer) ?? 0) + 1);
+      }
+    }
+    expect(match.roundIndex).toBeGreaterThan(0);
+    for (const entry of match.roster) {
+      const stats = match.stats[entry.id]!;
+      expect(stats.kills).toBe(seen.kills.get(entry.id) ?? 0);
+      expect(stats.deaths).toBe(seen.deaths.get(entry.id) ?? 0);
+      expect(stats.headshots).toBe(seen.heads.get(entry.id) ?? 0);
+    }
+    const totals = Object.values(match.stats);
+    expect(totals.reduce((n, s) => n + s.kills, 0)).toBe(totals.reduce((n, s) => n + s.deaths, 0));
+  });
+
+  it('starts every player at zero', () => {
+    const match = createMatch([human('h1')], 1);
+    expect(match.stats['h1']).toEqual({ kills: 0, deaths: 0, headshots: 0 });
+    expect(Object.keys(match.stats)).toHaveLength(6);
+  });
+});
+
+describe('bot control', () => {
+  const spawnOf = (m: Match, id: string) => {
+    const p = m.world.players.find((x) => x.id === id)!;
+    return { x: p.body.pos.x, z: p.body.pos.z };
+  };
+
+  it('lets a bot play for a human who left, and gives control back', () => {
+    let match = createMatch([human('h1')], 3);
+    const start = spawnOf(match, 'h1');
+    match = setBotControl(match, 'h1', true);
+    expect(match.roster.find((r) => r.id === 'h1')!.bot).toBe(true);
+    expect(match.world.players.find((p) => p.id === 'h1')!.bot).toBe(true);
+    expect(match.memories['h1']).toBeDefined();
+    for (let ms = 0; ms < 50_000; ms += 50) match = stepMatch(match, {}, 50);
+    const moved = spawnOf(match, 'h1');
+    expect(Math.hypot(moved.x - start.x, moved.z - start.z)).toBeGreaterThan(3);
+
+    match = setBotControl(match, 'h1', false);
+    expect(match.roster.find((r) => r.id === 'h1')!.bot).toBe(false);
+    expect(match.world.players.find((p) => p.id === 'h1')!.bot).toBe(false);
+    expect(match.memories['h1']).toBeUndefined();
+  });
+
+  it('does nothing for an unknown player or when the flag already matches', () => {
+    const match = createMatch([human('h1')], 3);
+    expect(setBotControl(match, 'ghost', true)).toBe(match);
+    expect(setBotControl(match, 'h1', false)).toBe(match);
+  });
+
+  it('keeps a replaced human as a bot in the next rounds', () => {
+    let match = setBotControl(createMatch([human('h1')], 5), 'h1', true);
+    for (let ms = 0; ms < 30 * 60_000 && match.roundIndex < 2; ms += 50) match = stepMatch(match, {}, 50);
+    expect(match.roundIndex).toBeGreaterThanOrEqual(2);
+    expect(match.world.players.find((p) => p.id === 'h1')!.bot).toBe(true);
   });
 });
 

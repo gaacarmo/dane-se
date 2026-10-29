@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { matchWinner, sideOf } from '../../src/cs/match.js';
+import { isSideSwapRound, matchWinner, sideOf } from '../../src/cs/match.js';
 
 describe('matchWinner', () => {
   it('ends 4-0 but not 4-1', () => {
@@ -33,5 +33,11 @@ describe('sideOf', () => {
     expect(sideOf('A', 6)).toBe('attack');
     expect(sideOf('B', 0)).toBe('defense');
     expect(sideOf('B', 3)).toBe('attack');
+  });
+});
+
+describe('isSideSwapRound', () => {
+  it('is true only on the first round after each swap', () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 7].filter(isSideSwapRound)).toEqual([3, 6]);
   });
 });
