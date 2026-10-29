@@ -1,6 +1,7 @@
 import type { CSSProperties, RefObject } from 'react';
 import { DEFUSE_KIT_MS, DEFUSE_MS, PLANT_MS, WEAPONS, slotOf, type Match, type WeaponId } from '@dane-se/shared';
 import { Button } from '../ui/Button';
+import { isTouchDevice } from './useCsInput';
 
 export interface FeedItem {
   id: number;
@@ -142,6 +143,7 @@ export function CsHud({
   /** Rede: no fim da partida o anfitrião pode voltar ao lobby. */
   rematch?: { canRematch: boolean; onRematch: () => void };
 }) {
+  const touch = isTouchDevice();
   const { world } = match;
   const me = world.players.find((p) => p.id === meId)!;
   const mine = me.team;
@@ -184,7 +186,7 @@ export function CsHud({
               ? `Bomba no ponto ${world.bomb.site} · ${clock(world.bomb.explodeInMs)}`
               : clock(world.phaseLeftMs)}
         </p>
-        {world.phase === 'buy' && <p className="text-[11px] text-stone-500">B abre o mercado</p>}
+        {world.phase === 'buy' && <p className="text-[11px] text-stone-500">{touch ? 'Toque em $ para o mercado' : 'B abre o mercado'}</p>}
         {world.phase === 'prep' && (
           <p className="text-[11px] text-stone-500">
             {me.side === 'attack' ? 'Posicione o time: o portão abre quando a preparação acabar' : 'Segure os pontos: o portão abre quando a preparação acabar'}
@@ -246,7 +248,7 @@ export function CsHud({
         </p>
       </div>
 
-      <div className="absolute right-4 bottom-4 w-52 space-y-1.5">
+      <div className={`absolute bottom-4 w-52 space-y-1.5 ${touch ? 'right-64' : 'right-4'}`}>
         {held.map((w) => {
           const def = WEAPONS[w.id];
           return (

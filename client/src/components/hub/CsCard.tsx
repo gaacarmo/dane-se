@@ -38,7 +38,7 @@ export function CsCard({ onTrain }: { onTrain: () => void }) {
           </span>
           <span className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-medium text-stone-400">
             <span className="rounded-full bg-black/30 px-2 py-0.5 ring-1 ring-white/10">👥 1–6 jogadores + bots</span>
-            <span className="rounded-full bg-black/30 px-2 py-0.5 ring-1 ring-white/10">🖥️ no computador</span>
+            <span className="rounded-full bg-black/30 px-2 py-0.5 ring-1 ring-white/10">🖥️📱 computador e celular</span>
             <span className="rounded-full bg-black/30 px-2 py-0.5 ring-1 ring-white/10">🚫 sem entrada nem prêmio</span>
           </span>
         </span>
