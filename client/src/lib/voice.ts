@@ -163,8 +163,8 @@ export function useVoice(): VoiceState {
 
 /** Leaves voice when you leave the room. */
 export function useLeaveVoiceWithRoom(): void {
-  const { room } = useClient();
-  const inRoom = !!room;
+  const { room, csLobby } = useClient();
+  const inRoom = !!room || !!csLobby;
   useEffect(() => {
     if (!inRoom && state.joined) leaveVoice();
   }, [inRoom]);

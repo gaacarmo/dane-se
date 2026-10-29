@@ -337,7 +337,7 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.04 * GAME_CATALOG.length, duration: 0.35, ease: 'circOut' }}
           >
-            <CsCard onOpen={csMode.open} />
+            <CsCard onTrain={csMode.open} />
           </motion.div>
         </section>
 
