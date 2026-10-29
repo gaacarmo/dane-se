@@ -285,7 +285,7 @@ export function stepWorld(world: World, inputs: Record<string, PlayerInput>, dtM
       x: right.x * input.moveX + forward.x * input.moveZ,
       z: right.z * input.moveX + forward.z * input.moveZ,
     };
-    p.body = moveBody(next.map, p.body, wish, input.jump, input.crouch, WEAPONS[p.weapon].moveSpeedMult, dt);
+    p.body = moveBody(next.map, p.body, wish, input.jump, input.crouch, WEAPONS[p.weapon].moveSpeedMult, dt, input.walk);
   }
 
   if (next.phase === 'buy') {

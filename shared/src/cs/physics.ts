@@ -9,6 +9,11 @@ export const RUN_SPEED = 5.5;
 export const CROUCH_SPEED = 2.5;
 export const GRAVITY = 20;
 export const JUMP_SPEED = 6.5;
+export const WALK_SPEED = 2.9;
+/** Aceleração (m/s²) com tecla pressionada no chão, atrito sem tecla no chão e controle no ar. */
+export const GROUND_ACCEL = 60;
+export const GROUND_FRICTION = 50;
+export const AIR_ACCEL = 8;
 
 const EPS = 1e-4;
 
@@ -47,13 +52,27 @@ export function moveBody(
   crouch: boolean,
   speedMult: number,
   dt: number,
+  walk = false,
 ): Body {
   const height = crouch ? CROUCH_HEIGHT : PLAYER_HEIGHT;
   const norm = Math.hypot(wish.x, wish.z);
   const scale = norm > 1 ? 1 / norm : 1;
-  const speed = (crouch ? CROUCH_SPEED : RUN_SPEED) * speedMult;
-  const vx = wish.x * scale * speed;
-  const vz = wish.z * scale * speed;
+  const speed = (crouch ? CROUCH_SPEED : walk ? WALK_SPEED : RUN_SPEED) * speedMult;
+  const hasInput = norm > 1e-3;
+  const rate = body.onGround ? (hasInput ? GROUND_ACCEL : GROUND_FRICTION) : hasInput ? AIR_ACCEL : 0;
+  let vx = body.vel.x;
+  let vz = body.vel.z;
+  const dvx = wish.x * scale * speed - vx;
+  const dvz = wish.z * scale * speed - vz;
+  const gap = Math.hypot(dvx, dvz);
+  const maxDelta = rate * dt;
+  if (gap <= maxDelta) {
+    vx += dvx;
+    vz += dvz;
+  } else {
+    vx += (dvx / gap) * maxDelta;
+    vz += (dvz / gap) * maxDelta;
+  }
 
   let vy = body.vel.y;
   if (jump && body.onGround) vy = JUMP_SPEED;
@@ -62,17 +81,21 @@ export function moveBody(
   const pos = { ...body.pos };
   const b = map.bounds;
 
-  pos.x = clamp(pos.x + vx * dt, b.min.x + PLAYER_RADIUS, b.max.x - PLAYER_RADIUS);
+  const wantedX = pos.x + vx * dt;
+  pos.x = clamp(wantedX, b.min.x + PLAYER_RADIUS, b.max.x - PLAYER_RADIUS);
   for (const solid of map.solids) {
     if (!overlaps(pos, height, solid)) continue;
     pos.x = vx > 0 ? solid.min.x - PLAYER_RADIUS - EPS : solid.max.x + PLAYER_RADIUS + EPS;
   }
+  if (Math.abs(pos.x - wantedX) > 1e-9) vx = 0;
 
-  pos.z = clamp(pos.z + vz * dt, b.min.z + PLAYER_RADIUS, b.max.z - PLAYER_RADIUS);
+  const wantedZ = pos.z + vz * dt;
+  pos.z = clamp(wantedZ, b.min.z + PLAYER_RADIUS, b.max.z - PLAYER_RADIUS);
   for (const solid of map.solids) {
     if (!overlaps(pos, height, solid)) continue;
     pos.z = vz > 0 ? solid.min.z - PLAYER_RADIUS - EPS : solid.max.z + PLAYER_RADIUS + EPS;
   }
+  if (Math.abs(pos.z - wantedZ) > 1e-9) vz = 0;
 
   const previousY = pos.y;
   pos.y += vy * dt;

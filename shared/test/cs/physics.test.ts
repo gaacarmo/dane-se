@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { MapDef } from '../../src/cs/map.js';
 import {
+  AIR_ACCEL,
   CROUCH_SPEED,
+  WALK_SPEED,
   PLAYER_RADIUS,
   RUN_SPEED,
   moveBody,
@@ -158,5 +160,65 @@ describe('worldRay', () => {
 
   it('returns null when nothing is within maxDist', () => {
     expect(worldRay(arena, origin, { x: -1, y: 0, z: 0 }, 3)).toBeNull();
+  });
+});
+
+describe('moveBody inertia', () => {
+  const TICK = 1 / 60;
+  const speedOf = (b: Body) => Math.hypot(b.vel.x, b.vel.z);
+  const advance = (
+    b: Body,
+    wish: { x: number; z: number },
+    ms: number,
+    opts: { jump?: boolean; crouch?: boolean; walk?: boolean } = {},
+  ): Body => {
+    let cur = b;
+    for (let t = 0; t < ms - 1e-6; t += 1000 * TICK) {
+      cur = moveBody(arena, cur, wish, opts.jump ?? false, opts.crouch ?? false, 1, TICK, opts.walk ?? false);
+    }
+    return cur;
+  };
+
+  it('accelerates instead of jumping to full speed', () => {
+    const early = advance(body(2, 0, 10), { x: 0, z: 1 }, 50);
+    expect(speedOf(early)).toBeGreaterThan(0);
+    expect(speedOf(early)).toBeLessThan(RUN_SPEED * 0.8);
+    expect(speedOf(advance(body(2, 0, 10), { x: 0, z: 1 }, 300))).toBeCloseTo(RUN_SPEED, 1);
+  });
+
+  it('keeps sliding for a moment after the keys are released, then stops', () => {
+    const running = advance(body(2, 0, 5), { x: 0, z: 1 }, 400);
+    const brief = advance(running, { x: 0, z: 0 }, 20);
+    expect(speedOf(brief)).toBeGreaterThan(0.5);
+    expect(speedOf(advance(running, { x: 0, z: 0 }, 250))).toBe(0);
+  });
+
+  it('keeps its momentum in the air with no key held', () => {
+    const running = advance(body(2, 0, 3), { x: 0, z: 1 }, 400);
+    const takeoff = advance(running, { x: 0, z: 1 }, 50, { jump: true });
+    const airborne = advance(takeoff, { x: 0, z: 0 }, 150);
+    expect(airborne.onGround).toBe(false);
+    expect(speedOf(airborne)).toBeGreaterThan(RUN_SPEED * 0.9);
+  });
+
+  it('cannot reverse at once in the air', () => {
+    const running = advance(body(2, 0, 3), { x: 0, z: 1 }, 400);
+    const airborne = advance(running, { x: 0, z: 1 }, 60, { jump: true });
+    const pulled = advance(airborne, { x: 0, z: -1 }, 100);
+    expect(pulled.vel.z).toBeGreaterThan(RUN_SPEED - AIR_ACCEL * 0.1 - 0.5);
+  });
+
+  it('walks slower than running', () => {
+    expect(speedOf(advance(body(2, 0, 10), { x: 0, z: 1 }, 500, { walk: true }))).toBeCloseTo(WALK_SPEED, 1);
+    expect(WALK_SPEED).toBeLessThan(RUN_SPEED);
+  });
+
+  it('crouching is slower than walking', () => {
+    expect(speedOf(advance(body(2, 0, 10), { x: 0, z: 1 }, 500, { crouch: true, walk: true }))).toBeCloseTo(CROUCH_SPEED, 1);
+  });
+
+  it('loses the velocity that points into a wall', () => {
+    const end = run(body(5, 0, 10), { x: 1, z: 0 }, 2);
+    expect(end.vel.x).toBe(0);
   });
 });
