@@ -265,6 +265,16 @@ function isStill(input: PlayerInput): boolean {
   return Math.abs(input.moveX) < STILL_INPUT && Math.abs(input.moveZ) < STILL_INPUT;
 }
 
+/** Direção de caminhada no mundo pedida por um input (as teclas são relativas ao olhar). */
+export function inputWish(input: PlayerInput): { x: number; z: number } {
+  const forward = { x: -Math.sin(input.yaw), z: -Math.cos(input.yaw) };
+  const right = { x: Math.cos(input.yaw), z: -Math.sin(input.yaw) };
+  return {
+    x: right.x * input.moveX + forward.x * input.moveZ,
+    z: right.z * input.moveX + forward.z * input.moveZ,
+  };
+}
+
 export function stepWorld(world: World, inputs: Record<string, PlayerInput>, dtMs: number): World {
   if (world.phase === 'over') return { ...world, events: [] };
 
@@ -284,13 +294,7 @@ export function stepWorld(world: World, inputs: Record<string, PlayerInput>, dtM
     p.yaw = input.yaw;
     p.pitch = Math.max(-1.5, Math.min(1.5, input.pitch));
     if (!moving) continue;
-    const forward = { x: -Math.sin(p.yaw), z: -Math.cos(p.yaw) };
-    const right = { x: Math.cos(p.yaw), z: -Math.sin(p.yaw) };
-    const wish = {
-      x: right.x * input.moveX + forward.x * input.moveZ,
-      z: right.z * input.moveX + forward.z * input.moveZ,
-    };
-    p.body = moveBody(next.map, p.body, wish, input.jump, input.crouch, WEAPONS[p.weapon].moveSpeedMult, dt, input.walk);
+    p.body = moveBody(next.map, p.body, inputWish(input), input.jump, input.crouch, WEAPONS[p.weapon].moveSpeedMult, dt, input.walk);
   }
 
   if (next.phase === 'buy') {

@@ -7,6 +7,12 @@ import type { PokerSettings } from './games/poker/rules.js';
 import type { PokerView } from './games/poker/view.js';
 import type { EngineError, GameType } from './hub/gameModule.js';
 import type { Money } from './hub/money.js';
+import type { Difficulty } from './cs/bot.js';
+import type { CsLobbyView, CsStartInfo } from './cs/lobby.js';
+import type { CsInputMsg, CsSnapshot } from './cs/net.js';
+import type { PingKind } from './cs/pings.js';
+import type { TeamId } from './cs/types.js';
+import type { WeaponId } from './cs/weapons.js';
 
 export type RoomStatus = 'lobby' | 'playing' | 'finished';
 
@@ -202,7 +208,9 @@ export type ErrorCode =
   | 'ALREADY_FRIENDS'
   | 'NOT_FRIENDS'
   | 'FRIEND_OFFLINE'
-  | 'REFILL_NOT_ELIGIBLE';
+  | 'REFILL_NOT_ELIGIBLE'
+  | 'TEAM_FULL'
+  | 'NOT_IN_MATCH';
 
 export type Ack<T = object> = ({ ok: true } & T) | { ok: false; error: ErrorCode };
 export type AckFn<T = object> = (result: Ack<T>) => void;
@@ -258,6 +266,24 @@ export interface ClientToServerEvents {
   'voice:leave': (ack: AckFn) => void;
   /** WebRTC signaling (offer/answer/ICE candidate) for one other player in voice. */
   'voice:signal': (payload: { to: string; data: VoiceSignal }) => void;
+  /** Modo CS: sala com times. Os eventos `cs:*` têm gerenciador próprio no servidor. */
+  'cs:create': (payload: { name?: string }, ack: AckFn<Session>) => void;
+  'cs:join': (payload: { code: string; name?: string }, ack: AckFn<Session>) => void;
+  'cs:resume': (payload: { code: string; token: string }, ack: AckFn<Session>) => void;
+  'cs:leave': (ack: AckFn) => void;
+  'cs:team': (payload: { team: TeamId }, ack: AckFn) => void;
+  'cs:difficulty': (payload: { difficulty: Difficulty }, ack: AckFn) => void;
+  'cs:character': (payload: { character: CharacterId }, ack: AckFn) => void;
+  'cs:kick': (payload: { playerId: string }, ack: AckFn) => void;
+  'cs:start': (ack: AckFn) => void;
+  'cs:rematch': (ack: AckFn) => void;
+  /** Uma entrada por passo de 1/60 s, numerada. Sem ack: é enviada o tempo todo. */
+  'cs:input': (payload: CsInputMsg) => void;
+  'cs:buy': (payload: { weapon: WeaponId }, ack: AckFn) => void;
+  /** Marca um ponto do mapa para o seu time. Sem ack. */
+  'cs:ping': (payload: { kind: PingKind; x: number; z: number }) => void;
+  /** Vota para desistir; a resposta traz a contagem. */
+  'cs:forfeit': (ack: AckFn<{ votes: number; needed: number }>) => void;
   'game:bet': (payload: { bet: number }, ack: AckFn) => void;
   /** In the blind round the player can't see their card, so `cardId` is omitted. */
   'game:play': (payload: { cardId?: string }, ack: AckFn) => void;
@@ -289,6 +315,13 @@ export interface ServerToClientEvents {
   'social:state': (social: SocialView) => void;
   'friend:invite': (invite: FriendInvite) => void;
   'room:state': (view: RoomView) => void;
+  'cs:lobby': (view: CsLobbyView) => void;
+  'cs:started': (info: CsStartInfo) => void;
+  'cs:snapshot': (snapshot: CsSnapshot) => void;
+  'cs:ping': (ping: { id: string; from: string; kind: PingKind; x: number; z: number }) => void;
+  /** Quantos do seu time já votaram para desistir e quantos faltam. */
+  'cs:forfeit': (vote: { votes: number; needed: number }) => void;
+  'cs:closed': (reason: RoomClosedReason) => void;
   'room:kicked': () => void;
   'room:closed': (reason: RoomClosedReason) => void;
   'room:reaction': (reaction: Reaction) => void;
@@ -372,4 +405,6 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   NOT_FRIENDS: 'Vocês não são amigos.',
   FRIEND_OFFLINE: 'Seu amigo não está online agora.',
   REFILL_NOT_ELIGIBLE: 'Você só pode recarregar quando o saldo estiver baixo, uma vez por hora.',
+  TEAM_FULL: 'Esse time já tem 3 jogadores.',
+  NOT_IN_MATCH: 'A partida não está rolando.',
 };
