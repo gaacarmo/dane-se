@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAPS, drawMap, validateMap, type MapDef } from '../../src/cs/map.js';
+import { BIBLIOTECA } from '../../src/cs/maps/biblioteca.js';
 import { CANTINA } from '../../src/cs/maps/cantina.js';
 import { ESTACIONAMENTO } from '../../src/cs/maps/estacionamento.js';
 import { GINASIO } from '../../src/cs/maps/ginasio.js';
@@ -21,7 +22,7 @@ describe('Cantina', () => {
   });
 });
 
-describe.each([CANTINA, ESTACIONAMENTO, TERMINAL_BOQUEIRAO, GINASIO])('map $name', (map) => {
+describe.each([CANTINA, ESTACIONAMENTO, TERMINAL_BOQUEIRAO, GINASIO, BIBLIOTECA])('map $name', (map) => {
   it('is valid and registered', () => {
     expect(validateMap(map)).toEqual([]);
     expect(MAPS).toContain(map);

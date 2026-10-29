@@ -1,5 +1,6 @@
 import { randomInt } from '../rng.js';
 import { raycast } from './physics.js';
+import { BIBLIOTECA } from './maps/biblioteca.js';
 import { CANTINA } from './maps/cantina.js';
 import { ESTACIONAMENTO } from './maps/estacionamento.js';
 import { GINASIO } from './maps/ginasio.js';
@@ -26,7 +27,7 @@ export interface MapDef {
   stage?: Vec3;
 }
 
-export const MAPS: readonly MapDef[] = [CANTINA, ESTACIONAMENTO, TERMINAL_BOQUEIRAO, GINASIO];
+export const MAPS: readonly MapDef[] = [CANTINA, ESTACIONAMENTO, TERMINAL_BOQUEIRAO, GINASIO, BIBLIOTECA];
 
 const withBarrierCache = new WeakMap<MapDef, MapDef>();
 
