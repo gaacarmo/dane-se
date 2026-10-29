@@ -32,6 +32,8 @@ const PITCH_LIMIT = 1.5;
 export interface CsInputMsg {
   seq: number;
   input: PlayerInput;
+  /** Rodada para a qual o cliente já ajustou o olhar; sem isso, o servidor mantém o olhar do spawn. */
+  round?: number;
 }
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);

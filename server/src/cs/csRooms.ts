@@ -55,6 +55,7 @@ const OK = { ok: true } as const;
 interface Pending {
   seq: number;
   input: PlayerInput;
+  round: number | undefined;
 }
 
 interface CsMemberState {
@@ -71,6 +72,8 @@ interface CsMemberState {
   queue: Pending[];
   lastInput: PlayerInput;
   lastSeq: number;
+  /** Rodada em que o cliente confirmou o olhar na última entrada; `undefined` se ele nunca informou. */
+  lastRound: number | undefined;
   /** Maior `seq` já aceito na fila, para ignorar repetidas e atrasadas. */
   acceptedSeq: number;
   lastPingAt: number;
@@ -311,10 +314,12 @@ export class CsRoomManager {
       m.queue = [];
       m.lastInput = IDLE_INPUT;
       m.lastSeq = 0;
+      m.lastRound = undefined;
       m.acceptedSeq = 0;
       m.left = false;
       this.sendStart(room, m);
     }
+    this.faceSpawn(room, room.match);
     this.broadcastLobby(room);
     this.startLoop(room);
     return OK;
@@ -338,13 +343,13 @@ export class CsRoomManager {
   input(socket: GameSocket, payload: unknown): void {
     const ctx = this.context(socket);
     if (!ctx || ctx.room.status !== 'playing' || !payload || typeof payload !== 'object') return;
-    const { seq, input } = payload as { seq?: unknown; input?: unknown };
+    const { seq, input, round } = payload as { seq?: unknown; input?: unknown; round?: unknown };
     if (typeof seq !== 'number' || !Number.isInteger(seq) || seq <= ctx.member.acceptedSeq) return;
     const clean = sanitizeInput(input);
     if (!clean) return;
     const { member } = ctx;
     member.acceptedSeq = seq;
-    member.queue.push({ seq, input: clean });
+    member.queue.push({ seq, input: clean, round: typeof round === 'number' && Number.isInteger(round) ? round : undefined });
     if (member.queue.length > CS_MAX_PENDING) member.queue.splice(0, member.queue.length - CS_MAX_PENDING);
   }
 
@@ -427,19 +432,31 @@ export class CsRoomManager {
       if (next) {
         m.lastInput = next.input;
         m.lastSeq = next.seq;
+        m.lastRound = next.round;
       } else {
         // Sem entrada nova repete a anterior, menos o que só vale uma vez (recarregar e trocar de arma).
         m.lastInput = { ...m.lastInput, reload: false, slot: 0 };
       }
-      inputs[m.id] = m.lastInput;
+      // Entrada de antes de o cliente ver a rodada nova traz o olhar da rodada velha: o spawn manda até ele confirmar.
+      const spawn = m.lastRound !== undefined && m.lastRound !== match.roundIndex ? match.world.players.find((p) => p.id === m.id) : undefined;
+      inputs[m.id] = spawn ? { ...m.lastInput, yaw: spawn.yaw, pitch: spawn.pitch } : m.lastInput;
     }
     const before = match.world;
     const after = stepMatch(match, inputs, CS_STEP_MS);
     room.match = after;
+    if (after.roundIndex !== match.roundIndex) this.faceSpawn(room, after);
     if (after.world !== before) room.events.push(...after.world.events);
     room.tick++;
     if (room.tick % CS_SNAPSHOT_EVERY === 0 || after.winner) this.broadcastSnapshots(room, !!after.winner);
     if (after.winner) this.finish(room);
+  }
+
+  /** A entrada repetida passa a olhar como no spawn; senão o olhar da rodada velha volta no primeiro passo. */
+  private faceSpawn(room: CsRoom, match: Match): void {
+    for (const m of room.members) {
+      const spawn = match.world.players.find((p) => p.id === m.id);
+      if (spawn) m.lastInput = { ...m.lastInput, yaw: spawn.yaw, pitch: spawn.pitch };
+    }
   }
 
   private broadcastSnapshots(room: CsRoom, reliable: boolean): void {
@@ -599,6 +616,7 @@ export class CsRoomManager {
       queue: [],
       lastInput: IDLE_INPUT,
       lastSeq: 0,
+      lastRound: undefined,
       acceptedSeq: 0,
       lastPingAt: 0,
       idleSince: null,

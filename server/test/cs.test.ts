@@ -57,8 +57,8 @@ class CsClient {
     return r;
   }
 
-  input(seq: number, patch: Partial<PlayerInput> = {}): void {
-    (this.socket.emit as (...a: unknown[]) => void)('cs:input', { seq, input: { ...IDLE_INPUT, ...patch } });
+  input(seq: number, patch: Partial<PlayerInput> = {}, round?: number): void {
+    (this.socket.emit as (...a: unknown[]) => void)('cs:input', { seq, input: { ...IDLE_INPUT, ...patch }, round });
   }
 
   me(): CsLobbyView['members'][number] {
@@ -249,6 +249,42 @@ describe('match', () => {
       clearInterval(timer);
     }
     expect(p.lastSnapshot()!.ack).toBeGreaterThan(0);
+  });
+
+  it('spawns the player looking at the middle of the map, not north', async () => {
+    const { players } = await started(1);
+    const p = players[0]!;
+    await p.until(() => p.snapshots.length > 5);
+    expect(p.self()!.yaw).toBeCloseTo(-Math.PI / 2, 0);
+  });
+
+  it('keeps the spawn look in a new round until the client confirms the round', async () => {
+    const { players, code } = await started(1);
+    const p = players[0]!;
+    const roundOf = () => server.cs.match(code)!.roundIndex;
+    while (roundOf() === 0) server.cs.advance(code, 10_000);
+    await p.until(() => p.lastSnapshot()?.roundIndex === 1);
+    const spawnYaw = server.cs.match(code)!.world.players.find((x) => x.id === p.session!.playerId)!.yaw;
+
+    let seq = 0;
+    p.input(++seq, { yaw: 1 }, 0);
+    await p.until(() => p.lastSnapshot()!.ack >= seq);
+    expect(p.self()!.yaw).toBeCloseTo(spawnYaw, 2);
+
+    p.input(++seq, { yaw: 1 }, 1);
+    await p.until(() => p.self()?.yaw === 1);
+  });
+
+  it('swaps the sides on round 3: the human respawns at the other end, facing the other way', async () => {
+    const { players, code } = await started(1);
+    const p = players[0]!;
+    const me = () => server.cs.match(code)!.world.players.find((x) => x.id === p.session!.playerId)!;
+    expect(me().side).toBe('attack');
+    while (server.cs.match(code)!.roundIndex < 3) server.cs.advance(code, 10_000);
+    await p.until(() => p.lastSnapshot()?.roundIndex === 3);
+    expect(me().side).toBe('defense');
+    await p.until(() => (p.self()?.x ?? 0) > 60);
+    expect(p.self()!.yaw).toBeCloseTo(Math.PI / 2, 0);
   });
 
   it('survives garbage input and keeps ticking', async () => {
