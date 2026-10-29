@@ -5,8 +5,8 @@ import { bodyHeight, eyePos, PLAYER_RADIUS, type Match, type MapDef, type TeamId
 import type { CsInput } from './useCsInput';
 
 const TEAM_COLOR: Record<TeamId, string> = { A: '#4a7a8c', B: '#a8703c' };
-const SOLID_COLOR = '#3a4048';
-const LOW_SOLID_COLOR = '#56524a';
+const SOLID_COLOR = '#6a737e';
+const LOW_SOLID_COLOR = '#8a8478';
 
 function MapGeometry({ map }: { map: MapDef }) {
   const { min, max } = map.bounds;
@@ -14,7 +14,7 @@ function MapGeometry({ map }: { map: MapDef }) {
     <group>
       <mesh rotation-x={-Math.PI / 2} position={[(min.x + max.x) / 2, 0, (min.z + max.z) / 2]}>
         <planeGeometry args={[max.x - min.x, max.z - min.z]} />
-        <meshStandardMaterial color="#23272c" />
+        <meshStandardMaterial color="#444a52" />
       </mesh>
       {map.solids.map((s, i) => (
         <mesh
@@ -137,9 +137,10 @@ export function CsScene({
   return (
     <Canvas camera={{ fov: 75, near: 0.05, far: 200 }} dpr={[1, 1.5]} gl={{ antialias: true }}>
       <color attach="background" args={['#0b0d10']} />
-      <fog attach="fog" args={['#0b0d10', 25, 70]} />
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[15, 25, 10]} intensity={1.1} />
+      <fog attach="fog" args={['#0b0d10', 40, 90]} />
+      <hemisphereLight args={['#c8d2dc', '#2a2d33', 1.4]} />
+      <ambientLight intensity={0.9} />
+      <directionalLight position={[15, 25, 10]} intensity={1.8} />
       <MapGeometry key={`map-${match.mapId}`} map={match.world.map} />
       {match.roster
         .filter((r) => r.id !== meId)

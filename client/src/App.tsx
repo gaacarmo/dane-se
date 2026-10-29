@@ -8,15 +8,19 @@ import { PokerScreen } from './components/poker/PokerScreen';
 import { ConnectionBanner, Toast } from './components/ui/Toast';
 import { VoiceButton } from './components/VoiceButton';
 import { InviteToast } from './components/InviteToast';
+import { CsScreen } from './components/cs/CsScreen';
+import { csMode, useCsOpen } from './lib/csMode';
 import { useClient } from './lib/store';
 
 export function App() {
   if (import.meta.env.DEV && new URLSearchParams(location.search).has('preview3d')) return <Preview3D />;
   const { room, resuming, profileReady } = useClient();
+  const csOpen = useCsOpen();
   const [help, setHelp] = useState(false);
   const openHelp = () => setHelp(true);
 
   let screen;
+  if (csOpen) return <CsScreen onExit={csMode.close} />;
   if (room?.gameType === 'poker' && room.game && room.status !== 'lobby') {
     screen = <PokerScreen room={room} onHelp={openHelp} />;
   } else if (room?.gameType === 'danese' && room.game && room.status !== 'lobby') {

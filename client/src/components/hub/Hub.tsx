@@ -9,6 +9,7 @@ import {
   type GameType,
 } from '@dane-se/shared';
 import { setPref, usePrefs } from '../../lib/prefs';
+import { csMode, useSecretTap } from '../../lib/csMode';
 import { actions, codeFromUrl, useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
 import { CardFan } from '../cards/CardFan';
@@ -242,6 +243,7 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
   const [entry, setEntry] = useState(0);
   const [code, setCode] = useState(linkCode ?? '');
   const [joinOpen, setJoinOpen] = useState(Boolean(linkCode));
+  const secretTap = useSecretTap(csMode.open);
   const [busy, setBusy] = useState(false);
   const [arcade, setArcade] = useState(false);
 
@@ -291,7 +293,7 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
           </Button>
           <div className="relative flex flex-col items-center text-center">
             <CardFan size="sm" />
-            <h1 className="mt-1 font-display text-4xl font-bold tracking-wide gold-text drop-shadow">Dane-se</h1>
+            <h1 onClick={secretTap} className="mt-1 font-display text-4xl font-bold tracking-wide gold-text drop-shadow">Dane-se</h1>
             <p className="mt-1 text-sm text-stone-300">Escolha uma mesa e boa sorte.</p>
           </div>
         </header>

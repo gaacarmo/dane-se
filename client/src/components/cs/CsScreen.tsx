@@ -39,7 +39,7 @@ export function CsScreen({ onExit }: { onExit: () => void }) {
   const reason = unsupportedReason();
   if (reason) {
     return (
-      <main className="flex h-full flex-col items-center justify-center gap-4 bg-black p-6 text-center font-mono text-stone-300">
+      <main className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black p-6 text-center font-mono text-stone-300">
         <p className="max-w-sm text-sm">{reason}</p>
         <Button variant="secondary" onClick={onExit}>
           Voltar
@@ -199,7 +199,7 @@ function CsGame({ onExit }: { onExit: () => void }) {
   const needsClick = phase !== 'buy' && !input.locked && !menuOpen && !hud.winner;
 
   return (
-    <main className="relative h-full w-full overflow-hidden bg-black">
+    <main className="fixed inset-0 z-50 overflow-hidden bg-black">
       <div ref={stage3d} className="absolute inset-0">
         <CsScene matchRef={matchRef} meId={meId} input={input} roundKey={roundKey} />
       </div>

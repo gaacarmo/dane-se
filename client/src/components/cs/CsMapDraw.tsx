@@ -27,7 +27,7 @@ export function CsMapDraw({ mapId, onDone }: { mapId: string; onDone: () => void
   const shown = revealed ? final : MAPS[tick % MAPS.length]!;
 
   return (
-    <main className="flex h-full flex-col items-center justify-center gap-3 bg-black font-mono text-stone-200">
+    <main className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black font-mono text-stone-200">
       <p className="text-xs tracking-[0.3em] text-stone-500 uppercase">Sorteando mapa</p>
       <p className={`text-4xl font-bold tracking-wide ${revealed ? 'text-gold-400' : 'text-stone-300'}`}>{shown.name}</p>
     </main>
