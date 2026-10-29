@@ -75,7 +75,10 @@ export function CsMap({
             y={s.min.z}
             width={s.max.x - s.min.x}
             height={s.max.z - s.min.z}
-            fill={s.max.y > 2 ? '#6a737e' : '#8a8478'}
+            fill={s === map.barrier ? 'none' : s.max.y > 2 ? '#6a737e' : '#8a8478'}
+            stroke={s === map.barrier ? '#6aa0c8' : undefined}
+            strokeWidth={s === map.barrier ? 0.3 : undefined}
+            strokeDasharray={s === map.barrier ? '1 0.8' : undefined}
           />
         ))}
         {(['A', 'B'] as const).map((key) => {

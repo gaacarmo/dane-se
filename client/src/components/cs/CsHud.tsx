@@ -166,11 +166,18 @@ export function CsHud({
         <p className={`mt-1 text-sm ${planted ? 'text-red-400' : 'text-stone-300'}`}>
           {world.phase === 'buy'
             ? `Compra ${clock(world.phaseLeftMs)}`
-            : planted
+            : world.phase === 'prep'
+              ? `Preparação ${clock(world.phaseLeftMs)}`
+              : planted
               ? `Bomba no ponto ${world.bomb.site} · ${clock(world.bomb.explodeInMs)}`
               : clock(world.phaseLeftMs)}
         </p>
         {world.phase === 'buy' && <p className="text-[11px] text-stone-500">B abre o mercado</p>}
+        {world.phase === 'prep' && (
+          <p className="text-[11px] text-stone-500">
+            {me.side === 'attack' ? 'Posicione o time: o portão abre quando a preparação acabar' : 'Segure os pontos: o portão abre quando a preparação acabar'}
+          </p>
+        )}
       </div>
 
       <ul className="absolute top-3 right-3 space-y-1 text-xs">

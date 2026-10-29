@@ -12,16 +12,28 @@ Dê 5 cliques seguidos, em até 2 s, no título "Dane-se" do hub. Não há dica 
 | Tecla | Ação |
 | --- | --- |
 | WASD | mover |
+| Shift | andar devagar e em silêncio |
 | Mouse | olhar (clique na tela para travar o mouse) |
 | Botão esquerdo | atirar |
 | Espaço | pular |
 | C ou Ctrl esquerdo | agachar |
 | R | recarregar |
+| 1 / 2 / roda do mouse | troca para a principal, para a secundária ou alterna |
 | E (segurar) | plantar ou desarmar a bomba |
-| B | abrir ou fechar o mercado (só na fase de compra) |
+| B | abrir ou fechar o mercado (só na fase de compra); 1 a 6 compram a arma da linha |
 | Tab | abre/fecha o mapa de cima (cursor livre; clique no mapa para pingar) |
 | Q | pinga o ponto para onde você está olhando |
 | Esc | menu: continuar, desistir, sair |
+
+## Fases da rodada
+
+1. **Compra** (15 s): todos parados, mercado aberto.
+2. **Preparação** (25 s): um portão azul separa os times. Cada lado anda e se posiciona no seu pedaço do mapa, sem atirar e sem plantar; os inimigos não aparecem do outro lado.
+3. **Ação** (5 min): o portão cai. Os atacantes bots esperam uns 14 s no ponto de espera e entram juntos; os defensores seguram os pontos.
+4. **Bomba plantada** (40 s): atacantes guardam a bomba e os defensores correm para desarmar.
+
+Os bots têm dificuldade (`easy`, `normal` e `hard`; o padrão é `normal`): reação, erro de mira, giro, controle de recuo e
+chance de mirar a cabeça. No normal um bot leva em média ~1,4 s para matar um alvo parado a 10 m.
 
 ## Regras
 

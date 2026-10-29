@@ -29,7 +29,11 @@ function MapGeometry({ map }: { map: MapDef }) {
           position={[(s.min.x + s.max.x) / 2, (s.min.y + s.max.y) / 2, (s.min.z + s.max.z) / 2]}
         >
           <boxGeometry args={[s.max.x - s.min.x, s.max.y - s.min.y, s.max.z - s.min.z]} />
-          <meshStandardMaterial color={s.max.y > 2 ? SOLID_COLOR : LOW_SOLID_COLOR} />
+          {s === map.barrier ? (
+            <meshBasicMaterial color="#6aa0c8" transparent opacity={0.6} depthWrite={false} />
+          ) : (
+            <meshStandardMaterial color={s.max.y > 2 ? SOLID_COLOR : LOW_SOLID_COLOR} />
+          )}
         </mesh>
       ))}
       {(['A', 'B'] as const).map((key) => {
@@ -55,7 +59,18 @@ const HEAD_TOP = 0.82 * FIGURE_HEIGHT;
 const TORSO_BOTTOM = 0.45 * FIGURE_HEIGHT;
 
 /** Figura estática do personagem: cabeça do retrato, camisa e pernas, sempre de frente para a câmera. */
-function CsFigure({ matchRef, id, character }: { matchRef: MutableRefObject<Match>; id: string; character: CharacterId }) {
+function CsFigure({
+  matchRef,
+  id,
+  character,
+  hiddenInPrep,
+}: {
+  matchRef: MutableRefObject<Match>;
+  id: string;
+  character: CharacterId;
+  /** Inimigo: some enquanto o portão de preparação está de pé, para não entregar a posição do time dele. */
+  hiddenInPrep: boolean;
+}) {
   const group = useRef<THREE.Group>(null);
   const spec = CHARACTER_SPECS[character];
   const shirt = useMemo(() => bodyTexture(spec), [spec]);
@@ -65,7 +80,7 @@ function CsFigure({ matchRef, id, character }: { matchRef: MutableRefObject<Matc
     const p = matchRef.current.world.players.find((x) => x.id === id);
     const g = group.current;
     if (!p || !g) return;
-    g.visible = p.alive;
+    g.visible = p.alive && !(hiddenInPrep && matchRef.current.world.phase === 'prep');
     g.position.set(p.body.pos.x, p.body.pos.y, p.body.pos.z);
     g.rotation.y = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z);
     g.scale.y = bodyHeight(p.body) / FIGURE_HEIGHT;
@@ -157,6 +172,7 @@ export function CsScene({
 }) {
   const match = matchRef.current;
   const muzzle = useRef(new THREE.Vector3());
+  const myTeam = match.roster.find((r) => r.id === meId)!.team;
   return (
     <Canvas camera={{ fov: 75, near: 0.05, far: 200 }} dpr={[1, 1.5]} gl={{ antialias: true }}>
       <color attach="background" args={['#0b0d10']} />
@@ -164,11 +180,11 @@ export function CsScene({
       <hemisphereLight args={['#c8d2dc', '#2a2d33', 1.4]} />
       <ambientLight intensity={0.9} />
       <directionalLight position={[15, 25, 10]} intensity={1.8} />
-      <MapGeometry key={`map-${match.mapId}`} map={match.world.map} />
+      <MapGeometry key={`map-${match.mapId}-${match.world.map.solids.length}`} map={match.world.map} />
       {match.roster
         .filter((r) => r.id !== meId)
         .map((r) => (
-          <CsFigure key={`${roundKey}-${r.id}`} matchRef={matchRef} id={r.id} character={r.character} />
+          <CsFigure key={`${roundKey}-${r.id}`} matchRef={matchRef} id={r.id} character={r.character} hiddenInPrep={r.team !== myTeam} />
         ))}
       <Bomb matchRef={matchRef} />
       <PingMarkers pings={pings} />

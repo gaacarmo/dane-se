@@ -64,7 +64,7 @@ export class AudioDirector {
     if (!me) return;
     csAudio.setListener(eyePos(me.body), yaw);
 
-    if (world.phase === 'live') {
+    if (world.phase === 'live' || world.phase === 'prep') {
       for (const p of world.players) {
         if (!p.alive || !p.body.onGround) {
           this.stride.set(p.id, 0);
