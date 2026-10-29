@@ -17,6 +17,9 @@ export const MAX_HP = 100;
 const BOMB_REACH = 1.5;
 const SHOT_RANGE = 200;
 const SHOT_DECAY_MS = 150;
+const DEG = Math.PI / 180;
+const MAX_EFFECTIVE_PITCH = 1.55;
+export const RECOIL_RECOVERY_DEG_S = 22;
 
 /**
  * Caixas de acerto por zona, em frações da altura do corpo, com a meia-largura em metros. Seguem o desenho do
@@ -89,6 +92,12 @@ export interface SimPlayer {
   reloadLeftMs: number;
   cooldownMs: number;
   shots: number;
+  /** Recuo atual da mira, somado ao olhar na hora do tiro e na câmera. */
+  punchPitch: number;
+  punchYaw: number;
+  /** Tiros seguidos da rajada atual e tempo desde o último. */
+  burst: number;
+  sinceShotMs: number;
   money: number;
   hasBomb: boolean;
 }
@@ -198,6 +207,10 @@ export function createWorld(map: MapDef, roundIndex: number, roster: RosterEntry
       reloadLeftMs: 0,
       cooldownMs: 0,
       shots: 0,
+      punchPitch: 0,
+      punchYaw: 0,
+      burst: 0,
+      sinceShotMs: 0,
       money: entry.money,
       hasBomb: false,
     };
@@ -393,6 +406,24 @@ export function switchWeapon(p: SimPlayer, slot: 1 | 2 | 3): boolean {
   return true;
 }
 
+function recoverRecoil(p: SimPlayer, weapon: WeaponDef, dtMs: number): void {
+  const hold = Math.min(400, Math.max(180, weapon.fireIntervalMs * 2));
+  if (p.sinceShotMs <= hold) return;
+  p.burst = 0;
+  const step = RECOIL_RECOVERY_DEG_S * DEG * (dtMs / 1000);
+  p.punchPitch = Math.max(0, p.punchPitch - step);
+  p.punchYaw = p.punchYaw > 0 ? Math.max(0, p.punchYaw - step) : Math.min(0, p.punchYaw + step);
+}
+
+function addRecoil(p: SimPlayer, weapon: WeaponDef): void {
+  const cap = weapon.recoilMax * DEG;
+  p.punchPitch = Math.min(cap, p.punchPitch + weapon.recoilPitch * DEG);
+  const sway = cap * 0.6;
+  p.punchYaw = Math.max(-sway, Math.min(sway, p.punchYaw + weapon.recoilYaw * DEG * Math.sin(p.burst * 1.7)));
+  p.burst += 1;
+  p.sinceShotMs = 0;
+}
+
 export function spreadFor(player: SimPlayer, weapon: WeaponDef): number {
   const speed = Math.hypot(player.body.vel.x, player.body.vel.z);
   const moving = speed > 1 || !player.body.onGround;
@@ -408,6 +439,8 @@ function stepCombat(world: World, inputs: Record<string, PlayerInput>, dtMs: num
     const weapon = WEAPONS[p.weapon];
     p.cooldownMs = Math.max(0, p.cooldownMs - dtMs);
     p.equipLeftMs = Math.max(0, p.equipLeftMs - dtMs);
+    p.sinceShotMs += dtMs;
+    recoverRecoil(p, weapon, dtMs);
 
     if (p.reloadLeftMs > 0) {
       p.reloadLeftMs = Math.max(0, p.reloadLeftMs - dtMs);
@@ -422,6 +455,7 @@ function stepCombat(world: World, inputs: Record<string, PlayerInput>, dtMs: num
 
     if (input.fire && p.cooldownMs === 0 && p.equipLeftMs === 0 && p.ammo > 0 && p.reloadLeftMs === 0) {
       fireShot(world, p, weapon);
+      addRecoil(p, weapon);
       p.ammo -= 1;
       p.cooldownMs = weapon.fireIntervalMs;
       p.shots += 1;
@@ -440,8 +474,10 @@ function fireShot(world: World, shooter: SimPlayer, weapon: WeaponDef): void {
 
   const spread = Math.tan((spreadFor(shooter, weapon) * Math.PI) / 180) * Math.sqrt(radius.value);
   const theta = angle.value * Math.PI * 2;
-  const forward = lookDirection(shooter.yaw, shooter.pitch);
-  const right = { x: Math.cos(shooter.yaw), y: 0, z: -Math.sin(shooter.yaw) };
+  const aimYaw = shooter.yaw + shooter.punchYaw;
+  const aimPitch = Math.min(MAX_EFFECTIVE_PITCH, shooter.pitch + shooter.punchPitch);
+  const forward = lookDirection(aimYaw, aimPitch);
+  const right = { x: Math.cos(aimYaw), y: 0, z: -Math.sin(aimYaw) };
   const up = {
     x: right.y * forward.z - right.z * forward.y,
     y: right.z * forward.x - right.x * forward.z,

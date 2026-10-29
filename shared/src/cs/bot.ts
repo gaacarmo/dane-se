@@ -246,10 +246,10 @@ export function botInput(
     const errorDeg = (moving ? 2.5 : 0.7) + distance * 0.03;
     const error = (errorDeg * Math.PI) / 180;
     const aim = aimAt(eye, { x: feet.x, y: feet.y + height * 0.91, z: feet.z });
-    desiredYaw = aim.yaw + (rand(mem) - 0.5) * 2 * error;
-    desiredPitch = aim.pitch + (rand(mem) - 0.5) * 2 * error;
+    desiredYaw = aim.yaw - me.punchYaw + (rand(mem) - 0.5) * 2 * error;
+    desiredPitch = aim.pitch - me.punchPitch + (rand(mem) - 0.5) * 2 * error;
 
-    const look = lookDirection(me.yaw, me.pitch);
+    const look = lookDirection(me.yaw + me.punchYaw, me.pitch + me.punchPitch);
     const want = lookDirection(aim.yaw, aim.pitch);
     const dot = Math.min(1, Math.max(-1, look.x * want.x + look.y * want.y + look.z * want.z));
     const aligned = (Math.acos(dot) * 180) / Math.PI < (weapon.category === 'sniper' ? 0.6 : 2.5);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { KILL_REWARD } from '../../src/cs/economy.js';
 import { WEAPONS } from '../../src/cs/weapons.js';
 import { spreadFor, stepWorld } from '../../src/cs/sim.js';
-import { aimInput, aimPoint, duel, input, patchPlayer, player, run, teleport, wallArena } from './helpers.js';
+import { aimInput, aimPoint, aimer, duel, input, patchPlayer, player, run, teleport, wallArena } from './helpers.js';
 
 const STEP = 10;
 
@@ -16,7 +16,7 @@ describe('shooting', () => {
 
   it('needs four rifle body shots', () => {
     const world = duel();
-    const shoot = { a1: aimInput(world, 'a1', 'b1', 'body', { fire: true }) };
+    const shoot = { a1: aimer('a1', 'b1', 'body', { fire: true }) };
     const three = run(world, shoot, 250, STEP).world;
     expect(player(three, 'b1').hp).toBe(10);
     expect(player(three, 'b1').alive).toBe(true);
@@ -265,5 +265,53 @@ describe('shot and hit events', () => {
     expect(shot).toMatchObject({ hit: 'wall', normal: { x: 0, y: -1, z: 0 } });
     if (shot.type !== 'shot') throw new Error('unreachable');
     expect(shot.to.y).toBeCloseTo(6, 1);
+  });
+});
+
+describe('recoil', () => {
+  const DEG = Math.PI / 180;
+  const sprayer = (compensate: boolean) => {
+    let world = duel();
+    world = patchPlayer(world, 'b1', { hp: 100_000 });
+    const source = compensate ? aimer('a1', 'b1', 'body', { fire: true }) : aimInput(world, 'a1', 'b1', 'body', { fire: true });
+    return run(world, { a1: source }, 900, STEP);
+  };
+  const elevations = (events: ReturnType<typeof sprayer>['events']) =>
+    events
+      .filter((e) => e.type === 'shot')
+      .map((e) => (e.type === 'shot' ? Math.atan2(e.to.y - e.from.y, Math.hypot(e.to.x - e.from.x, e.to.z - e.from.z)) : 0));
+  const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / values.length;
+
+  it('lets the spray climb when the player does not pull down', () => {
+    const shots = elevations(sprayer(false).events);
+    expect(shots.length).toBeGreaterThanOrEqual(8);
+    expect(mean(shots.slice(4, 8)) - shots[0]!).toBeGreaterThan(3 * DEG);
+  });
+
+  it('keeps the spray on target when the player compensates', () => {
+    const fixed = elevations(sprayer(false).events);
+    const held = elevations(sprayer(true).events);
+    expect(mean(fixed.slice(4, 8)) - mean(held.slice(4, 8))).toBeGreaterThan(3 * DEG);
+    expect(Math.abs(mean(held.slice(4, 8)) - held[0]!)).toBeLessThan(1.5 * DEG);
+  });
+
+  it('caps the climb at the weapon limit', () => {
+    const after = player(run(patchPlayer(duel(), 'b1', { hp: 100_000 }), { a1: input({ fire: true, pitch: 0 }) }, 2600, STEP).world, 'a1');
+    expect(after.punchPitch).toBeCloseTo(WEAPONS.tabelinha.recoilMax * DEG, 3);
+  });
+
+  it('goes back to zero after the trigger is released', () => {
+    const fired = run(duel(), { a1: input({ fire: true, pitch: 1.2 }) }, 600, STEP).world;
+    expect(player(fired, 'a1').punchPitch).toBeGreaterThan(0);
+    const rested = run(fired, { a1: input() }, 1200, STEP).world;
+    expect(player(rested, 'a1').punchPitch).toBe(0);
+    expect(player(rested, 'a1').punchYaw).toBe(0);
+    expect(player(rested, 'a1').burst).toBe(0);
+  });
+
+  it('adds one kick step per shot, after the shot has left', () => {
+    const first = player(run(duel(), { a1: input({ fire: true, pitch: 1.2 }) }, STEP, STEP).world, 'a1');
+    expect(first.burst).toBe(1);
+    expect(first.punchPitch).toBeCloseTo(WEAPONS.tabelinha.recoilPitch * DEG, 5);
   });
 });

@@ -50,17 +50,21 @@ export function input(patch: Partial<PlayerInput> = {}): PlayerInput {
   return { ...IDLE_INPUT, ...patch };
 }
 
+export type InputSource = PlayerInput | ((world: World) => PlayerInput);
+
 /** Avança `ms` em passos de `stepMs`, juntando todos os eventos emitidos. */
 export function run(
   world: World,
-  inputs: Record<string, PlayerInput>,
+  inputs: Record<string, InputSource>,
   ms: number,
   stepMs = 50,
 ): { world: World; events: WorldEvent[] } {
   let current = world;
   const events: WorldEvent[] = [];
   for (let t = 0; t < ms; t += stepMs) {
-    current = stepWorld(current, inputs, stepMs);
+    const resolved: Record<string, PlayerInput> = {};
+    for (const [id, source] of Object.entries(inputs)) resolved[id] = typeof source === 'function' ? source(current) : source;
+    current = stepWorld(current, resolved, stepMs);
     events.push(...current.events);
   }
   return { world: current, events };
@@ -155,4 +159,18 @@ export function aimPoint(
   const eye = { x: shooter.body.pos.x, y: shooter.body.pos.y + 1.65, z: shooter.body.pos.z };
   const look = aimAt(eye, point);
   return input({ yaw: look.yaw, pitch: look.pitch, ...patch });
+}
+
+/** Como `aimInput`, refeito a cada passo e subtraindo o recuo atual, como um jogador que controla a rajada. */
+export function aimer(
+  shooterId: string,
+  targetId: string,
+  zone: keyof typeof ZONE_FRACTION,
+  patch: Partial<PlayerInput> = {},
+): (world: World) => PlayerInput {
+  return (world) => {
+    const base = aimInput(world, shooterId, targetId, zone, patch);
+    const shooter = player(world, shooterId);
+    return { ...base, yaw: base.yaw - shooter.punchYaw, pitch: base.pitch - shooter.punchPitch };
+  };
 }
