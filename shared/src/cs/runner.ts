@@ -1,6 +1,6 @@
 import { CHARACTER_IDS, type CharacterId } from '../characters.js';
 import { shuffle } from '../rng.js';
-import { botBuy, botInput, createBotMemory, type BotMemory } from './bot.js';
+import { BOT_SKILLS, botBuy, botInput, createBotMemory, varySkill, type BotMemory, type Difficulty } from './bot.js';
 import { buyWeapon } from './buy.js';
 import { START_MONEY, addMoney, nextLossStreak, roundReward } from './economy.js';
 import { SWAP_EVERY, matchWinner, sideOf } from './match.js';
@@ -33,7 +33,7 @@ function otherTeam(team: TeamId): TeamId {
 }
 
 /** Humanos ocupam o time A até 3 e depois o B; bots completam os dois times até 3. */
-export function createMatch(humans: { id: string; name: string }[], seed: number): Match {
+export function createMatch(humans: { id: string; name: string }[], seed: number, difficulty: Difficulty = 'normal'): Match {
   const roster: RosterEntry[] = [];
   const memories: Record<string, BotMemory> = {};
   const characters: CharacterId[] = shuffle(CHARACTER_IDS, seed).items;
@@ -65,7 +65,7 @@ export function createMatch(humans: { id: string; name: string }[], seed: number
         money: START_MONEY,
         weapon: STARTER_WEAPON,
       });
-      memories[id] = createBotMemory(seed + roster.length * 13);
+      memories[id] = createBotMemory(seed + roster.length * 13, varySkill(BOT_SKILLS[difficulty], seed + roster.length * 17));
     }
   }
 

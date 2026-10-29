@@ -1,6 +1,6 @@
 import type { MapDef } from '../../src/cs/map.js';
 import { CANTINA } from '../../src/cs/maps/cantina.js';
-import { botInput, createBotMemory, type BotMemory } from '../../src/cs/bot.js';
+import { botInput, createBotMemory, type BotMemory, type BotSkill } from '../../src/cs/bot.js';
 import { WEAPONS, type WeaponId } from '../../src/cs/weapons.js';
 import {
   BUY_MS,
@@ -127,12 +127,19 @@ export function runBots(
   world: World,
   botIds: string[],
   ms: number,
-  opts: { stepMs?: number; seed?: number; extra?: Record<string, PlayerInput>; stopWhen?: (w: World) => boolean } = {},
-): { world: World; events: WorldEvent[]; memories: Record<string, BotMemory> } {
+  opts: {
+    stepMs?: number;
+    seed?: number;
+    skill?: BotSkill;
+    extra?: Record<string, PlayerInput>;
+    stopWhen?: (w: World) => boolean;
+  } = {},
+): { world: World; events: WorldEvent[]; memories: Record<string, BotMemory>; elapsedMs: number } {
   const stepMs = opts.stepMs ?? 50;
   const memories: Record<string, BotMemory> = {};
-  botIds.forEach((id, i) => (memories[id] = createBotMemory((opts.seed ?? 1) + i * 7)));
+  botIds.forEach((id, i) => (memories[id] = createBotMemory((opts.seed ?? 1) + i * 7, opts.skill)));
   let current = world;
+  let elapsedMs = 0;
   const events: WorldEvent[] = [];
   for (let t = 0; t < ms; t += stepMs) {
     const inputs: Record<string, PlayerInput> = { ...(opts.extra ?? {}) };
@@ -142,10 +149,11 @@ export function runBots(
       memories[id] = out.memory;
     }
     current = stepWorld(current, inputs, stepMs);
+    elapsedMs += stepMs;
     events.push(...current.events);
     if (opts.stopWhen?.(current)) break;
   }
-  return { world: current, events, memories };
+  return { world: current, events, memories, elapsedMs };
 }
 
 /** Input que mira um ponto qualquer do mundo, com as outras teclas em `patch`. */
