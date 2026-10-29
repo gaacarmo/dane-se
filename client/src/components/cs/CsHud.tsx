@@ -192,7 +192,7 @@ export function CsHud({
         )}
       </div>
 
-      <ul className="absolute top-3 right-3 space-y-1 text-xs">
+      <ul className="absolute top-16 right-3 space-y-1 text-xs">
         {feed.map((item) => (
           <li
             key={item.id}

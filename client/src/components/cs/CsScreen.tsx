@@ -6,6 +6,7 @@ import {
   initialFlow,
   isSideSwapRound,
   lookDirection,
+  cursorFree,
   needsLockClick,
   raycast,
   reduceFlow,
@@ -34,7 +35,8 @@ import { CsMapDraw } from './CsMapDraw';
 import { CsScene } from './CsScene';
 import { playerName } from './CsScoreboard';
 import { LocalDriver, type CsDriver } from './driver';
-import { useCsInput, type CsInputHandlers } from './useCsInput';
+import { CsTouchControls } from './CsTouchControls';
+import { isTouchDevice, useCsInput, type CsInputHandlers } from './useCsInput';
 
 const HUD_REFRESH_MS = 100;
 const FEED_SIZE = 5;
@@ -48,11 +50,7 @@ const HALF_FOV_TAN = Math.tan((75 / 2) * (Math.PI / 180));
 export function unsupportedReason(): string | null {
   if (!webglSupported) return 'Este navegador não tem WebGL, necessário para o modo CS.';
   if (!('requestPointerLock' in document.documentElement)) return 'Este navegador não permite travar o mouse.';
-  try {
-    if (window.matchMedia('(pointer: coarse)').matches) return 'O modo CS no celular chega na próxima etapa. Por enquanto, use um computador.';
-  } catch {
-    /* sem matchMedia: segue como desktop */
-  }
+  if (isTouchDevice() && !('ontouchstart' in window) && !navigator.maxTouchPoints) return 'Este aparelho não tem tela de toque.';
   return null;
 }
 
@@ -186,6 +184,7 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
     onLockError: () => send({ type: 'lockError' }),
   };
 
+  const touch = isTouchDevice();
   const me = hud.world.players.find((p) => p.id === meId)!;
   const onDrawDone = useCallback(() => setStage('play'), []);
 
@@ -431,6 +430,19 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
         spectating={spectating}
         rematch={rematch}
       />
+      {isTouchDevice() && (
+        <CsTouchControls
+          input={input}
+          hidden={cursorFree(flow) || needsLockClick(flow)}
+          onLookTap={() => {
+            if (spectateRef.current) spectateIndex.current++;
+          }}
+          onBuy={() => send({ type: 'key', key: 'buy' })}
+          onMap={() => send({ type: 'key', key: 'map' })}
+          onPing={pingAhead}
+          onMenu={() => send({ type: 'key', key: 'escape' })}
+        />
+      )}
       {!driver.solo && <VoiceButton className="absolute top-3 left-3 z-40" />}
 
       {flow.overlay === 'buy' && (
@@ -456,9 +468,9 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
           onClick={() => send({ type: 'click', target: 'play' })}
           className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/45 font-mono text-sm text-stone-200"
         >
-          <span>{flow.lockFailed ? 'Clique para voltar ao jogo' : 'Clique para jogar'}</span>
+          <span>{touch ? (flow.lockFailed ? 'Toque para voltar ao jogo' : 'Toque para jogar') : flow.lockFailed ? 'Clique para voltar ao jogo' : 'Clique para jogar'}</span>
           <span className="text-xs text-stone-400">
-            WASD move · Shift anda devagar · Espaço pula · C agacha · R recarrega · 1/2 troca de arma · E interage · Tab mapa e placar · Q ping · B mercado · Esc {driver.solo ? 'pausa' : 'menu'}
+            {touch ? 'Alavanca à esquerda anda · arraste à direita para olhar · botões para atirar, pular, abaixar, recarregar e usar' : `WASD move · Shift anda devagar · Espaço pula · C agacha · R recarrega · 1/2 troca de arma · E interage · Tab mapa e placar · Q ping · B mercado · Esc ${driver.solo ? 'pausa' : 'menu'}`}
           </span>
         </button>
       )}
