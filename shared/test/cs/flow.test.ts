@@ -210,3 +210,31 @@ describe('lock errors and the play click', () => {
     expect(send(initialFlow(), { type: 'click', target: 'play' }).effects).toEqual([]);
   });
 });
+
+describe('preparation phase', () => {
+  it('closes the market when the preparation starts and does not reopen it with B', () => {
+    const prep = send(initialFlow(), { type: 'phase', phase: 'prep', ended: false });
+    expect(prep.state.overlay).toBe('none');
+    expect(prep.effects).toEqual([]);
+    expect(send(prep.state, { type: 'key', key: 'buy' }).state.overlay).toBe('none');
+  });
+
+  it('keeps the lock through preparation into the live round', () => {
+    const locked: FlowState = { ...initialFlow(), overlay: 'none', locked: true, phase: 'prep' };
+    const live = send(locked, { type: 'phase', phase: 'live', ended: false });
+    expect(live.state.locked).toBe(true);
+    expect(simPaused(live.state)).toBe(false);
+  });
+
+  it('opens the pause menu when the lock is lost during the preparation', () => {
+    const state: FlowState = { ...playing, phase: 'prep' };
+    expect(send(state, { type: 'lock', locked: false }).state.overlay).toBe('pause');
+  });
+
+  it('frees the mouse and reopens the market when the next round starts', () => {
+    const state: FlowState = { ...playing, phase: 'over' };
+    const buy = send(state, { type: 'phase', phase: 'buy', ended: false });
+    expect(buy.state.overlay).toBe('buy');
+    expect(buy.effects).toEqual(['releaseLock']);
+  });
+});

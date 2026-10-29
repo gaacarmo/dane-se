@@ -5,6 +5,8 @@ import { CANTINA } from '../../src/cs/maps/cantina.js';
 import { aimAt } from '../../src/cs/sim.js';
 import { WEAPONS } from '../../src/cs/weapons.js';
 import { arenaMap, duel, makeWorld, patchPlayer, player, runBots, skipBuy, teleport } from './helpers.js';
+import { ATTACK_EXECUTE_MS } from '../../src/cs/bot.js';
+import { BUY_MS, LIVE_MS, PREP_MS } from '../../src/cs/sim.js';
 
 describe('findPath', () => {
   it('links two connected waypoints through the graph', () => {
@@ -150,5 +152,33 @@ describe('bot skill', () => {
     world = patchPlayer(world, 'b1', { weapon: 'tabelinha', ammo: 30, reserve: 90, yaw: away.yaw, pitch: 0 });
     const result = runBots(world, ['b1'], 250, { stepMs: 10 });
     expect(result.events.some((e) => e.type === 'shot')).toBe(false);
+  });
+});
+
+describe('attack pacing', () => {
+  const gate = CANTINA.barrier!;
+  const tough = (w: ReturnType<typeof makeWorld>) => patchPlayer(patchPlayer(w, 'b1', { hp: 100_000 }), 'b2', { hp: 100_000 });
+  const attackersMaxX = (w: ReturnType<typeof makeWorld>) => Math.max(player(w, 'a1').body.pos.x, player(w, 'a2').body.pos.x);
+
+  it('keeps the attackers behind the gate through the preparation and the first moments of the action', () => {
+    const world = tough(makeWorld());
+    const early = runBots(world, ['a1', 'a2'], BUY_MS + PREP_MS + ATTACK_EXECUTE_MS - 1500, { stepMs: 50 });
+    expect(early.world.phase).toBe('live');
+    expect(attackersMaxX(early.world)).toBeLessThan(gate.min.x);
+  });
+
+  it('walks to the staging point during the preparation', () => {
+    const world = tough(makeWorld());
+    const prep = runBots(world, ['a1', 'a2'], BUY_MS + PREP_MS - 1000, { stepMs: 50 });
+    const stage = CANTINA.stage!;
+    const close = [player(prep.world, 'a1'), player(prep.world, 'a2')].some((p) => Math.hypot(p.body.pos.x - stage.x, p.body.pos.z - stage.z) < 8);
+    expect(close).toBe(true);
+  });
+
+  it('enters together once the execute time passes', () => {
+    const world = tough(makeWorld());
+    const later = runBots(world, ['a1', 'a2'], BUY_MS + PREP_MS + ATTACK_EXECUTE_MS + 20_000, { stepMs: 50 });
+    expect(later.world.phaseLeftMs).toBeLessThan(LIVE_MS);
+    expect(attackersMaxX(later.world)).toBeGreaterThan(gate.max.x);
   });
 });

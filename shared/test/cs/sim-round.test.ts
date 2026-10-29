@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { sideOf } from '../../src/cs/match.js';
 import { CANTINA } from '../../src/cs/maps/cantina.js';
-import { BOMB_MS, BUY_MS, DEFUSE_MS, LIVE_MS, PLANT_MS, stepWorld, type World } from '../../src/cs/sim.js';
-import { input, kill, makeWorld, patchPlayer, player, run, skipBuy, teleport } from './helpers.js';
+import { BOMB_MS, BUY_MS, DEFUSE_MS, LIVE_MS, PLANT_MS, PREP_MS, stepWorld, type World } from '../../src/cs/sim.js';
+import { aimInput, input, kill, makeWorld, patchPlayer, player, run, skipBuy, skipToPrep, teleport } from './helpers.js';
 
 const siteA = CANTINA.sites.A;
 const siteACenter = { x: (siteA.min.x + siteA.max.x) / 2, z: (siteA.min.z + siteA.max.z) / 2 };
@@ -41,14 +41,68 @@ describe('createWorld', () => {
 });
 
 describe('phases', () => {
-  it('freezes players during the buy phase and goes live after BUY_MS', () => {
+  it('freezes players during the buy phase, then opens the preparation, then goes live', () => {
     let world = makeWorld();
     const before = player(world, 'b1').body.pos;
     world = run(world, { b1: input({ moveZ: 1 }) }, 1000).world;
     expect(player(world, 'b1').body.pos).toEqual(before);
     expect(world.phase).toBe('buy');
     world = stepWorld(world, {}, BUY_MS);
+    expect(world.phase).toBe('prep');
+    expect(world.phaseLeftMs).toBe(PREP_MS);
+    world = stepWorld(world, {}, PREP_MS);
     expect(world.phase).toBe('live');
+    expect(world.phaseLeftMs).toBe(LIVE_MS);
+  });
+});
+
+describe('preparation gate', () => {
+  const barrier = CANTINA.barrier!;
+
+  it('stands between the teams during the buy and preparation phases, and falls when the round goes live', () => {
+    const world = makeWorld();
+    expect(world.map.solids).toContain(barrier);
+    expect(world.baseMap.solids).not.toContain(barrier);
+    expect(skipToPrep(world).map.solids).toContain(barrier);
+    expect(skipBuy(world).map.solids).not.toContain(barrier);
+  });
+
+  it('lets players move on their own side but not cross to the other', () => {
+    let world = skipToPrep(makeWorld());
+    world = teleport(world, 'a1', barrier.min.x - 2, 3);
+    const east = { moveZ: 1, yaw: -Math.PI / 2 };
+    const moved = run(world, { a1: input(east) }, 1000).world;
+    expect(player(moved, 'a1').body.pos.x).toBeGreaterThan(barrier.min.x - 2.2);
+    const pushed = run(world, { a1: input(east) }, 20_000).world;
+    expect(player(pushed, 'a1').body.pos.x).toBeLessThanOrEqual(barrier.min.x);
+  });
+
+  it('lets players cross once the round is live', () => {
+    let world = skipBuy(makeWorld());
+    world = teleport(world, 'a1', barrier.min.x - 2, 3);
+    const crossed = run(world, { a1: input({ moveZ: 1, yaw: -Math.PI / 2 }) }, 3000).world;
+    expect(player(crossed, 'a1').body.pos.x).toBeGreaterThan(barrier.max.x);
+  });
+
+  it('does not let anyone shoot during the preparation', () => {
+    const world = skipToPrep(makeWorld());
+    const shooter = patchPlayer(world, 'a1', { weapon: 'tabelinha', ammo: 30, reserve: 90 });
+    const after = run(shooter, { a1: aimInput(shooter, 'a1', 'b1', 'body', { fire: true }) }, 500).world;
+    expect(player(after, 'a1').ammo).toBe(30);
+    expect(player(after, 'b1').hp).toBe(100);
+  });
+
+  it('does not let the carrier plant during the preparation', () => {
+    let world = skipToPrep(makeWorld());
+    const id = carrierId(world);
+    world = teleport(world, id, siteACenter.x, siteACenter.z);
+    expect(run(world, { [id]: input({ use: true }) }, PLANT_MS + 500).world.bomb.status).toBe('carried');
+  });
+
+  it('never ends the round during the preparation', () => {
+    let world = skipToPrep(makeWorld());
+    world = kill(kill(world, 'b1'), 'b2');
+    expect(stepWorld(world, {}, 50).end).toBeNull();
   });
 });
 

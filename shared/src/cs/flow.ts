@@ -80,7 +80,7 @@ function onPhase(state: FlowState, phase: RoundPhase, ended: boolean): FlowResul
     next.overlay = 'buy';
     return done(next, releaseIfLocked(state));
   }
-  if (phase === 'live' && state.overlay === 'buy') next.overlay = 'none';
+  if (state.overlay === 'buy') next.overlay = 'none';
   return done(next);
 }
 

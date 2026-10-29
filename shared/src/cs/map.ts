@@ -16,9 +16,26 @@ export interface MapDef {
   spawns: Record<Side, Vec3[]>;
   waypoints: Vec3[];
   links: [number, number][];
+  /** Portão que separa os times durante a compra e a preparação; cai quando a rodada vai ao vivo. */
+  barrier?: Box;
+  /** Onde os atacantes esperam antes de entrar. */
+  stage?: Vec3;
 }
 
 export const MAPS: readonly MapDef[] = [CANTINA];
+
+const withBarrierCache = new WeakMap<MapDef, MapDef>();
+
+/** O mapa como ele é enquanto o portão de preparação está de pé: o portão vira mais um sólido. */
+export function withBarrier(map: MapDef): MapDef {
+  if (!map.barrier) return map;
+  let effective = withBarrierCache.get(map);
+  if (!effective) {
+    effective = { ...map, solids: [...map.solids, map.barrier] };
+    withBarrierCache.set(map, effective);
+  }
+  return effective;
+}
 
 const MIN_SPAWNS = 3;
 const WAYPOINT_REACH = 3;
@@ -54,6 +71,7 @@ export function validateMap(map: MapDef): string[] {
     spawns.forEach((spawn, i) => {
       if (map.solids.some((solid) => pointInBox(waist(spawn), solid))) problems.push(`spawn ${side}[${i}] dentro de sólido`);
       if (!pointInBox(waist(spawn), map.bounds)) problems.push(`spawn ${side}[${i}] fora dos limites`);
+      if (map.barrier && pointInBox(waist(spawn), map.barrier)) problems.push(`spawn ${side}[${i}] dentro do portão (barrier)`);
     });
   }
 
@@ -95,6 +113,7 @@ export function validateMap(map: MapDef): string[] {
     for (const key of ['A', 'B'] as const) {
       if (!reachable(boxCenter(map.sites[key]))) problems.push(`site ${key} longe dos waypoints`);
     }
+    if (map.stage && !reachable(map.stage)) problems.push('ponto de espera (stage) longe dos waypoints');
   }
 
   return problems;

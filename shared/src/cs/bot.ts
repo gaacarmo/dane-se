@@ -1,7 +1,7 @@
 import { nextRandom } from '../rng.js';
 import type { MapDef } from './map.js';
 import { bodyHeight, eyePos, raycast } from './physics.js';
-import { IDLE_INPUT, aimAt, lookDirection, type PlayerInput, type SimPlayer, type World } from './sim.js';
+import { IDLE_INPUT, LIVE_MS, aimAt, lookDirection, type PlayerInput, type SimPlayer, type World } from './sim.js';
 import type { Vec3 } from './types.js';
 import { WEAPONS, slotOf, type WeaponId } from './weapons.js';
 
@@ -12,11 +12,15 @@ const ENGAGE_RANGE = { pistol: 18, smg: 24, rifle: 40, sniper: 70 } as const;
 const CHEST_AIM = 0.56;
 /** Quem já está de olho num alvo o segue até 75° para cada lado; além disso o perde de vista. */
 const ENGAGED_HALF_FOV = 75 * DEG;
+/** Tempo de ação em que os atacantes esperam no ponto de espera antes de entrar juntos. */
+export const ATTACK_EXECUTE_MS = 14_000;
 const ARRIVE = 1;
 const WAYPOINT_REACH = 1.2;
 const LOSE_TARGET_MS = 600;
 const STUCK_CHECK_MS = 500;
 const PATROL_RADIUS = 10;
+/** Esperando no ponto de espera o bot só circula por perto, sem atravessar o portão quando ele cai. */
+const STAGE_RADIUS = 3;
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
 
@@ -241,6 +245,8 @@ function baseGoal(world: World, me: SimPlayer): Vec3 {
   const { map, bomb } = world;
   if (bomb.status === 'planted' && bomb.pos) return bomb.pos;
   if (me.side === 'attack') {
+    const waiting = world.phase === 'prep' || LIVE_MS - world.phaseLeftMs < ATTACK_EXECUTE_MS;
+    if (waiting && map.stage) return map.stage;
     if (me.hasBomb) return siteCenter(map, nearestSite(map, me.body.pos));
     const carrier = world.players.find((p) => p.hasBomb);
     if (!carrier && bomb.pos) return bomb.pos;
@@ -250,8 +256,8 @@ function baseGoal(world: World, me: SimPlayer): Vec3 {
   return siteCenter(map, defenders.indexOf(me.id) % 2 === 0 ? 'A' : 'B');
 }
 
-function randomNear(map: MapDef, base: Vec3, mem: BotMemory): Vec3 {
-  const near = map.waypoints.filter((w) => distanceXZ(w, base) <= PATROL_RADIUS);
+function randomNear(map: MapDef, base: Vec3, mem: BotMemory, radius: number): Vec3 {
+  const near = map.waypoints.filter((w) => distanceXZ(w, base) <= radius);
   if (near.length === 0) return base;
   return near[Math.floor(rand(mem) * near.length)]!;
 }
@@ -264,14 +270,14 @@ export function botInput(
 ): { input: PlayerInput; memory: BotMemory } {
   const me = world.players.find((p) => p.id === playerId)!;
   const mem: BotMemory = { ...memory, path: [...memory.path] };
-  if (!me.alive || world.phase !== 'live') {
+  if (!me.alive || world.phase === 'buy' || world.phase === 'over') {
     return { input: { ...IDLE_INPUT, yaw: me.yaw, pitch: me.pitch }, memory: mem };
   }
 
   const dt = dtMs / 1000;
   const eye = eyePos(me.body);
   const weapon = WEAPONS[me.weapon];
-  const target = pickTarget(world, me, eye, mem);
+  const target = world.phase === 'live' ? pickTarget(world, me, eye, mem) : null;
 
   if (target) {
     if (mem.targetId !== target.id) {
@@ -437,13 +443,14 @@ function walkToward(
   dtMs: number,
 ): { dir: { x: number; z: number }; facing: { yaw: number } | null } {
   const { map } = world;
-  if (!mem.goal || distanceXZ(mem.goal, base) > PATROL_RADIUS + 2) mem.goal = base;
+  const radius = map.stage && base === map.stage ? STAGE_RADIUS : PATROL_RADIUS;
+  if (!mem.goal || distanceXZ(mem.goal, base) > radius + 2) mem.goal = base;
 
   if (distanceXZ(me.body.pos, mem.goal) <= ARRIVE) {
     if (mem.holdMs <= 0) mem.holdMs = 2000 + rand(mem) * 3000;
     else {
       mem.holdMs -= dtMs;
-      if (mem.holdMs <= 0) mem.goal = randomNear(map, base, mem);
+      if (mem.holdMs <= 0) mem.goal = randomNear(map, base, mem, radius);
     }
     return { dir: { x: 0, z: 0 }, facing: null };
   }

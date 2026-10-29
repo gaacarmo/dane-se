@@ -40,6 +40,19 @@ describe('validateMap', () => {
     expect(validateMap(map).join('|')).toMatch(/connected|disconnected|desconexo/);
   });
 
+  it('reports a spawn inside the preparation gate', () => {
+    const map = clone();
+    const gate = map.barrier!;
+    map.spawns.attack[0] = { x: (gate.min.x + gate.max.x) / 2, y: 0, z: 5 };
+    expect(validateMap(map).join('|')).toMatch(/portão|barrier/);
+  });
+
+  it('reports a staging point that is not near any waypoint', () => {
+    const map = clone();
+    map.stage = { x: 39, y: 0, z: 1 };
+    expect(validateMap(map).join('|')).toMatch(/stage|espera/);
+  });
+
   it('reports fewer than 3 spawns on a side', () => {
     const map = clone();
     map.spawns.defense = map.spawns.defense.slice(0, 2);

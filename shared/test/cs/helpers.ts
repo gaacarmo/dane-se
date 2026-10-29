@@ -5,6 +5,7 @@ import { WEAPONS, type WeaponId } from '../../src/cs/weapons.js';
 import {
   BUY_MS,
   IDLE_INPUT,
+  PREP_MS,
   aimAt,
   createWorld,
   stepWorld,
@@ -70,7 +71,13 @@ export function run(
   return { world: current, events };
 }
 
+/** Atravessa a compra e a preparação: devolve a rodada já ao vivo. */
 export function skipBuy(world: World): World {
+  return stepWorld(stepWorld(world, {}, BUY_MS), {}, PREP_MS);
+}
+
+/** Atravessa só a compra: devolve a rodada no começo da preparação. */
+export function skipToPrep(world: World): World {
   return stepWorld(world, {}, BUY_MS);
 }
 

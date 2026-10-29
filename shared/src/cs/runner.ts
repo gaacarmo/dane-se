@@ -146,7 +146,7 @@ function startNextRound(match: Match): Match {
     roster,
     roundIndex,
     lossStreak: swapping ? { A: 0, B: 0 } : match.lossStreak,
-    world: createWorld(match.world.map, roundIndex, roster, match.world.rng),
+    world: createWorld(match.world.baseMap, roundIndex, roster, match.world.rng),
     pauseMs: null,
     botsBought: false,
   };

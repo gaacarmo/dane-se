@@ -2,12 +2,13 @@ import type { CharacterId } from '../characters.js';
 import { nextRandom, randomInt } from '../rng.js';
 import { DEFUSE_REWARD, KILL_REWARD, PLANT_REWARD, addMoney } from './economy.js';
 import { sideOf } from './match.js';
-import type { Box, MapDef } from './map.js';
+import { withBarrier, type Box, type MapDef } from './map.js';
 import { bodyHeight, eyePos, moveBody, rayBoxDistance, worldRay, type Body } from './physics.js';
 import type { Side, TeamId, Vec3 } from './types.js';
 import { WEAPONS, damageFor, slotOf, type HitZone, type WeaponDef, type WeaponId } from './weapons.js';
 
 export const BUY_MS = 15_000;
+export const PREP_MS = 25_000;
 export const LIVE_MS = 300_000;
 export const BOMB_MS = 40_000;
 export const PLANT_MS = 3_200;
@@ -32,7 +33,8 @@ export const HITBOX_ZONES: readonly { zone: HitZone; from: number; to: number; h
 ];
 const STILL_INPUT = 0.05;
 
-export type RoundPhase = 'buy' | 'live' | 'over';
+/** Compra (parado) -> preparação (cada time no seu lado do portão) -> ação -> fim. */
+export type RoundPhase = 'buy' | 'prep' | 'live' | 'over';
 
 /** Convenção da câmera do three: yaw 0 olha para -z; moveX vai para a direita e moveZ para a frente. */
 export interface PlayerInput {
@@ -134,7 +136,9 @@ export type WorldEvent =
   | { type: 'roundEnd'; end: RoundEnd };
 
 export interface World {
+  /** O mapa efetivo agora: com o portão de pé na compra e na preparação. */
   map: MapDef;
+  baseMap: MapDef;
   roundIndex: number;
   phase: RoundPhase;
   phaseLeftMs: number;
@@ -225,7 +229,8 @@ export function createWorld(map: MapDef, roundIndex: number, roster: RosterEntry
   }
 
   return {
-    map,
+    map: withBarrier(map),
+    baseMap: map,
     roundIndex,
     phase: 'buy',
     phaseLeftMs: BUY_MS,
@@ -270,7 +275,7 @@ export function stepWorld(world: World, inputs: Record<string, PlayerInput>, dtM
     events: [],
   };
   const dt = dtMs / 1000;
-  const live = next.phase === 'live';
+  const moving = next.phase !== 'buy';
   const firers = new Set(next.players.filter((p) => p.alive).map((p) => p.id));
 
   for (const p of next.players) {
@@ -278,7 +283,7 @@ export function stepWorld(world: World, inputs: Record<string, PlayerInput>, dtM
     const input = inputs[p.id] ?? IDLE_INPUT;
     p.yaw = input.yaw;
     p.pitch = Math.max(-1.5, Math.min(1.5, input.pitch));
-    if (!live) continue;
+    if (!moving) continue;
     const forward = { x: -Math.sin(p.yaw), z: -Math.cos(p.yaw) };
     const right = { x: Math.cos(p.yaw), z: -Math.sin(p.yaw) };
     const wish = {
@@ -291,8 +296,19 @@ export function stepWorld(world: World, inputs: Record<string, PlayerInput>, dtM
   if (next.phase === 'buy') {
     next.phaseLeftMs -= dtMs;
     if (next.phaseLeftMs <= 0) {
+      next.phase = 'prep';
+      next.phaseLeftMs = PREP_MS;
+    }
+    return next;
+  }
+
+  if (next.phase === 'prep') {
+    next.phaseLeftMs -= dtMs;
+    stepCombat(next, inputs, dtMs, firers);
+    if (next.phaseLeftMs <= 0) {
       next.phase = 'live';
       next.phaseLeftMs = LIVE_MS;
+      next.map = next.baseMap;
     }
     return next;
   }
@@ -453,7 +469,7 @@ function stepCombat(world: World, inputs: Record<string, PlayerInput>, dtMs: num
       p.reloadLeftMs = weapon.reloadMs;
     }
 
-    if (input.fire && p.cooldownMs === 0 && p.equipLeftMs === 0 && p.ammo > 0 && p.reloadLeftMs === 0) {
+    if (input.fire && world.phase === 'live' && p.cooldownMs === 0 && p.equipLeftMs === 0 && p.ammo > 0 && p.reloadLeftMs === 0) {
       fireShot(world, p, weapon);
       addRecoil(p, weapon);
       p.ammo -= 1;
