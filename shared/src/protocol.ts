@@ -168,7 +168,7 @@ export interface FriendInvite {
   fromId: string;
   fromName: string;
   code: string;
-  gameType: GameType;
+  gameType: GameType | 'cs';
 }
 
 /** Friend codes: unambiguous letters and digits (no 0/O, 1/I/L). */

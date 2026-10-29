@@ -120,6 +120,22 @@ describe('chosen teams', () => {
     expect(() => createMatch([on('h1', 'A'), on('h2', 'A'), on('h3', 'A'), on('h4', 'A')], 1)).toThrow('TEAM_FULL');
   });
 
+  it('gives humans the character they picked, and a different one when two pick the same', () => {
+    const match = createMatch(
+      [
+        { id: 'h1', name: 'h1', team: 'A', character: 'sarney' },
+        { id: 'h2', name: 'h2', team: 'B', character: 'sarney' },
+        { id: 'h3', name: 'h3', team: 'B', character: 'dezin' },
+      ],
+      9,
+    );
+    const characterOf = (id: string) => match.roster.find((r) => r.id === id)!.character;
+    expect(characterOf('h1')).toBe('sarney');
+    expect(characterOf('h3')).toBe('dezin');
+    expect(characterOf('h2')).not.toBe('sarney');
+    expect(new Set(match.roster.map((r) => r.character)).size).toBe(6);
+  });
+
   it('keeps each human a different character, bots included', () => {
     const match = createMatch([on('h1', 'A'), on('h2', 'B')], 4);
     expect(new Set(match.roster.map((r) => r.character)).size).toBe(6);

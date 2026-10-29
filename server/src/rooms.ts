@@ -7,6 +7,7 @@ import {
   type CharacterId,
   type ChatMessage,
   type ClientToServerEvents,
+  type FriendInvite,
   type CommonTalentId,
   type Entry,
   type ErrorCode,
@@ -252,7 +253,12 @@ export class RoomManager {
   inviteFriend(socket: GameSocket, otherId: unknown): Ack {
     const ctx = this.context(socket);
     if (!ctx) return fail('NOT_IN_ROOM');
-    const from = this.wallets.profileById(ctx.member.profileId);
+    return this.sendInvite(ctx.member.profileId, otherId, ctx.room.code, ctx.room.gameType);
+  }
+
+  /** Chama um amigo online para a sala `code` (de qualquer jogo, inclusive o CS). */
+  sendInvite(fromProfileId: string, otherId: unknown, code: string, gameType: FriendInvite['gameType']): Ack {
+    const from = this.wallets.profileById(fromProfileId);
     if (!from || typeof otherId !== 'string') return fail('INVALID_PAYLOAD');
     if (!this.social.areFriends(from.id, otherId)) return fail('NOT_FRIENDS');
     const targets = this.socketsOf(otherId);
@@ -261,7 +267,7 @@ export class RoomManager {
     const key = `${from.id}>${otherId}`;
     if (now - (this.lastInviteAt.get(key) ?? 0) < INVITE_COOLDOWN_MS) return fail('TOO_FAST');
     this.lastInviteAt.set(key, now);
-    const invite = { id: randomUUID().slice(0, 8), fromId: from.id, fromName: from.nickname, code: ctx.room.code, gameType: ctx.room.gameType };
+    const invite: FriendInvite = { id: randomUUID().slice(0, 8), fromId: from.id, fromName: from.nickname, code, gameType };
     for (const s of targets) s.emit('friend:invite', invite);
     return OK;
   }
@@ -272,8 +278,16 @@ export class RoomManager {
 
   private readonly presence: Presence = {
     online: (id) => this.socketsOf(id).length > 0,
-    inRoom: (id) => !!this.roomOfProfile(id),
+    inRoom: (id) => !!this.roomOfProfile(id) || this.externalInRoom(id),
   };
+
+  /** Salas de outros gerenciadores (CS): os códigos e a presença precisam valer para os dois lados. */
+  externalCodeTaken: (code: string) => boolean = () => false;
+  externalInRoom: (profileId: string) => boolean = () => false;
+
+  hasCode(code: string): boolean {
+    return this.rooms.has(code);
+  }
 
   private readonly lastInviteAt = new Map<string, number>();
 
@@ -288,7 +302,7 @@ export class RoomManager {
   }
 
   /** A profile came online, went offline, or sat down or got up: refresh it and the hubs that show it. */
-  private onPresenceChange(profileId: string): void {
+  onPresenceChange(profileId: string): void {
     this.pushSocial(profileId);
     for (const id of this.social.relatedIds(profileId)) this.pushSocial(id);
   }
@@ -330,7 +344,7 @@ export class RoomManager {
     const resolved = this.ensureProfile(socket, payload.name);
     if ('error' in resolved) return fail(resolved.error);
     const { profile } = resolved;
-    if (this.roomOfProfile(profile.id)) return fail('ALREADY_IN_ROOM');
+    if (this.roomOfProfile(profile.id) || this.externalInRoom(profile.id)) return fail('ALREADY_IN_ROOM');
 
     const settings = module.validateSettings(payload.settings ?? {});
     if (!settings) return fail('INVALID_SETTINGS');
@@ -378,7 +392,7 @@ export class RoomManager {
     const resolved = this.ensureProfile(socket, rawName);
     if ('error' in resolved) return fail(resolved.error);
     const { profile } = resolved;
-    if (this.roomOfProfile(profile.id)) return fail('ALREADY_IN_ROOM');
+    if (this.roomOfProfile(profile.id) || this.externalInRoom(profile.id)) return fail('ALREADY_IN_ROOM');
     if (room.members.some((m) => m.name.toLowerCase() === profile.nickname.toLowerCase())) return fail('NAME_TAKEN');
 
     // Money is only charged at the start (so a lobby with bots can still become "treino"),
@@ -1075,7 +1089,8 @@ export class RoomManager {
     return id ? (this.wallets.profileById(id) ?? null) : null;
   }
 
-  private ensureProfile(socket: GameSocket, rawName: unknown): { profile: ProfileRow } | { error: ErrorCode } {
+  /** Perfil do socket, criando um novo com `rawName` quando ainda não existe (usado também pelas salas do CS). */
+  ensureProfile(socket: GameSocket, rawName: unknown): { profile: ProfileRow } | { error: ErrorCode } {
     const existing = this.profileFor(socket);
     if (existing) return { profile: existing };
     const name = validName(rawName);
@@ -1086,7 +1101,7 @@ export class RoomManager {
     return { profile };
   }
 
-  private roomOfProfile(profileId: string): Room | undefined {
+  roomOfProfile(profileId: string): Room | undefined {
     for (const room of this.rooms.values()) {
       if (room.members.some((m) => !m.isBot && !m.left && m.profileId === profileId)) return room;
     }
@@ -1237,7 +1252,7 @@ export class RoomManager {
     for (;;) {
       let code = '';
       for (let i = 0; i < ROOM_CODE_LENGTH; i++) code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
-      if (!this.rooms.has(code)) return code;
+      if (!this.rooms.has(code) && !this.externalCodeTaken(code)) return code;
     }
   }
 }

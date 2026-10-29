@@ -55,6 +55,8 @@ interface HumanSeat {
   name: string;
   /** Time escolhido no lobby; sem ele o humano ocupa o A e depois o B. */
   team?: TeamId;
+  /** Personagem escolhido no lobby; se outro já pegou, sorteia um livre. */
+  character?: CharacterId;
 }
 
 const zeroStats = (): PlayerStats => ({ kills: 0, deaths: 0, headshots: 0 });
@@ -63,7 +65,23 @@ const zeroStats = (): PlayerStats => ({ kills: 0, deaths: 0, headshots: 0 });
 export function createMatch(humans: HumanSeat[], seed: number, difficulty: Difficulty = 'normal'): Match {
   const roster: RosterEntry[] = [];
   const memories: Record<string, BotMemory> = {};
-  const characters: CharacterId[] = shuffle(CHARACTER_IDS, seed).items;
+  const order: CharacterId[] = shuffle(CHARACTER_IDS, seed).items;
+  const taken = new Set<CharacterId>();
+  const characterOf = new Map<string, CharacterId>();
+  // Primeiro quem pediu leva o que pediu; só depois os que ficaram sem recebem um livre.
+  for (const h of humans) {
+    if (!h.character || taken.has(h.character)) continue;
+    taken.add(h.character);
+    characterOf.set(h.id, h.character);
+  }
+  for (const h of humans) {
+    if (characterOf.has(h.id)) continue;
+    const pick = order.find((c) => !taken.has(c))!;
+    taken.add(pick);
+    characterOf.set(h.id, pick);
+  }
+  const free = order.filter((c) => !taken.has(c));
+  let nextFree = 0;
   const seats: Record<TeamId, HumanSeat[]> = { A: [], B: [] };
   for (const h of humans) if (h.team) seats[h.team].push(h);
   if (seats.A.length > TEAM_SIZE || seats.B.length > TEAM_SIZE) throw new Error('TEAM_FULL');
@@ -81,7 +99,7 @@ export function createMatch(humans: HumanSeat[], seed: number, difficulty: Diffi
         name: h.name,
         team,
         bot: false,
-        character: characters[roster.length]!,
+        character: characterOf.get(h.id)!,
         money: START_MONEY,
         weapon: STARTER_WEAPON,
       });
@@ -93,7 +111,7 @@ export function createMatch(humans: HumanSeat[], seed: number, difficulty: Diffi
         name: `Bot ${team}${n}`,
         team,
         bot: true,
-        character: characters[roster.length]!,
+        character: free[nextFree++]!,
         money: START_MONEY,
         weapon: STARTER_WEAPON,
       });
