@@ -122,6 +122,9 @@ export function CsHud({
   hitMarker,
   damage,
   moneyGain,
+  notice,
+  spectating,
+  rematch,
 }: {
   match: Match;
   meId: string;
@@ -132,6 +135,12 @@ export function CsHud({
   hitMarker: HitMarker | null;
   damage: DamageFlash | null;
   moneyGain: MoneyGain | null;
+  /** Aviso fixo no topo (troca de lados). */
+  notice: string | null;
+  /** Nome do colega que a câmera acompanha enquanto você está morto. */
+  spectating: string | null;
+  /** Rede: no fim da partida o anfitrião pode voltar ao lobby. */
+  rematch?: { canRematch: boolean; onRematch: () => void };
 }) {
   const { world } = match;
   const me = world.players.find((p) => p.id === meId)!;
@@ -163,7 +172,10 @@ export function CsHud({
           <span className="font-bold">{match.score[theirs]}</span>
           <span className="text-stone-400"> Adversários</span>
         </p>
-        <p className={`mt-1 text-sm ${planted ? 'text-red-400' : 'text-stone-300'}`}>
+        <p className="mt-1 text-[11px] tracking-wide text-stone-400 uppercase">
+          Rodada {match.roundIndex + 1} · {me.side === 'attack' ? 'Atacando' : 'Defendendo'}
+        </p>
+        <p className={`text-sm ${planted ? 'text-red-400' : 'text-stone-300'}`}>
           {world.phase === 'buy'
             ? `Compra ${clock(world.phaseLeftMs)}`
             : world.phase === 'prep'
@@ -193,7 +205,7 @@ export function CsHud({
         ))}
       </ul>
 
-      {me.alive && <Crosshair element={crosshair} />}
+      {me.alive && !match.winner && <Crosshair element={crosshair} />}
       {hitMarker && <HitMarkerView marker={hitMarker} />}
 
       {hint && <p className="absolute bottom-28 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm">{hint}</p>}
@@ -204,7 +216,15 @@ export function CsHud({
       )}
       {!me.alive && world.phase === 'live' && !world.end && (
         <p className="absolute bottom-28 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm text-stone-400">
-          Você morreu. Aguarde o fim da rodada.
+          {spectating ? `Observando ${spectating} · clique para trocar` : 'Você morreu. Aguarde o fim da rodada.'}
+        </p>
+      )}
+      {notice && (
+        <p
+          role="status"
+          className="absolute top-28 left-1/2 w-[min(28rem,90vw)] -translate-x-1/2 rounded-lg border border-white/15 bg-black/75 px-5 py-3 text-center text-sm"
+        >
+          {notice}
         </p>
       )}
 
@@ -267,9 +287,15 @@ export function CsHud({
         <div className="pointer-events-auto absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/75">
           <p className="text-3xl font-bold">{match.winner === mine ? 'Vitória' : 'Derrota'}</p>
           <p className="text-sm text-stone-400">
-            {match.forfeitedBy ? (match.forfeitedBy === mine ? 'Você desistiu' : 'O adversário desistiu') : `${match.score[mine]} a ${match.score[theirs]}`}
+            {match.forfeitedBy ? (match.forfeitedBy === mine ? 'Seu time desistiu' : 'O time adversário desistiu') : `${match.score[mine]} a ${match.score[theirs]}`}
           </p>
-          <Button onClick={onExit}>Sair</Button>
+          <div className="flex items-center gap-3">
+            {rematch?.canRematch && <Button onClick={rematch.onRematch}>Jogar de novo</Button>}
+            <Button variant={rematch?.canRematch ? 'secondary' : 'primary'} onClick={onExit}>
+              Sair
+            </Button>
+          </div>
+          {rematch && !rematch.canRematch && <p className="text-xs text-stone-500">O anfitrião escolhe se vocês jogam de novo.</p>}
         </div>
       )}
     </div>

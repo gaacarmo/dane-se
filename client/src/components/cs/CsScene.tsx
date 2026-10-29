@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Suspense, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
+import { Suspense, useEffect, useMemo, useRef, type MutableRefObject, type RefObject } from 'react';
 import * as THREE from 'three';
 import { bodyHeight, type CharacterId, type Match, type MapDef, type TeamId, type WorldEvent } from '@dane-se/shared';
 import { CHARACTER_SPECS } from '../table3d/characterSpecs';
@@ -64,12 +64,15 @@ function CsFigure({
   id,
   character,
   hiddenInPrep,
+  spectateRef,
 }: {
   matchRef: MutableRefObject<Match>;
   id: string;
   character: CharacterId;
   /** Inimigo: some enquanto o portão de preparação está de pé, para não entregar a posição do time dele. */
   hiddenInPrep: boolean;
+  /** O colega que a câmera acompanha não se desenha: a câmera está dentro da cabeça dele. */
+  spectateRef: RefObject<string | null>;
 }) {
   const group = useRef<THREE.Group>(null);
   const spec = CHARACTER_SPECS[character];
@@ -81,7 +84,7 @@ function CsFigure({
     const p = matchRef.current.world.players.find((x) => x.id === id);
     const g = group.current;
     if (!p || !g) return;
-    g.visible = p.alive && !(hiddenInPrep && matchRef.current.world.phase === 'prep');
+    g.visible = p.alive && spectateRef.current !== id && !(hiddenInPrep && matchRef.current.world.phase === 'prep');
     g.position.set(p.body.pos.x, p.body.pos.y, p.body.pos.z);
     g.rotation.y = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z);
     g.scale.y = bodyHeight(p.body) / FIGURE_HEIGHT;
@@ -161,6 +164,7 @@ export function CsScene({
   roundKey,
   pings,
   fx,
+  spectateRef,
 }: {
   matchRef: MutableRefObject<Match>;
   meId: string;
@@ -170,6 +174,8 @@ export function CsScene({
   pings: Ping[];
   /** Fila de eventos do motor que o cenário consome para desenhar tiros e impactos. */
   fx: MutableRefObject<WorldEvent[]>;
+  /** Colega vivo que a câmera acompanha enquanto você está morto. */
+  spectateRef: RefObject<string | null>;
 }) {
   const match = matchRef.current;
   const muzzle = useRef(new THREE.Vector3());
@@ -185,12 +191,19 @@ export function CsScene({
       {match.roster
         .filter((r) => r.id !== meId)
         .map((r) => (
-          <CsFigure key={`${roundKey}-${r.id}`} matchRef={matchRef} id={r.id} character={r.character} hiddenInPrep={r.team !== myTeam} />
+          <CsFigure
+            key={`${roundKey}-${r.id}`}
+            matchRef={matchRef}
+            id={r.id}
+            character={r.character}
+            hiddenInPrep={r.team !== myTeam}
+            spectateRef={spectateRef}
+          />
         ))}
       <Bomb matchRef={matchRef} />
       <PingMarkers pings={pings} />
       <CsEffects key={`fx-${roundKey}`} fx={fx} meId={meId} muzzle={muzzle} />
-      <FirstPersonRig matchRef={matchRef} meId={meId} input={input} muzzle={muzzle} />
+      <FirstPersonRig matchRef={matchRef} meId={meId} input={input} muzzle={muzzle} spectateRef={spectateRef} />
     </Canvas>
   );
 }

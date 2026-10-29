@@ -11,6 +11,7 @@ import { csAudio } from '../../lib/csAudio';
 const STEP_SPEED = 3.2;
 const STRIDE = 2.2;
 const EMPTY_CLICK_GAP_MS = 250;
+const HEARD_GAP_MS = 380;
 
 /** Traduz o estado e os eventos do motor em sons: tiros, passos, recarga, bomba e fim de rodada. */
 export class AudioDirector {
@@ -22,6 +23,7 @@ export class AudioDirector {
   private lastPhase = '';
   private lastEnd = false;
   private lastEmptyAt = 0;
+  private lastHeardAt = 0;
 
   onEvents(match: Match, events: WorldEvent[], meId: string): void {
     for (const e of events) {
@@ -46,6 +48,13 @@ export class AudioDirector {
           break;
       }
     }
+  }
+
+  /** Passos de inimigos fora de vista (rede). Chegam a cada snapshot; o som sai no máximo a cada HEARD_GAP_MS. */
+  heard(positions: Vec3[], now: number): void {
+    if (now - this.lastHeardAt < HEARD_GAP_MS) return;
+    this.lastHeardAt = now;
+    for (const at of positions) csAudio.step(at, false);
   }
 
   /** Clique de pente vazio quando o jogador aperta o gatilho sem munição. */

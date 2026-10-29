@@ -1,5 +1,5 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { useRef, useState, type MutableRefObject } from 'react';
+import { useRef, useState, type MutableRefObject, type RefObject } from 'react';
 import * as THREE from 'three';
 import { WEAPONS, eyePos, type Match, type WeaponCategory } from '@dane-se/shared';
 import { CHARACTER_SPECS } from '../table3d/characterSpecs';
@@ -58,12 +58,15 @@ export function FirstPersonRig({
   meId,
   input,
   muzzle,
+  spectateRef,
 }: {
   matchRef: MutableRefObject<Match>;
   meId: string;
   input: CsInput;
   /** Posição do cano no mundo, atualizada por quadro; os traçantes dos seus tiros partem dela. */
   muzzle: MutableRefObject<THREE.Vector3>;
+  /** Colega vivo que a câmera acompanha enquanto você está morto. */
+  spectateRef: RefObject<string | null>;
 }) {
   const { camera } = useThree();
   const root = useRef<THREE.Group>(null);
@@ -112,7 +115,9 @@ export function FirstPersonRig({
       s.category = weapon.category;
       setCategory(weapon.category);
     }
-    const look = me.alive ? input.look() : { yaw: me.yaw, pitch: me.pitch };
+    const watched = me.alive ? undefined : match.world.players.find((p) => p.id === spectateRef.current && p.alive);
+    const subject = watched ?? me;
+    const look = me.alive ? input.look() : { yaw: subject.yaw, pitch: subject.pitch };
     const bomb = match.world.bomb;
 
     if (s.init) {
@@ -142,8 +147,8 @@ export function FirstPersonRig({
     s.onGround = me.body.onGround;
     s.vy = me.body.vel.y;
 
-    const eye = eyePos(me.body);
-    s.eyeY = !s.init || !me.body.onGround || Math.abs(s.eyeY - eye.y) > 0.8 ? eye.y : damp(s.eyeY, eye.y, 18, dt);
+    const eye = eyePos(subject.body);
+    s.eyeY = watched || !s.init || !me.body.onGround || Math.abs(s.eyeY - eye.y) > 0.8 ? eye.y : damp(s.eyeY, eye.y, 18, dt);
     s.init = true;
 
     const speed = Math.hypot(me.body.vel.x, me.body.vel.z);
