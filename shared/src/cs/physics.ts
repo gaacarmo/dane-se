@@ -125,6 +125,8 @@ export interface RayHit {
   dist: number;
   /** Normal da face atingida, apontando para o lado de onde o raio veio. */
   normal: Vec3;
+  /** Superfície invisível: o teto ou o limite do mapa, onde não há parede desenhada. */
+  bounds?: boolean;
 }
 
 function unit(dir: Vec3): Vec3 | null {
@@ -155,15 +157,15 @@ export function worldRay(map: MapDef, origin: Vec3, dir: Vec3, maxDist: number):
   if (!d) return null;
   let best = raycastHit(map, origin, d, maxDist);
   const { min, max } = map.bounds;
-  const consider = (t: number, normal: Vec3) => {
-    if (t >= 0 && t <= maxDist && (!best || t < best.dist)) best = { dist: t, normal };
+  const consider = (t: number, normal: Vec3, invisible: boolean) => {
+    if (t >= 0 && t <= maxDist && (!best || t < best.dist)) best = invisible ? { dist: t, normal, bounds: true } : { dist: t, normal };
   };
-  if (d.y < -1e-9) consider((min.y - origin.y) / d.y, { x: 0, y: 1, z: 0 });
-  if (d.y > 1e-9) consider((max.y - origin.y) / d.y, { x: 0, y: -1, z: 0 });
-  if (d.x > 1e-9) consider((max.x - origin.x) / d.x, { x: -1, y: 0, z: 0 });
-  if (d.x < -1e-9) consider((min.x - origin.x) / d.x, { x: 1, y: 0, z: 0 });
-  if (d.z > 1e-9) consider((max.z - origin.z) / d.z, { x: 0, y: 0, z: -1 });
-  if (d.z < -1e-9) consider((min.z - origin.z) / d.z, { x: 0, y: 0, z: 1 });
+  if (d.y < -1e-9) consider((min.y - origin.y) / d.y, { x: 0, y: 1, z: 0 }, false);
+  if (d.y > 1e-9) consider((max.y - origin.y) / d.y, { x: 0, y: -1, z: 0 }, true);
+  if (d.x > 1e-9) consider((max.x - origin.x) / d.x, { x: -1, y: 0, z: 0 }, true);
+  if (d.x < -1e-9) consider((min.x - origin.x) / d.x, { x: 1, y: 0, z: 0 }, true);
+  if (d.z > 1e-9) consider((max.z - origin.z) / d.z, { x: 0, y: 0, z: -1 }, true);
+  if (d.z < -1e-9) consider((min.z - origin.z) / d.z, { x: 0, y: 0, z: 1 }, true);
   return best;
 }
 

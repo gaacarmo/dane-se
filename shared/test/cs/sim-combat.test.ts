@@ -258,13 +258,23 @@ describe('shot and hit events', () => {
     expect(shot.to.y).toBeCloseTo(0, 1);
   });
 
-  it('ends a shot into the open sky at the ceiling of the map', () => {
+  it('ends a shot into the open sky at the ceiling with a tracer end point but no impact', () => {
     const world = duel();
     const events = fireOnce(world, input({ pitch: 1.2 }));
     const shot = events.find((e) => e.type === 'shot')!;
-    expect(shot).toMatchObject({ hit: 'wall', normal: { x: 0, y: -1, z: 0 } });
+    expect(shot).toMatchObject({ hit: 'none' });
     if (shot.type !== 'shot') throw new Error('unreachable');
+    expect(shot.normal).toBeUndefined();
     expect(shot.to.y).toBeCloseTo(6, 1);
+  });
+
+  it('leaves no impact where the map has only an invisible edge', () => {
+    const world = duel();
+    const events = fireOnce(world, aimPoint(world, 'a1', { x: 40, y: 1.5, z: 10 }));
+    const shot = events.find((e) => e.type === 'shot')!;
+    expect(shot).toMatchObject({ hit: 'none' });
+    if (shot.type !== 'shot') throw new Error('unreachable');
+    expect(shot.to.x).toBeCloseTo(40, 1);
   });
 });
 

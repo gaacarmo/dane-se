@@ -536,8 +536,8 @@ function fireShot(world: World, shooter: SimPlayer, weapon: WeaponDef): void {
       weapon: weapon.id,
       from: origin,
       to: at(wallHit?.dist ?? SHOT_RANGE),
-      hit: wallHit ? 'wall' : 'none',
-      ...(wallHit ? { normal: wallHit.normal } : {}),
+      hit: wallHit && !wallHit.bounds ? 'wall' : 'none',
+      ...(wallHit && !wallHit.bounds ? { normal: wallHit.normal } : {}),
     });
     return;
   }

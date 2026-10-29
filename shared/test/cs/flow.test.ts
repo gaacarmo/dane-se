@@ -102,10 +102,18 @@ describe('pause menu', () => {
     expect(r.effects).toEqual(['requestLock']);
   });
 
-  it('resumes with Esc as well', () => {
+  it('resumes with Esc as well, without asking for the lock (Esc is not a user activation)', () => {
     const r = send(paused, { type: 'key', key: 'escape' });
     expect(r.state.overlay).toBe('none');
-    expect(r.effects).toEqual(['requestLock']);
+    expect(r.effects).toEqual([]);
+    expect(needsLockClick(r.state)).toBe(true);
+  });
+
+  it('keeps the pause menu closed after Esc even when the lock loss arrives first', () => {
+    const lostFirst = send(playing, { type: 'lock', locked: false }).state;
+    const r = send(lostFirst, { type: 'key', key: 'escape' });
+    expect(r.state.overlay).toBe('none');
+    expect(r.effects).toEqual([]);
   });
 
   it('opens when Esc is pressed with nothing open and the mouse free', () => {
@@ -132,10 +140,12 @@ describe('market key', () => {
     expect(closed.effects).toEqual(['requestLock']);
   });
 
-  it('closes with the Pronto button and with Esc', () => {
+  it('closes with the Pronto button asking for the lock, and with Esc without asking', () => {
     const open = send(buyPhase, { type: 'key', key: 'buy' }).state;
     expect(send(open, { type: 'click', target: 'close-buy' }).effects).toEqual(['requestLock']);
-    expect(send(open, { type: 'key', key: 'escape' }).effects).toEqual(['requestLock']);
+    const esc = send(open, { type: 'key', key: 'escape' });
+    expect(esc.state.overlay).toBe('none');
+    expect(esc.effects).toEqual([]);
   });
 });
 
@@ -150,21 +160,19 @@ describe('map key', () => {
     expect(closed.effects).toEqual(['requestLock']);
   });
 
-  it('does not ask for the lock when closing the map with the market still open', () => {
-    const state: FlowState = { ...initialFlow(), map: true };
-    const closed = send(state, { type: 'key', key: 'map' });
-    expect(closed.state.overlay).toBe('buy');
-    expect(closed.effects).toEqual([]);
+  it('opening the map closes the market, and opening the market closes the map', () => {
+    const withMap = send(initialFlow(), { type: 'key', key: 'map' }).state;
+    expect(withMap.map).toBe(true);
+    expect(withMap.overlay).toBe('none');
+    const back = send(withMap, { type: 'key', key: 'buy' }).state;
+    expect(back.map).toBe(false);
+    expect(back.overlay).toBe('buy');
   });
 
-  it('Esc closes the map first, then the market', () => {
-    const state: FlowState = { ...initialFlow(), map: true };
-    const first = send(state, { type: 'key', key: 'escape' });
-    expect(first.state.map).toBe(false);
-    expect(first.state.overlay).toBe('buy');
-    const second = send(first.state, { type: 'key', key: 'escape' });
-    expect(second.state.overlay).toBe('none');
-    expect(second.effects).toEqual(['requestLock']);
+  it('closing the map from the buy phase asks for the lock only through a gesture', () => {
+    const withMap = send(initialFlow(), { type: 'key', key: 'map' }).state;
+    expect(send(withMap, { type: 'key', key: 'map' }).effects).toEqual(['requestLock']);
+    expect(send(withMap, { type: 'key', key: 'escape' }).effects).toEqual([]);
   });
 
   it('does not open over the pause menu', () => {

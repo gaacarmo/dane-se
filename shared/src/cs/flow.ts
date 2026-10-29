@@ -100,14 +100,15 @@ function onKey(state: FlowState, key: 'buy' | 'map' | 'escape'): FlowResult {
     case 'buy':
       if (state.phase !== 'buy' || state.overlay === 'pause') return done(state);
       if (state.overlay === 'buy') return afterClose({ ...state, overlay: 'none' });
-      return done({ ...state, overlay: 'buy' }, releaseIfLocked(state));
+      return done({ ...state, overlay: 'buy', map: false }, releaseIfLocked(state));
     case 'map':
       if (state.overlay === 'pause') return done(state);
       if (state.map) return afterClose({ ...state, map: false });
-      return done({ ...state, map: true }, releaseIfLocked(state));
+      return done({ ...state, map: true, overlay: 'none' }, releaseIfLocked(state));
     case 'escape':
-      if (state.map) return afterClose({ ...state, map: false });
-      if (state.overlay !== 'none') return afterClose({ ...state, overlay: 'none' });
+      // Esc não conta como gesto do usuário: fecha sem pedir o lock e deixa o clique para voltar ao jogo.
+      if (state.map) return done({ ...state, map: false });
+      if (state.overlay !== 'none') return done({ ...state, overlay: 'none' });
       return done({ ...state, overlay: 'pause' }, releaseIfLocked(state));
   }
 }

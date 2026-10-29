@@ -140,16 +140,23 @@ describe('worldRay', () => {
     expect(hit.normal).toEqual({ x: 0, y: 1, z: 0 });
   });
 
-  it('hits the ceiling of the bounds', () => {
+  it('hits the ceiling of the bounds, marked as an invisible surface', () => {
     const hit = worldRay(arena, origin, { x: 0, y: 1, z: 0 }, 50)!;
     expect(hit.dist).toBeCloseTo(4.5, 3);
     expect(hit.normal).toEqual({ x: 0, y: -1, z: 0 });
+    expect(hit.bounds).toBe(true);
+  });
+
+  it('marks the floor and solids as visible surfaces', () => {
+    expect(worldRay(arena, origin, { x: 0, y: -1, z: 0 }, 50)!.bounds).toBeFalsy();
+    expect(worldRay(arena, origin, { x: 1, y: 0, z: 0 }, 50)!.bounds).toBeFalsy();
   });
 
   it('hits the side of the bounds in open space', () => {
     const hit = worldRay(arena, origin, { x: -1, y: 0, z: 0 }, 50)!;
     expect(hit.dist).toBeCloseTo(5, 3);
     expect(hit.normal).toEqual({ x: 1, y: 0, z: 0 });
+    expect(hit.bounds).toBe(true);
   });
 
   it('prefers a solid that is closer than the bounds', () => {
