@@ -1,27 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  PING_TTL_MS,
+  addPing,
   buyForPlayer,
   createMatch,
   eyePos,
   forfeit,
+  initialFlow,
   lookDirection,
+  needsLockClick,
   raycast,
+  reduceFlow,
+  simPaused,
   stepMatch,
+  type FlowEvent,
+  type FlowState,
   type Match,
+  type Ping,
+  type PingKind,
   type WeaponId,
   type WorldEvent,
 } from '@dane-se/shared';
 import { CHARACTER_NAMES } from '../../lib/characters';
+import { setPref, usePrefs } from '../../lib/prefs';
 import { useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
 import { Button } from '../ui/Button';
-import { CsBuyMenu } from './CsBuyMenu';
+import { BUY_LIST, CsBuyMenu } from './CsBuyMenu';
 import { CsHud, type FeedItem } from './CsHud';
 import { CsMap } from './CsMap';
 import { CsMapDraw } from './CsMapDraw';
 import { CsScene } from './CsScene';
-import { PING_TTL_MS, addPing, type Ping, type PingKind } from '@dane-se/shared';
-import { useCsInput } from './useCsInput';
+import { useCsInput, type CsInputHandlers } from './useCsInput';
 
 const STEP_MS = 1000 / 60;
 const MAX_STEPS_PER_FRAME = 5;
@@ -29,6 +39,7 @@ const HUD_REFRESH_MS = 100;
 const FEED_SIZE = 5;
 const FEED_TTL_MS = 6000;
 const INTERACT_REACH = 1.5;
+const PING_RANGE = 60;
 
 function unsupportedReason(): string | null {
   if (!webglSupported) return 'Este navegador não tem WebGL, necessário para o modo CS.';
@@ -86,28 +97,69 @@ function CsGame({ onExit }: { onExit: () => void }) {
   const [hud, setHud] = useState<Match>(matchRef.current);
   const [stage, setStage] = useState<'draw' | 'play'>('draw');
   const [roundKey, setRoundKey] = useState(0);
-  const [buyOpen, setBuyOpen] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [feed, setFeed] = useState<FeedItem[]>([]);
-  const [mapOpen, setMapOpen] = useState(false);
   const [pings, setPings] = useState<Ping[]>([]);
   const [pingKind, setPingKind] = useState<PingKind>('attention');
+  const pingKindRef = useRef<PingKind>('attention');
+  pingKindRef.current = pingKind;
   const pingId = useRef(0);
-  const mapOpenRef = useRef(false);
-  mapOpenRef.current = mapOpen;
 
+  const flowRef = useRef<FlowState>(initialFlow());
+  const [flow, setFlow] = useState<FlowState>(flowRef.current);
   const stage3d = useRef<HTMLDivElement>(null);
-  const input = useCsInput(stage3d);
-  const pausedRef = useRef(false);
-  pausedRef.current = menuOpen;
-  const lockedRef = useRef(false);
-  lockedRef.current = input.locked;
+  const handlers = useRef<CsInputHandlers>({ onLock: () => {}, onLockError: () => {} });
+  const input = useCsInput(stage3d, handlers);
+
+  /** Aplica o evento na máquina de estados e executa os efeitos dentro do mesmo gesto do usuário. */
+  const send = useCallback(
+    (event: FlowEvent) => {
+      const result = reduceFlow(flowRef.current, event);
+      flowRef.current = result.state;
+      setFlow(result.state);
+      for (const effect of result.effects) {
+        if (effect === 'requestLock') input.requestLock();
+        else input.releaseLock();
+      }
+    },
+    [input],
+  );
+  handlers.current = {
+    onLock: (locked) => send({ type: 'lock', locked }),
+    onLockError: () => send({ type: 'lockError' }),
+  };
 
   const me = hud.world.players.find((p) => p.id === meId)!;
-  const phase = hud.world.phase;
-
-  const refresh = useCallback(() => setHud(matchRef.current), []);
   const onDrawDone = useCallback(() => setStage('play'), []);
+
+  const placePing = useCallback(
+    (x: number, z: number) => {
+      const at = performance.now();
+      setPings((list) => addPing(list, { id: pingId.current++, kind: pingKindRef.current, x, z, by: meId, at }));
+    },
+    [meId],
+  );
+
+  /** Ping no ponto para onde o jogador olha: o primeiro sólido ou o chão, até PING_RANGE metros. */
+  const pingAhead = useCallback(() => {
+    const m = matchRef.current;
+    const mine = m.world.players.find((p) => p.id === meId);
+    if (!mine?.alive) return;
+    const look = input.look();
+    const origin = eyePos(mine.body);
+    const dir = lookDirection(look.yaw, look.pitch);
+    const solid = raycast(m.world.map, origin, dir, PING_RANGE);
+    const floor = dir.y < -0.01 ? Math.min(PING_RANGE, -origin.y / dir.y) : Infinity;
+    const t = Math.min(solid ?? Infinity, floor);
+    if (Number.isFinite(t)) placePing(origin.x + dir.x * t, origin.z + dir.z * t);
+  }, [input, meId, placePing]);
+
+  const buy = useCallback(
+    (weapon: WeaponId) => {
+      matchRef.current = buyForPlayer(matchRef.current, meId, weapon);
+      setHud(matchRef.current);
+    },
+    [meId],
+  );
 
   useEffect(() => {
     if (stage !== 'play') return;
@@ -120,15 +172,15 @@ function CsGame({ onExit }: { onExit: () => void }) {
     let sinceHud = 0;
     let feedId = 0;
     let round = matchRef.current.roundIndex;
+    let phase = matchRef.current.world.phase;
+    let ended = !!matchRef.current.winner;
     const items: (FeedItem & { at: number })[] = [];
 
     const tick = (now: number) => {
       const dt = Math.min(100, now - last);
       last = now;
-      const current = matchRef.current;
-      const waitingForLock =
-        current.world.phase === 'live' && !lockedRef.current && !mapOpenRef.current && !current.winner;
-      if (!pausedRef.current && !waitingForLock) {
+
+      if (!simPaused(flowRef.current)) {
         acc += dt;
         let steps = 0;
         while (acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
@@ -143,17 +195,22 @@ function CsGame({ onExit }: { onExit: () => void }) {
           }
           if (after.roundIndex !== round) {
             round = after.roundIndex;
-            const mine = after.world.players.find((p) => p.id === meId)!;
-            input.setLook(mine.yaw, 0);
+            input.setLook(after.world.players.find((p) => p.id === meId)!.yaw, 0);
             setRoundKey(round);
-            setBuyOpen(true);
-            input.releaseLock();
           }
           acc -= STEP_MS;
           steps++;
         }
         if (steps === MAX_STEPS_PER_FRAME) acc = 0;
       }
+
+      const current = matchRef.current;
+      if (current.world.phase !== phase || !!current.winner !== ended) {
+        phase = current.world.phase;
+        ended = !!current.winner;
+        send({ type: 'phase', phase, ended });
+      }
+
       sinceHud += dt;
       if (sinceHud >= HUD_REFRESH_MS) {
         sinceHud = 0;
@@ -166,89 +223,38 @@ function CsGame({ onExit }: { onExit: () => void }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [stage, meId, input]);
-
-  useEffect(() => {
-    if (phase !== 'buy') setBuyOpen(false);
-  }, [phase]);
-
-  const wasLocked = useRef(false);
-  useEffect(() => {
-    if (wasLocked.current && !input.locked && phase !== 'buy' && !hud.winner && !mapOpenRef.current) setMenuOpen(true);
-    wasLocked.current = input.locked;
-  }, [input.locked, phase, hud.winner]);
-
-  useEffect(() => {
-    if (hud.winner) input.releaseLock();
-  }, [hud.winner, input]);
+  }, [stage, meId, input, send]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
       if (e.code === 'Tab') {
         e.preventDefault();
-        if (!e.repeat && !matchRef.current.winner) toggleMap();
+        if (!e.repeat) send({ type: 'key', key: 'map' });
         return;
       }
-      if (e.code === 'Escape' && mapOpenRef.current) {
-        toggleMap();
-        return;
-      }
-      if (e.code === 'KeyQ' && !e.repeat) pingAhead();
-      if (e.code !== 'KeyB' || matchRef.current.world.phase !== 'buy') return;
-      setBuyOpen((open) => {
-        if (!open) input.releaseLock();
-        return !open;
-      });
+      if (e.repeat) return;
+      if (e.code === 'Escape') send({ type: 'key', key: 'escape' });
+      else if (e.code === 'KeyB') send({ type: 'key', key: 'buy' });
+      else if (e.code === 'KeyQ' && input.isLocked()) pingAhead();
+      else if (flowRef.current.overlay === 'buy' && /^Digit[1-6]$/.test(e.code)) buy(BUY_LIST[Number(e.code.slice(5)) - 1]!);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [input, pingKind]);
+  }, [input, send, pingAhead, buy]);
 
-  function placePing(x: number, z: number) {
-    const at = performance.now();
-    setPings((list) => addPing(list, { id: pingId.current++, kind: pingKind, x, z, by: meId, at }));
-  }
-
-  function toggleMap() {
-    if (mapOpenRef.current) {
-      setMapOpen(false);
-      input.requestLock();
-    } else {
-      setMapOpen(true);
-      input.releaseLock();
-    }
-  }
-
-  /** Ping no ponto para onde o jogador olha: o primeiro sólido ou o chão, até 60 m. */
-  function pingAhead() {
-    const m = matchRef.current;
-    const mine = m.world.players.find((p) => p.id === meId);
-    if (!mine?.alive) return;
-    const look = input.look();
-    const origin = eyePos(mine.body);
-    const dir = lookDirection(look.yaw, look.pitch);
-    const solid = raycast(m.world.map, origin, dir, 60);
-    const floor = dir.y < -0.01 ? Math.min(60, -origin.y / dir.y) : Infinity;
-    const t = Math.min(solid ?? Infinity, floor);
-    if (!Number.isFinite(t)) return;
-    placePing(origin.x + dir.x * t, origin.z + dir.z * t);
-  }
-
-  function buy(weapon: WeaponId) {
-    matchRef.current = buyForPlayer(matchRef.current, meId, weapon);
-    refresh();
-  }
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const w = window as unknown as { __csDebug?: unknown };
+    w.__csDebug = { flow: () => flowRef.current, send, input, match: () => matchRef.current };
+    return () => {
+      delete w.__csDebug;
+    };
+  }, [send, input]);
 
   function giveUp() {
     matchRef.current = forfeit(matchRef.current, me.team);
-    setMenuOpen(false);
-    input.releaseLock();
-    refresh();
-  }
-
-  function resume() {
-    setMenuOpen(false);
-    input.requestLock();
+    setHud(matchRef.current);
   }
 
   if (stage === 'draw') return <CsMapDraw mapId={hud.mapId} onDone={onDrawDone} />;
@@ -256,14 +262,11 @@ function CsGame({ onExit }: { onExit: () => void }) {
   const world = hud.world;
   const bombPos = world.bomb.pos;
   let hint: string | null = null;
-  if (me.alive && phase === 'live') {
+  if (me.alive && world.phase === 'live') {
     const nearBomb = bombPos && Math.hypot(me.body.pos.x - bombPos.x, me.body.pos.z - bombPos.z) <= INTERACT_REACH;
     if (me.hasBomb && world.bomb.status === 'carried') hint = 'Segure E dentro do ponto A ou B para plantar';
     else if (me.side === 'defense' && world.bomb.status === 'planted' && nearBomb) hint = 'Segure E para desarmar';
   }
-
-  const showBuy = phase === 'buy' && buyOpen && !hud.winner;
-  const needsClick = !input.locked && !menuOpen && !mapOpen && !hud.winner && !showBuy;
 
   return (
     <main className="fixed inset-0 z-50 overflow-hidden bg-black">
@@ -272,9 +275,11 @@ function CsGame({ onExit }: { onExit: () => void }) {
       </div>
       <CsHud match={hud} meId={meId} feed={feed} hint={hint} onExit={onExit} />
 
-      {showBuy && <CsBuyMenu match={hud} meId={meId} onBuy={buy} onClose={() => setBuyOpen(false)} />}
+      {flow.overlay === 'buy' && (
+        <CsBuyMenu match={hud} meId={meId} onBuy={buy} onClose={() => send({ type: 'click', target: 'close-buy' })} />
+      )}
 
-      {mapOpen && (
+      {flow.map && (
         <CsMap
           match={hud}
           meId={meId}
@@ -282,32 +287,61 @@ function CsGame({ onExit }: { onExit: () => void }) {
           kind={pingKind}
           onKind={setPingKind}
           onPing={placePing}
-          onClose={toggleMap}
+          onClose={() => send({ type: 'click', target: 'close-map' })}
         />
       )}
 
-      {needsClick && (
+      {needsLockClick(flow) && (
         <button
           type="button"
-          onClick={() => input.requestLock()}
-          className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 font-mono text-sm text-stone-200"
+          onClick={() => send({ type: 'click', target: 'play' })}
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/45 font-mono text-sm text-stone-200"
         >
-          Clique para jogar · WASD move · Espaço pula · C agacha · R recarrega · E interage · Tab mapa · Q ping · B mercado · Esc menu
+          <span>{flow.lockFailed ? 'Clique para voltar ao jogo' : 'Clique para jogar'}</span>
+          <span className="text-xs text-stone-400">
+            WASD move · Shift anda devagar · Espaço pula · C agacha · R recarrega · 1/2 troca de arma · E interage · Tab mapa · Q ping · B mercado · Esc pausa
+          </span>
         </button>
       )}
 
-      {menuOpen && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/75 font-mono text-stone-200">
-          <p className="mb-2 text-sm tracking-[0.2em] uppercase">Pausa</p>
-          <Button onClick={resume}>Continuar</Button>
-          <Button variant="danger" onClick={giveUp}>
-            Desistir
-          </Button>
-          <Button variant="ghost" onClick={onExit}>
-            Sair
-          </Button>
-        </div>
+      {flow.overlay === 'pause' && (
+        <PauseMenu
+          onResume={() => send({ type: 'click', target: 'resume' })}
+          onGiveUp={() => {
+            giveUp();
+            send({ type: 'phase', phase: matchRef.current.world.phase, ended: true });
+          }}
+          onExit={onExit}
+        />
       )}
     </main>
+  );
+}
+
+function PauseMenu({ onResume, onGiveUp, onExit }: { onResume: () => void; onGiveUp: () => void; onExit: () => void }) {
+  const { csSensitivity } = usePrefs();
+  return (
+    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/75 font-mono text-stone-200">
+      <p className="mb-2 text-sm tracking-[0.2em] uppercase">Pausa</p>
+      <label className="mb-2 flex w-64 flex-col gap-1 text-xs text-stone-400">
+        Sensibilidade do mouse
+        <input
+          type="range"
+          min={0.0006}
+          max={0.004}
+          step={0.0001}
+          value={csSensitivity}
+          onChange={(e) => setPref('csSensitivity', Number(e.target.value))}
+        />
+        <span className="text-stone-500">{(csSensitivity * 1000).toFixed(1)}</span>
+      </label>
+      <Button onClick={onResume}>Continuar</Button>
+      <Button variant="danger" onClick={onGiveUp}>
+        Desistir
+      </Button>
+      <Button variant="ghost" onClick={onExit}>
+        Sair
+      </Button>
+    </div>
   );
 }

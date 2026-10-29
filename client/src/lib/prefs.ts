@@ -12,6 +12,8 @@ export interface Prefs {
   view3d: boolean;
   /** Don't auto-open the arcade "your kit" onboarding at the start of a match. */
   arcadeIntroHidden: boolean;
+  /** Sensibilidade do mouse no modo CS, em radianos por pixel. */
+  csSensitivity: number;
 }
 
 const KEY = 'dane-se:prefs';
@@ -26,7 +28,7 @@ export function recommendedView3d(): boolean {
   }
 }
 
-const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: recommendedView3d(), arcadeIntroHidden: false };
+const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: recommendedView3d(), arcadeIntroHidden: false, csSensitivity: 0.0016 };
 
 function load(): Prefs {
   try {
