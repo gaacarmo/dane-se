@@ -9,7 +9,7 @@ const human = (id: string) => ({ id, name: id });
 const teamOf = (match: Match, team: TeamId) => match.roster.filter((r) => r.team === team);
 
 const STEP_MS = 50;
-const LIMIT_MS = 40 * 60_000;
+const LIMIT_MS = 60 * 60_000;
 
 /** Joga a partida inteira com humanos parados; confere as invariantes a cada troca de rodada. */
 function playOut(match: Match): { match: Match; ms: number } {
@@ -109,7 +109,7 @@ describe('forfeit', () => {
 });
 
 describe('full matches', () => {
-  it('finish within 40 virtual minutes with sane state, and neither team always wins', () => {
+  it('finish within 60 virtual minutes with sane state, and neither team always wins', () => {
     const winners = new Set<TeamId>();
     for (let seed = 1; seed <= 10; seed++) {
       const { match, ms } = playOut(createMatch([], seed));

@@ -36,7 +36,7 @@ describe('validateMap', () => {
 
   it('reports a disconnected waypoint graph', () => {
     const map = clone();
-    map.links = map.links.filter(([a, b]) => !(a === 2 && b === 3));
+    map.links = map.links.filter(([a, b]) => a !== 0 && b !== 0);
     expect(validateMap(map).join('|')).toMatch(/connected|disconnected|desconexo/);
   });
 
@@ -51,6 +51,14 @@ describe('validateMap', () => {
     const map = clone();
     map.stage = { x: 39, y: 0, z: 1 };
     expect(validateMap(map).join('|')).toMatch(/stage|espera/);
+  });
+
+  it('reports a link that crosses a wall', () => {
+    const map = clone();
+    const near = (x: number, z: number) =>
+      map.waypoints.reduce((best, w, i) => (Math.hypot(w.x - x, w.z - z) < Math.hypot(map.waypoints[best]!.x - x, map.waypoints[best]!.z - z) ? i : best), 0);
+    map.links.push([near(20, 25), near(40, 25)]);
+    expect(validateMap(map).join('|')).toMatch(/atravessa/);
   });
 
   it('reports fewer than 3 spawns on a side', () => {

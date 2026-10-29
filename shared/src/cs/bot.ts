@@ -236,8 +236,9 @@ function siteCenter(map: MapDef, key: 'A' | 'B'): Vec3 {
   return { x: (s.min.x + s.max.x) / 2, y: 0, z: (s.min.z + s.max.z) / 2 };
 }
 
-function nearestSite(map: MapDef, p: Vec3): 'A' | 'B' {
-  return distanceXZ(p, siteCenter(map, 'A')) <= distanceXZ(p, siteCenter(map, 'B')) ? 'A' : 'B';
+/** O time atacante escolhe um ponto por rodada, de forma semeada, em vez de sempre o mais perto. */
+function attackSite(world: World): 'A' | 'B' {
+  return nextRandom(world.roundIndex * 977 + 13).value < 0.5 ? 'A' : 'B';
 }
 
 /** Onde este bot quer estar: plantar, escoltar, guardar ou desarmar. */
@@ -247,10 +248,9 @@ function baseGoal(world: World, me: SimPlayer): Vec3 {
   if (me.side === 'attack') {
     const waiting = world.phase === 'prep' || LIVE_MS - world.phaseLeftMs < ATTACK_EXECUTE_MS;
     if (waiting && map.stage) return map.stage;
-    if (me.hasBomb) return siteCenter(map, nearestSite(map, me.body.pos));
     const carrier = world.players.find((p) => p.hasBomb);
-    if (!carrier && bomb.pos) return bomb.pos;
-    return siteCenter(map, nearestSite(map, (carrier ?? me).body.pos));
+    if (!me.hasBomb && !carrier && bomb.pos) return bomb.pos;
+    return siteCenter(map, attackSite(world));
   }
   const defenders = world.players.filter((p) => p.side === 'defense').map((p) => p.id).sort();
   return siteCenter(map, defenders.indexOf(me.id) % 2 === 0 ? 'A' : 'B');

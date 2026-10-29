@@ -1,4 +1,5 @@
 import { randomInt } from '../rng.js';
+import { raycast } from './physics.js';
 import { CANTINA } from './maps/cantina.js';
 import type { Side, Vec3 } from './types.js';
 
@@ -39,6 +40,8 @@ export function withBarrier(map: MapDef): MapDef {
 
 const MIN_SPAWNS = 3;
 const WAYPOINT_REACH = 3;
+/** Folga lateral que um trajeto entre waypoints precisa ter dos sólidos (o raio do corpo). */
+const LINK_CLEARANCE = 0.35;
 
 export function pointInBox(p: Vec3, box: Box): boolean {
   return (
@@ -58,6 +61,19 @@ function boxCenter(box: Box): Vec3 {
 
 function distanceXZ(a: Vec3, b: Vec3): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
+}
+
+/** O trajeto reto entre dois pontos passa livre, com folga do tamanho do corpo dos dois lados. */
+function linkIsClear(map: MapDef, from: Vec3, to: Vec3): boolean {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const length = Math.hypot(dx, dz);
+  if (length < 1e-6) return true;
+  const side = { x: (-dz / length) * LINK_CLEARANCE, z: (dx / length) * LINK_CLEARANCE };
+  return [-1, 0, 1].every((k) => {
+    const origin = { x: from.x + side.x * k, y: 0.5, z: from.z + side.z * k };
+    return raycast(map, origin, { x: dx, y: 0, z: dz }, length) === null;
+  });
 }
 
 /** Lista de problemas do mapa; vazia quando ele está válido. */
@@ -92,6 +108,10 @@ export function validateMap(map: MapDef): string[] {
       adjacent[a]!.push(b);
       adjacent[b]!.push(a);
     }
+    for (const [a, b] of map.links) {
+      if (!linkIsClear(map, map.waypoints[a]!, map.waypoints[b]!)) problems.push(`link ${a}-${b} atravessa um sólido`);
+    }
+
     const seen = new Set<number>([0]);
     const queue = [0];
     for (let head = 0; head < queue.length; head++) {
