@@ -17,6 +17,7 @@ import {
   forfeitPassed,
   isBuyItem,
   normalizeRoomCode,
+  publicRoster,
   sanitizeInput,
   setBotControl,
   startError,
@@ -701,6 +702,6 @@ export class CsRoomManager {
 
   private sendStart(room: CsRoom, member: CsMemberState): void {
     if (room.status !== 'playing' || !room.match || !member.socketId) return;
-    this.socketOf(member.socketId)?.emit('cs:started', { mapId: room.match.mapId, roster: room.match.roster });
+    this.socketOf(member.socketId)?.emit('cs:started', { mapId: room.match.mapId, roster: publicRoster(room.match.roster) });
   }
 }

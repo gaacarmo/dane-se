@@ -229,6 +229,20 @@ describe('match', () => {
     expect(players[0]!.lastSnapshot()!.phase).toBe('buy');
   });
 
+  it('sends the roster without anyone private money, weapons or equipment', async () => {
+    const { players } = await started();
+    const p = players[0]!;
+    await p.call('cs:buy', { item: 'kevlar' });
+    await p.until(() => p.self()?.armor === 100);
+    for (const client of players) {
+      for (const entry of client.started!.roster) {
+        expect(entry).toMatchObject({ money: 0, weapon: 'chinelo' });
+        expect(entry).not.toHaveProperty('armor');
+        expect(entry).not.toHaveProperty('holstered');
+      }
+    }
+  });
+
   it('refuses to start twice and to join a match in progress', async () => {
     const { players, code } = await started();
     expect(await players[0]!.call('cs:start')).toMatchObject({ ok: false });
