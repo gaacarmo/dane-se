@@ -194,3 +194,31 @@ body {
 .reaction-float {
   animation: reaction-float 2.8s ease-out forwards;
 }
+
+/* Modo CS: marcador de acerto, dano, ganho de dinheiro e munição baixa. */
+@keyframes cs-hitmarker {
+  0% { opacity: 1; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+.cs-hitmarker { animation: cs-hitmarker 0.22s ease-out forwards; }
+@keyframes cs-damage {
+  0% { opacity: var(--cs-damage-opacity, 0.6); }
+  100% { opacity: 0; }
+}
+.cs-damage { animation: cs-damage 0.7s ease-out forwards; }
+@keyframes cs-damage-arc {
+  0% { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+.cs-damage-arc { animation: cs-damage-arc 1.2s ease-out forwards; }
+@keyframes cs-gain {
+  0% { opacity: 0; transform: translateY(6px); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-26px); }
+}
+.cs-gain { animation: cs-gain 1.8s ease-out forwards; }
+@keyframes cs-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.cs-pulse { animation: cs-pulse 0.8s ease-in-out infinite; }

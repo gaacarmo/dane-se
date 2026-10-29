@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PING_TTL_MS,
   addPing,
@@ -12,6 +12,7 @@ import {
   raycast,
   reduceFlow,
   simPaused,
+  spreadFor,
   stepMatch,
   type FlowEvent,
   type FlowState,
@@ -20,6 +21,7 @@ import {
   type PingKind,
   type WeaponId,
   type WorldEvent,
+  WEAPONS,
 } from '@dane-se/shared';
 import { CHARACTER_NAMES } from '../../lib/characters';
 import { setPref, usePrefs } from '../../lib/prefs';
@@ -27,7 +29,8 @@ import { useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
 import { Button } from '../ui/Button';
 import { BUY_LIST, CsBuyMenu } from './CsBuyMenu';
-import { CsHud, type FeedItem } from './CsHud';
+import { AudioDirector } from './audioDirector';
+import { CsHud, type DamageFlash, type FeedItem, type HitMarker, type MoneyGain } from './CsHud';
 import { CsMap } from './CsMap';
 import { CsMapDraw } from './CsMapDraw';
 import { CsScene } from './CsScene';
@@ -41,6 +44,7 @@ const FEED_TTL_MS = 6000;
 const INTERACT_REACH = 1.5;
 const PING_RANGE = 60;
 const MAX_FX_QUEUE = 300;
+const HALF_FOV_TAN = Math.tan((75 / 2) * (Math.PI / 180));
 
 function unsupportedReason(): string | null {
   if (!webglSupported) return 'Este navegador não tem WebGL, necessário para o modo CS.';
@@ -88,6 +92,24 @@ function eventText(match: Match, e: WorldEvent): string | null {
   }
 }
 
+function feedTone(e: WorldEvent, meId: string): FeedItem['tone'] {
+  if (e.type !== 'kill') return undefined;
+  if (e.killer === meId) return 'kill';
+  return e.victim === meId ? 'death' : undefined;
+}
+
+/** Direção de quem atirou em radianos relativos ao olhar: 0 à frente, positivo à direita. */
+function relativeAngle(match: Match, attackerId: string, meId: string, yaw: number): number | null {
+  const attacker = match.world.players.find((p) => p.id === attackerId);
+  const me = match.world.players.find((p) => p.id === meId);
+  if (!attacker || !me || attacker.id === me.id) return null;
+  const dx = attacker.body.pos.x - me.body.pos.x;
+  const dz = attacker.body.pos.z - me.body.pos.z;
+  const forward = { x: -Math.sin(yaw), z: -Math.cos(yaw) };
+  const right = { x: Math.cos(yaw), z: -Math.sin(yaw) };
+  return Math.atan2(dx * right.x + dz * right.z, dx * forward.x + dz * forward.z);
+}
+
 function CsGame({ onExit }: { onExit: () => void }) {
   const { profile } = useClient();
   const meId = profile?.id ?? 'jogador';
@@ -105,6 +127,11 @@ function CsGame({ onExit }: { onExit: () => void }) {
   pingKindRef.current = pingKind;
   const pingId = useRef(0);
   const fxRef = useRef<WorldEvent[]>([]);
+  const crosshairRef = useRef<HTMLDivElement>(null);
+  const director = useMemo(() => new AudioDirector(), []);
+  const [hitMarker, setHitMarker] = useState<HitMarker | null>(null);
+  const [damage, setDamage] = useState<DamageFlash | null>(null);
+  const [moneyGain, setMoneyGain] = useState<MoneyGain | null>(null);
 
   const flowRef = useRef<FlowState>(initialFlow());
   const [flow, setFlow] = useState<FlowState>(flowRef.current);
@@ -173,6 +200,8 @@ function CsGame({ onExit }: { onExit: () => void }) {
     let acc = 0;
     let sinceHud = 0;
     let feedId = 0;
+    let hudId = 0;
+    let lastMoney = matchRef.current.world.players.find((p) => p.id === meId)!.money;
     let round = matchRef.current.roundIndex;
     let phase = matchRef.current.world.phase;
     let ended = !!matchRef.current.winner;
@@ -187,13 +216,22 @@ function CsGame({ onExit }: { onExit: () => void }) {
         let steps = 0;
         while (acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
           const before = matchRef.current;
-          const after = stepMatch(before, { [meId]: input.read() }, STEP_MS);
+          const pressed = input.read();
+          if (pressed.fire) director.emptyClick(before, meId, now);
+          const after = stepMatch(before, { [meId]: pressed }, STEP_MS);
           matchRef.current = after;
           if (after.world !== before.world) {
+            director.onEvents(after, after.world.events, meId);
             for (const e of after.world.events) {
               const text = eventText(after, e);
-              if (text) items.push({ id: feedId++, text, at: now });
+              if (text) items.push({ id: feedId++, text, tone: feedTone(e, meId), at: now });
               if (e.type === 'shot') fxRef.current.push(e);
+              if (e.type === 'hit' && e.attacker === meId) {
+                setHitMarker({ id: ++hudId, kind: e.killed ? 'kill' : e.zone === 'head' ? 'head' : 'body' });
+              }
+              if (e.type === 'hit' && e.victim === meId) {
+                setDamage({ id: ++hudId, angle: relativeAngle(after, e.attacker, meId, input.look().yaw), amount: Math.min(1, e.damage / 60) });
+              }
             }
             if (fxRef.current.length > MAX_FX_QUEUE) fxRef.current.splice(0, fxRef.current.length - MAX_FX_QUEUE);
           }
@@ -207,6 +245,14 @@ function CsGame({ onExit }: { onExit: () => void }) {
           steps++;
         }
         if (steps === MAX_STEPS_PER_FRAME) acc = 0;
+        director.frame(matchRef.current, dt / 1000, meId, input.look().yaw);
+      }
+
+      const mine = matchRef.current.world.players.find((p) => p.id === meId);
+      if (mine?.alive && crosshairRef.current) {
+        const spread = spreadFor(mine, WEAPONS[mine.weapon]);
+        const pixels = (Math.tan((spread * Math.PI) / 180) / HALF_FOV_TAN) * (window.innerHeight / 2);
+        crosshairRef.current.style.setProperty('--gap', `${Math.min(70, 3 + pixels).toFixed(1)}px`);
       }
 
       const current = matchRef.current;
@@ -222,13 +268,17 @@ function CsGame({ onExit }: { onExit: () => void }) {
         while (items.length > 0 && now - items[0]!.at > FEED_TTL_MS) items.shift();
         setFeed(items.slice(-FEED_SIZE).map(({ id, text }) => ({ id, text })));
         setHud(matchRef.current);
+        if (mine) {
+          if (mine.money - lastMoney >= 50) setMoneyGain({ id: ++hudId, amount: mine.money - lastMoney });
+          lastMoney = mine.money;
+        }
         setPings((list) => (list.some((p) => now - p.at >= PING_TTL_MS) ? list.filter((p) => now - p.at < PING_TTL_MS) : list));
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [stage, meId, input, send]);
+  }, [stage, meId, input, send, director]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -278,7 +328,17 @@ function CsGame({ onExit }: { onExit: () => void }) {
       <div ref={stage3d} className="absolute inset-0">
         <CsScene matchRef={matchRef} meId={meId} input={input} roundKey={roundKey} pings={pings} fx={fxRef} />
       </div>
-      <CsHud match={hud} meId={meId} feed={feed} hint={hint} onExit={onExit} />
+      <CsHud
+        match={hud}
+        meId={meId}
+        feed={feed}
+        hint={hint}
+        onExit={onExit}
+        crosshair={crosshairRef}
+        hitMarker={hitMarker}
+        damage={damage}
+        moneyGain={moneyGain}
+      />
 
       {flow.overlay === 'buy' && (
         <CsBuyMenu match={hud} meId={meId} onBuy={buy} onClose={() => send({ type: 'click', target: 'close-buy' })} />
