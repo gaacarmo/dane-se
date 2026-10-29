@@ -30,19 +30,33 @@ describe('botBuy', () => {
     let world = makeWorld();
     world = patchPlayer(world, 'a1', { money: 800 });
     const pick = botBuy(world, 'a1');
-    expect(WEAPONS[pick].price).toBeLessThanOrEqual(800);
+    expect(pick === null || WEAPONS[pick].price <= 800).toBe(true);
   });
 
   it('buys a rifle or sniper when rich', () => {
     let world = makeWorld();
     world = patchPlayer(world, 'a1', { money: 9000 });
-    expect(['rifle', 'sniper']).toContain(WEAPONS[botBuy(world, 'a1')].category);
+    expect(['rifle', 'sniper']).toContain(WEAPONS[botBuy(world, 'a1')!].category);
   });
 
-  it('keeps a rifle it already owns', () => {
+  it('buys nothing when it already holds a primary, in hand or holstered', () => {
     let world = makeWorld();
     world = patchPlayer(world, 'a1', { money: 9000, weapon: 'tabelinha' });
-    expect(botBuy(world, 'a1')).toBe('tabelinha');
+    expect(botBuy(world, 'a1')).toBeNull();
+    world = patchPlayer(world, 'a1', { weapon: 'chinelo', holstered: { weapon: 'tabelinha', ammo: 30, reserve: 60 } });
+    expect(botBuy(world, 'a1')).toBeNull();
+  });
+
+  it('never downgrades its pistol', () => {
+    let world = makeWorld();
+    world = patchPlayer(world, 'a1', { money: 600, weapon: 'tamanco' });
+    expect(botBuy(world, 'a1')).toBeNull();
+  });
+
+  it('switches to the holstered weapon when the current one is empty', () => {
+    let world = skipBuy(makeWorld());
+    world = patchPlayer(world, 'a1', { ammo: 0, reserve: 0, holstered: { weapon: 'chinelo', ammo: 6, reserve: 12 }, weapon: 'tabelinha' });
+    expect(botInput(world, 'a1', createBotMemory(1), 50).input.slot).toBe(3);
   });
 });
 

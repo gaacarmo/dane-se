@@ -3,7 +3,7 @@ import type { MapDef } from './map.js';
 import { bodyHeight, eyePos, raycast } from './physics.js';
 import { IDLE_INPUT, aimAt, lookDirection, type PlayerInput, type SimPlayer, type World } from './sim.js';
 import type { Vec3 } from './types.js';
-import { WEAPONS, type WeaponId } from './weapons.js';
+import { WEAPONS, slotOf, type WeaponId } from './weapons.js';
 
 const FOV = (110 * Math.PI) / 180;
 const SIGHT_RANGE = 70;
@@ -126,14 +126,22 @@ function prefersSniper(id: string): boolean {
   return sum % 3 === 0;
 }
 
-/** Arma que o bot quer ter nesta rodada; a mesma que já tem quando não vale trocar. */
-export function botBuy(world: World, playerId: string): WeaponId {
+/** Arma que o bot quer comprar nesta rodada, ou null quando já tem uma principal ou não vale trocar. */
+export function botBuy(world: World, playerId: string): WeaponId | null {
   const p = world.players.find((x) => x.id === playerId)!;
-  const current = WEAPONS[p.weapon];
-  if (current.price >= WEAPONS.tabelinha.price) return p.weapon;
+  const held = [p.weapon, p.holstered?.weapon].filter((w): w is WeaponId => !!w);
+  if (held.some((w) => slotOf(w) === 1)) return null;
+
+  const pistol = held.find((w) => slotOf(w) === 2) ?? 'chinelo';
   const order = prefersSniper(p.id) ? SNIPER_ORDER : RIFLE_ORDER;
-  const pick = order.find((id) => WEAPONS[id].price <= p.money) ?? 'chinelo';
-  return WEAPONS[pick].price > current.price ? pick : p.weapon;
+  return (
+    order.find(
+      (id) =>
+        WEAPONS[id].price <= p.money &&
+        !held.includes(id) &&
+        (slotOf(id) === 1 || WEAPONS[id].price > WEAPONS[pistol].price),
+    ) ?? null
+  );
 }
 
 function pickTarget(world: World, me: SimPlayer, eye: Vec3, memory: BotMemory): SimPlayer | null {
@@ -322,6 +330,8 @@ export function botInput(
       fire: wantFire,
       reload: me.ammo < weapon.magSize * 0.3 && !target,
       use,
+      walk: false,
+      slot: me.ammo === 0 && me.reserve === 0 && me.holstered && me.holstered.ammo > 0 ? 3 : 0,
     },
     memory: mem,
   };

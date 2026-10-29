@@ -5,7 +5,7 @@ import { sideOf } from './match.js';
 import type { Box, MapDef } from './map.js';
 import { bodyHeight, eyePos, moveBody, raycast, rayBoxDistance, type Body } from './physics.js';
 import type { Side, TeamId, Vec3 } from './types.js';
-import { WEAPONS, damageFor, type HitZone, type WeaponDef, type WeaponId } from './weapons.js';
+import { WEAPONS, damageFor, slotOf, type HitZone, type WeaponDef, type WeaponId } from './weapons.js';
 
 export const BUY_MS = 15_000;
 export const LIVE_MS = 300_000;
@@ -42,6 +42,10 @@ export interface PlayerInput {
   fire: boolean;
   reload: boolean;
   use: boolean;
+  /** Anda devagar e em silêncio. */
+  walk: boolean;
+  /** Troca de arma: 1 principal, 2 secundária, 3 alterna; 0 não faz nada. */
+  slot: 0 | 1 | 2 | 3;
 }
 
 export const IDLE_INPUT: PlayerInput = {
@@ -54,7 +58,16 @@ export const IDLE_INPUT: PlayerInput = {
   fire: false,
   reload: false,
   use: false,
+  walk: false,
+  slot: 0,
 };
+
+/** Arma no coldre, com a munição dela. */
+export interface Holstered {
+  weapon: WeaponId;
+  ammo: number;
+  reserve: number;
+}
 
 export interface SimPlayer {
   id: string;
@@ -71,6 +84,8 @@ export interface SimPlayer {
   weapon: WeaponId;
   ammo: number;
   reserve: number;
+  holstered: Holstered | null;
+  equipLeftMs: number;
   reloadLeftMs: number;
   cooldownMs: number;
   shots: number;
@@ -117,6 +132,8 @@ export interface RosterEntry {
   character: CharacterId;
   money: number;
   weapon: WeaponId;
+  /** Segunda arma que o jogador leva consigo (a pistola, quando a principal está na mão). */
+  holstered?: WeaponId;
 }
 
 export const RESERVE_MAGS = 2;
@@ -162,6 +179,10 @@ export function createWorld(map: MapDef, roundIndex: number, roster: RosterEntry
       weapon: entry.weapon,
       ammo: weapon.magSize,
       reserve: weapon.magSize * RESERVE_MAGS,
+      holstered: entry.holstered
+        ? { weapon: entry.holstered, ammo: WEAPONS[entry.holstered].magSize, reserve: WEAPONS[entry.holstered].magSize * RESERVE_MAGS }
+        : null,
+      equipLeftMs: 0,
       reloadLeftMs: 0,
       cooldownMs: 0,
       shots: 0,
@@ -346,6 +367,20 @@ function checkRoundEnd(world: World): void {
   if (world.phaseLeftMs <= 0) finish(world, 'defense', 'time');
 }
 
+/** Saca a arma do coldre; a que estava na mão vai para o coldre. Devolve se trocou. */
+export function switchWeapon(p: SimPlayer, slot: 1 | 2 | 3): boolean {
+  const held = p.holstered;
+  if (!held || (slot !== 3 && slotOf(held.weapon) !== slot)) return false;
+  p.holstered = { weapon: p.weapon, ammo: p.ammo, reserve: p.reserve };
+  p.weapon = held.weapon;
+  p.ammo = held.ammo;
+  p.reserve = held.reserve;
+  p.reloadLeftMs = 0;
+  p.shots = 0;
+  p.equipLeftMs = WEAPONS[p.weapon].equipMs;
+  return true;
+}
+
 export function spreadFor(player: SimPlayer, weapon: WeaponDef): number {
   const speed = Math.hypot(player.body.vel.x, player.body.vel.z);
   const moving = speed > 1 || !player.body.onGround;
@@ -357,8 +392,10 @@ function stepCombat(world: World, inputs: Record<string, PlayerInput>, dtMs: num
   for (const p of world.players) {
     if (!firers.has(p.id)) continue;
     const input = inputs[p.id] ?? IDLE_INPUT;
+    if (input.slot !== 0) switchWeapon(p, input.slot);
     const weapon = WEAPONS[p.weapon];
     p.cooldownMs = Math.max(0, p.cooldownMs - dtMs);
+    p.equipLeftMs = Math.max(0, p.equipLeftMs - dtMs);
 
     if (p.reloadLeftMs > 0) {
       p.reloadLeftMs = Math.max(0, p.reloadLeftMs - dtMs);
@@ -367,11 +404,11 @@ function stepCombat(world: World, inputs: Record<string, PlayerInput>, dtMs: num
         p.ammo += taken;
         p.reserve -= taken;
       }
-    } else if (input.reload && p.ammo < weapon.magSize && p.reserve > 0) {
+    } else if (input.reload && p.equipLeftMs === 0 && p.ammo < weapon.magSize && p.reserve > 0) {
       p.reloadLeftMs = weapon.reloadMs;
     }
 
-    if (input.fire && p.cooldownMs === 0 && p.ammo > 0 && p.reloadLeftMs === 0) {
+    if (input.fire && p.cooldownMs === 0 && p.equipLeftMs === 0 && p.ammo > 0 && p.reloadLeftMs === 0) {
       fireShot(world, p, weapon);
       p.ammo -= 1;
       p.cooldownMs = weapon.fireIntervalMs;
@@ -380,7 +417,7 @@ function stepCombat(world: World, inputs: Record<string, PlayerInput>, dtMs: num
       p.shots = Math.max(0, p.shots - dtMs / SHOT_DECAY_MS);
     }
 
-    if (p.ammo === 0 && p.reserve > 0 && p.reloadLeftMs === 0) p.reloadLeftMs = weapon.reloadMs;
+    if (p.ammo === 0 && p.reserve > 0 && p.reloadLeftMs === 0 && p.equipLeftMs === 0) p.reloadLeftMs = weapon.reloadMs;
   }
 }
 

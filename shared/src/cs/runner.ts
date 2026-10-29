@@ -5,9 +5,9 @@ import { buyWeapon } from './buy.js';
 import { START_MONEY, addMoney, nextLossStreak, roundReward } from './economy.js';
 import { SWAP_EVERY, matchWinner, sideOf } from './match.js';
 import { drawMap } from './map.js';
-import { IDLE_INPUT, createWorld, stepWorld, type PlayerInput, type RosterEntry, type World } from './sim.js';
+import { IDLE_INPUT, createWorld, stepWorld, type PlayerInput, type RosterEntry, type SimPlayer, type World } from './sim.js';
 import type { TeamId } from './types.js';
-import { STARTER_WEAPON, type WeaponId } from './weapons.js';
+import { STARTER_WEAPON, slotOf, type WeaponId } from './weapons.js';
 
 export const TEAM_SIZE = 3;
 export const ROUND_PAUSE_MS = 3000;
@@ -96,6 +96,24 @@ export function forfeit(match: Match, team: TeamId): Match {
   return { ...match, winner: otherTeam(team), forfeitedBy: team };
 }
 
+interface Loadout {
+  weapon: WeaponId;
+  holstered?: WeaponId;
+}
+
+/** Quem sobrevive começa a próxima rodada com a principal na mão e a pistola no coldre. */
+function carriedLoadout(p: SimPlayer): Loadout {
+  const held = [p.weapon, p.holstered?.weapon].filter((w): w is WeaponId => !!w);
+  const primary = held.find((w) => slotOf(w) === 1);
+  const pistol = held.find((w) => slotOf(w) === 2) ?? STARTER_WEAPON;
+  return primary ? { weapon: primary, holstered: pistol } : { weapon: pistol };
+}
+
+function withLoadout(entry: RosterEntry, money: number, loadout: Loadout): RosterEntry {
+  const { holstered: _previous, ...rest } = entry;
+  return { ...rest, money, weapon: loadout.weapon, ...(loadout.holstered ? { holstered: loadout.holstered } : {}) };
+}
+
 function settleRound(match: Match): Match {
   const { world } = match;
   const end = world.end!;
@@ -110,7 +128,7 @@ function settleRound(match: Match): Match {
 
   const roster = match.roster.map((entry) => {
     const p = world.players.find((x) => x.id === entry.id)!;
-    return { ...entry, money: addMoney(p.money, rewards[entry.team]), weapon: p.alive ? p.weapon : STARTER_WEAPON };
+    return withLoadout(entry, addMoney(p.money, rewards[entry.team]), p.alive ? carriedLoadout(p) : { weapon: STARTER_WEAPON });
   });
   const score = { ...match.score, [end.winner]: match.score[end.winner] + 1 };
   const winner = matchWinner(score.A, score.B);
@@ -121,7 +139,7 @@ function startNextRound(match: Match): Match {
   const roundIndex = match.roundIndex + 1;
   const swapping = roundIndex % SWAP_EVERY === 0;
   const roster = swapping
-    ? match.roster.map((r) => ({ ...r, money: START_MONEY, weapon: STARTER_WEAPON }))
+    ? match.roster.map((r) => withLoadout(r, START_MONEY, { weapon: STARTER_WEAPON }))
     : match.roster;
   return {
     ...match,
@@ -148,7 +166,7 @@ export function stepMatch(match: Match, humanInputs: Record<string, PlayerInput>
     for (const entry of match.roster) {
       if (!entry.bot) continue;
       const pick = botBuy(world, entry.id);
-      if (pick !== world.players.find((p) => p.id === entry.id)!.weapon) world = buyWeapon(world, entry.id, pick);
+      if (pick) world = buyWeapon(world, entry.id, pick);
     }
   }
 

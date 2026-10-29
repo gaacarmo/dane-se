@@ -81,6 +81,25 @@ describe('characters', () => {
   });
 });
 
+describe('carry-over between rounds', () => {
+  it('lets a survivor keep both weapons and sends the dead back to the starter pistol', () => {
+    let match = createMatch([human('h1')], 1);
+    const players = match.world.players.map((p) => {
+      if (p.id === 'h1') return { ...p, weapon: 'tabelinha' as const, holstered: { weapon: 'tamanco' as const, ammo: 8, reserve: 16 } };
+      if (p.id === 'bot-A2') return { ...p, alive: false, hp: 0, weapon: 'cartao_vermelho' as const };
+      return p;
+    });
+    match = { ...match, world: { ...match.world, phase: 'over', players, end: { winner: 'A', reason: 'time' } } };
+    for (let i = 0; i < 100 && match.roundIndex === 0; i++) match = stepMatch(match, {}, 100);
+    expect(match.roundIndex).toBe(1);
+    const next = (id: string) => match.world.players.find((p) => p.id === id)!;
+    expect(next('h1').weapon).toBe('tabelinha');
+    expect(next('h1').holstered?.weapon).toBe('tamanco');
+    expect(next('bot-A2').weapon).toBe('chinelo');
+    expect(next('bot-A2').holstered).toBeNull();
+  });
+});
+
 describe('forfeit', () => {
   it('hands the win to the other team', () => {
     const result = forfeit(createMatch([human('h1')], 1), 'A');

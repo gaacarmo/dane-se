@@ -160,3 +160,52 @@ describe('hitbox', () => {
     expect(player(run(world, shot, STEP, STEP).world, 'b1').hp).toBe(100);
   });
 });
+
+describe('weapon slots', () => {
+  const armed = () =>
+    patchPlayer(duel(), 'a1', {
+      weapon: 'tabelinha',
+      ammo: 20,
+      reserve: 60,
+      holstered: { weapon: 'chinelo', ammo: 5, reserve: 24 },
+    });
+
+  it('switches to the holstered weapon keeping both magazines', () => {
+    const after = player(stepWorld(armed(), { a1: input({ slot: 2 }) }, STEP), 'a1');
+    expect(after.weapon).toBe('chinelo');
+    expect(after.ammo).toBe(5);
+    expect(after.reserve).toBe(24);
+    expect(after.holstered).toEqual({ weapon: 'tabelinha', ammo: 20, reserve: 60 });
+  });
+
+  it('toggles with slot 3 and does nothing for the slot already in hand', () => {
+    const world = armed();
+    expect(player(stepWorld(world, { a1: input({ slot: 1 }) }, STEP), 'a1').weapon).toBe('tabelinha');
+    const toggled = stepWorld(world, { a1: input({ slot: 3 }) }, STEP);
+    expect(player(toggled, 'a1').weapon).toBe('chinelo');
+    expect(player(stepWorld(toggled, { a1: input({ slot: 3 }) }, STEP), 'a1').weapon).toBe('tabelinha');
+  });
+
+  it('ignores a switch when nothing is holstered', () => {
+    const world = duel();
+    expect(player(stepWorld(world, { a1: input({ slot: 2 }) }, STEP), 'a1').weapon).toBe('tabelinha');
+    expect(player(stepWorld(world, { a1: input({ slot: 3 }) }, STEP), 'a1').holstered).toBeNull();
+  });
+
+  it('cannot fire until the equip time passes', () => {
+    const world = armed();
+    const shoot = { a1: aimInput(world, 'a1', 'b1', 'body', { fire: true, slot: 2 }) };
+    const early = run(world, shoot, WEAPONS.chinelo.equipMs - 60, STEP).world;
+    expect(player(early, 'a1').ammo).toBe(5);
+    expect(player(early, 'b1').hp).toBe(100);
+    const later = run(early, shoot, 200, STEP).world;
+    expect(player(later, 'a1').ammo).toBeLessThan(5);
+  });
+
+  it('cancels a reload by switching', () => {
+    const world = patchPlayer(armed(), 'a1', { reloadLeftMs: 1500, ammo: 10 });
+    const after = player(stepWorld(world, { a1: input({ slot: 2 }) }, STEP), 'a1');
+    expect(after.reloadLeftMs).toBe(0);
+    expect(after.holstered).toEqual({ weapon: 'tabelinha', ammo: 10, reserve: 60 });
+  });
+});
