@@ -8,6 +8,7 @@ import {
   lookDirection,
   cursorFree,
   needsLockClick,
+  slotOf,
   raycast,
   reduceFlow,
   simPaused,
@@ -18,6 +19,7 @@ import {
   type Ping,
   type PingKind,
   type BuyItem,
+  type WeaponId,
   type WorldEvent,
   type Vec3,
   WEAPONS,
@@ -441,6 +443,10 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
           onMap={() => send({ type: 'key', key: 'map' })}
           onPing={pingAhead}
           onMenu={() => send({ type: 'key', key: 'escape' })}
+          weapons={[me.weapon, me.holstered?.weapon]
+            .filter((w): w is WeaponId => !!w)
+            .map((w) => ({ slot: slotOf(w), name: WEAPONS[w].name, active: w === me.weapon }))
+            .sort((a, b) => a.slot - b.slot)}
         />
       )}
       {!driver.solo && <VoiceButton className="absolute top-3 left-3 z-40" />}

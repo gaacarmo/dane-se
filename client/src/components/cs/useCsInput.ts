@@ -33,6 +33,7 @@ export interface TouchApi {
   toggleCrouch(): void;
   reload(): void;
   switchWeapon(): void;
+  selectSlot(slot: 1 | 2): void;
 }
 
 /** Aparelho de toque como entrada principal (celular e tablet). */
@@ -180,6 +181,9 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
         },
         switchWeapon() {
           slotEdge.current = 3;
+        },
+        selectSlot(slot) {
+          slotEdge.current = slot;
         },
       },
     };

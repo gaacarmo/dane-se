@@ -200,8 +200,11 @@ export function FirstPersonRig({
     let rz = -s.swayX * 1.2;
     const equip = me.equipLeftMs > 0 ? me.equipLeftMs / weapon.equipMs : 0;
     if (equip > 0) {
-      py -= equip * equip * 0.42;
-      rx -= equip * equip * 0.8;
+      const ease = equip * equip * (3 - 2 * equip);
+      py -= ease * 0.5;
+      px += ease * 0.14;
+      rx -= ease * 0.95;
+      rz += ease * 0.35;
     }
     if (me.reloadLeftMs > 0) {
       const curve = Math.sin(Math.PI * clamp(1 - me.reloadLeftMs / weapon.reloadMs, 0, 1));

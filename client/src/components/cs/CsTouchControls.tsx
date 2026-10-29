@@ -13,6 +13,8 @@ interface Props {
   onMap: () => void;
   onPing: () => void;
   onMenu: () => void;
+  /** Armas na mão e no coldre, por slot: a ativa fica destacada. */
+  weapons: { slot: 1 | 2; name: string; active: boolean }[];
 }
 
 function Button({
@@ -49,7 +51,7 @@ function Button({
 }
 
 /** Controles de toque no estilo PUBG: alavanca à esquerda, olhar arrastando à direita e botões de ação. */
-export function CsTouchControls({ input, hidden, onLookTap, onBuy, onMap, onPing, onMenu }: Props) {
+export function CsTouchControls({ input, hidden, onLookTap, onBuy, onMap, onPing, onMenu, weapons }: Props) {
   const stick = useRef<{ id: number; x: number; y: number } | null>(null);
   const look = useRef<{ id: number; x: number; y: number; moved: number } | null>(null);
   const [knob, setKnob] = useState<{ x: number; y: number; dx: number; dy: number } | null>(null);
@@ -149,9 +151,22 @@ export function CsTouchControls({ input, hidden, onLookTap, onBuy, onMap, onPing
 
       <div className="pointer-events-none absolute right-4 bottom-4 flex items-end gap-3">
         <div className="flex flex-col items-center gap-3">
-          <Button label="Trocar de arma" size={48} onDown={() => input.touch.switchWeapon()}>
-            Arma
-          </Button>
+          {weapons.map((w) => (
+            <button
+              key={w.slot}
+              type="button"
+              aria-label={`Trocar para ${w.name}`}
+              aria-pressed={w.active}
+              onPointerDown={() => input.touch.selectSlot(w.slot)}
+              className={`pointer-events-auto touch-none rounded-lg border px-2 py-1.5 text-left font-mono text-[11px] leading-tight select-none ${
+                w.active ? 'border-gold-400/80 bg-gold-500/25 text-stone-100' : 'border-white/25 bg-black/45 text-stone-300'
+              }`}
+              style={{ width: 84 }}
+            >
+              <span className="block text-[10px] text-stone-400">{w.slot}</span>
+              <span className="block truncate">{w.name}</span>
+            </button>
+          ))}
           <Button label="Recarregar" size={48} onDown={() => input.touch.reload()}>
             R
           </Button>

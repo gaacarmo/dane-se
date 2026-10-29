@@ -1,4 +1,4 @@
-import type { CSSProperties, RefObject } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { DEFUSE_KIT_MS, DEFUSE_MS, PLANT_MS, WEAPONS, slotOf, type Match, type WeaponId } from '@dane-se/shared';
 import { Button } from '../ui/Button';
 import { isTouchDevice } from './useCsInput';
@@ -144,6 +144,14 @@ export function CsHud({
   rematch?: { canRematch: boolean; onRematch: () => void };
 }) {
   const touch = isTouchDevice();
+  const [popup, setPopup] = useState<{ id: number; weapon: WeaponId } | null>(null);
+  const lastWeapon = useRef<WeaponId | null>(null);
+  const currentWeapon = match.world.players.find((p) => p.id === meId)?.weapon;
+  useEffect(() => {
+    if (!currentWeapon) return;
+    if (lastWeapon.current && lastWeapon.current !== currentWeapon) setPopup((p) => ({ id: (p?.id ?? 0) + 1, weapon: currentWeapon }));
+    lastWeapon.current = currentWeapon;
+  }, [currentWeapon]);
   const { world } = match;
   const me = world.players.find((p) => p.id === meId)!;
   const mine = me.team;
@@ -221,6 +229,12 @@ export function CsHud({
           {spectating ? `Observando ${spectating} · clique para trocar` : 'Você morreu. Aguarde o fim da rodada.'}
         </p>
       )}
+      {popup && (
+        <div key={popup.id} className="cs-weapon-pop absolute bottom-36 left-1/2 -translate-x-1/2 rounded-lg bg-black/70 px-5 py-2 text-center">
+          <p className="text-[11px] tracking-widest text-stone-400 uppercase">{slotOf(popup.weapon) === 1 ? 'Principal' : 'Secundária'}</p>
+          <p className="text-xl font-bold">{WEAPONS[popup.weapon].name}</p>
+        </div>
+      )}
       {notice && (
         <p
           role="status"
@@ -253,9 +267,9 @@ export function CsHud({
           const def = WEAPONS[w.id];
           return (
             <div
-              key={w.id}
-              className={`flex items-baseline justify-between rounded-lg px-3 py-1.5 ${
-                w.active ? 'bg-black/65 ring-1 ring-white/25' : 'bg-black/35 text-stone-500'
+              key={`${w.id}-${w.active}`}
+              className={`flex items-baseline justify-between rounded-lg px-3 py-1.5 transition-transform ${
+                w.active ? 'cs-slot-flash origin-right scale-105 bg-black/70 ring-1 ring-gold-400/70' : 'bg-black/35 text-stone-500'
               }`}
             >
               <span className="flex items-baseline gap-2 text-xs">
