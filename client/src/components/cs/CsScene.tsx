@@ -176,7 +176,7 @@ export function CsScene({
   return (
     <Canvas camera={{ fov: 75, near: 0.05, far: 200 }} dpr={[1, 1.5]} gl={{ antialias: true }}>
       <color attach="background" args={['#0b0d10']} />
-      <fog attach="fog" args={['#0b0d10', 40, 90]} />
+      <fog attach="fog" args={["#0b0d10", 50, 130]} />
       <hemisphereLight args={['#c8d2dc', '#2a2d33', 1.4]} />
       <ambientLight intensity={0.9} />
       <directionalLight position={[15, 25, 10]} intensity={1.8} />
