@@ -1,5 +1,5 @@
 import type { Side } from './types.js';
-import type { HitZone } from './weapons.js';
+import type { HitZone, WeaponCategory } from './weapons.js';
 
 export type EquipmentId = 'kevlar' | 'kevlar_helmet' | 'kit';
 
@@ -12,8 +12,8 @@ export interface EquipmentDef {
 }
 
 export const MAX_ARMOR = 100;
-/** Parte do dano que ainda chega à vida quando o colete protege a região. */
-const ARMOR_RATIO = 0.5;
+/** Fração do dano que ainda chega à vida quando o colete protege a região: a pistola é a mais contida, a sniper quase atravessa. */
+const ARMOR_PENETRATION: Record<WeaponCategory, number> = { pistol: 0.6, smg: 0.65, rifle: 0.775, sniper: 0.97 };
 /** Quanto do dano absorvido o colete perde. */
 const ARMOR_WEAR = 0.5;
 
@@ -34,17 +34,19 @@ interface Worn {
   helmet: boolean;
 }
 
-/** Quem já tem o colete cheio paga só a diferença pelo capacete. */
+const HELMET_PRICE = EQUIPMENT.kevlar_helmet.price - EQUIPMENT.kevlar.price;
+
+/** O combo cobra só o que falta: o colete (refeito) e o capacete, se ainda não tiver. */
 export function equipmentPrice(worn: Worn, id: EquipmentId): number {
-  if (id === 'kevlar_helmet' && worn.armor >= MAX_ARMOR && !worn.helmet) return EQUIPMENT.kevlar_helmet.price - EQUIPMENT.kevlar.price;
-  return EQUIPMENT[id].price;
+  if (id !== 'kevlar_helmet') return EQUIPMENT[id].price;
+  return (worn.armor < MAX_ARMOR ? EQUIPMENT.kevlar.price : 0) + (worn.helmet ? 0 : HELMET_PRICE);
 }
 
 /** Dano que chega à vida e colete que sobra. O colete cobre o corpo; a cabeça só com capacete; as pernas nunca. */
-export function absorbDamage(raw: number, zone: HitZone, worn: Worn): { hp: number; armor: number } {
+export function absorbDamage(raw: number, zone: HitZone, worn: Worn, category: WeaponCategory): { hp: number; armor: number } {
   const covered = worn.armor > 0 && (zone === 'body' || (zone === 'head' && worn.helmet));
   if (!covered) return { hp: raw, armor: worn.armor };
-  let hp = Math.max(1, Math.round(raw * ARMOR_RATIO));
+  let hp = Math.max(1, Math.round(raw * ARMOR_PENETRATION[category]));
   let wear = Math.max(1, Math.round((raw - hp) * ARMOR_WEAR));
   if (wear > worn.armor) {
     wear = worn.armor;

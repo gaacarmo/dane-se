@@ -139,6 +139,15 @@ describe('gear', () => {
     }
   });
 
+  it('has a human who drops out during the buy phase shop like a bot at once', () => {
+    let match = createMatch([human('h1')], 1);
+    match = { ...match, world: { ...match.world, players: match.world.players.map((p) => (p.id === 'h1' ? { ...p, money: 3250 } : p)) } };
+    match = stepMatch(match, {}, 50);
+    const taken = setBotControl(match, 'h1', true).world.players.find((p) => p.id === 'h1')!;
+    expect(taken.weapon).toBe('cartao_vermelho');
+    expect(taken.money).toBe(150);
+  });
+
   it('keeps the weapon first: a bot that can only afford it does not buy gear', () => {
     let match = createMatch([human('h1')], 1);
     match = { ...match, world: { ...match.world, players: match.world.players.map((p) => (p.bot ? { ...p, money: 500 } : p)) } };
@@ -211,6 +220,7 @@ describe('match stats', () => {
       expect(stats.headshots).toBe(seen.heads.get(entry.id) ?? 0);
     }
     const totals = Object.values(match.stats);
+    expect(totals.reduce((n, s) => n + s.kills, 0)).toBeGreaterThan(0);
     expect(totals.reduce((n, s) => n + s.kills, 0)).toBe(totals.reduce((n, s) => n + s.deaths, 0));
   });
 

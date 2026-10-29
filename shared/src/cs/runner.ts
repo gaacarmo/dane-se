@@ -156,12 +156,22 @@ export function setBotControl(match: Match, playerId: string, bot: boolean): Mat
   } else {
     delete memories[playerId];
   }
+  const world = { ...match.world, players: match.world.players.map((p) => (p.id === playerId ? { ...p, bot } : p)) };
   return {
     ...match,
     memories,
     roster: match.roster.map((r) => (r.id === playerId ? { ...r, bot } : r)),
-    world: { ...match.world, players: match.world.players.map((p) => (p.id === playerId ? { ...p, bot } : p)) },
+    // Quem vira bot durante a compra faz as compras na hora; os outros bots já compraram no primeiro passo.
+    world: bot && world.phase === 'buy' && match.botsBought ? botShopping(world, playerId) : world,
   };
+}
+
+/** Compras do bot: a arma e depois o equipamento, com o que sobrar. */
+function botShopping(world: World, playerId: string): World {
+  const pick = botBuy(world, playerId);
+  let next = pick ? buyWeapon(world, playerId, pick) : world;
+  for (const id of BOT_GEAR_ORDER) next = buyEquipment(next, playerId, id);
+  return next;
 }
 
 function withStats(stats: Record<string, PlayerStats>, events: WorldEvent[]): Record<string, PlayerStats> {
@@ -266,10 +276,7 @@ export function stepMatch(match: Match, humanInputs: Record<string, PlayerInput>
   let world = match.world;
   if (world.phase === 'buy' && !match.botsBought) {
     for (const entry of match.roster) {
-      if (!entry.bot) continue;
-      const pick = botBuy(world, entry.id);
-      if (pick) world = buyWeapon(world, entry.id, pick);
-      for (const id of BOT_GEAR_ORDER) world = buyEquipment(world, entry.id, id);
+      if (entry.bot) world = botShopping(world, entry.id);
     }
   }
 

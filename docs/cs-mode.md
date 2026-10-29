@@ -54,11 +54,14 @@ chance de mirar a cabeça. No normal um bot leva em média ~1,4 s para matar um 
 - Hitbox por zona, igual para todos os personagens: pernas, corpo e cabeça, com a cabeça mais estreita que os ombros.
 - Mapa (Tab): mostra o seu time, os pontos A e B e a bomba plantada, nunca os inimigos. Pings: Atenção, Inimigo e Ir para
   cá; duram 8 s, no máximo 3 por jogador.
-- Headshot mata com tudo, menos a pistola inicial; a sniper mata com um tiro no corpo. Sem fogo amigo.
-- Equipamento (mercado, só na compra): colete $650, colete e capacete $1000 (só a diferença, $350, se já tem o colete
-  cheio) e kit de desarme $400, só na defesa. O colete cobre o corpo e corta o dano pela metade; a cabeça só é coberta com
-  capacete; as pernas nunca. Com o kit o desarme leva 3,5 s em vez de 7 s. Quem sobrevive à rodada leva o equipamento; quem
-  morre perde. Os bots compram colete e kit depois da arma, se sobrar dinheiro.
+- Sem colete nem capacete, headshot mata com tudo, menos a pistola inicial, e a sniper mata com um tiro no corpo. Sem fogo amigo.
+- Equipamento (mercado, só na compra): colete $650, colete e capacete $1000 (cobra só o que falta: $350 se já tem o colete
+  cheio, $650 se já tem o capacete e o colete gastou) e kit de desarme $400, só na defesa. O colete cobre o corpo e deixa
+  passar uma parte do dano que depende da arma (pistola 60%, submetralhadora 65%, fuzil 77,5%, sniper 97%) e se gasta; a
+  cabeça só é coberta com capacete (um headshot do Tabelinha deixa 7 de vida, o do Cartão Vermelho ainda mata); as pernas
+  nunca. O capacete some junto com o colete. Com o kit o desarme leva 3,5 s em vez de 7 s, e quem já está desarmando
+  continua quando um colega chega. Quem sobrevive à rodada leva o equipamento; quem morre perde. Os bots compram colete e
+  kit depois da arma, se sobrar dinheiro (inclusive o bot que assume o lugar de quem saiu durante a compra).
 
 ## Multiplayer
 

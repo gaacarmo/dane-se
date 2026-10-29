@@ -2,6 +2,7 @@ import type { CharacterId } from '../characters.js';
 import type { Difficulty } from './bot.js';
 import type { RosterEntry } from './sim.js';
 import type { TeamId } from './types.js';
+import { STARTER_WEAPON } from './weapons.js';
 
 export const TEAM_LIMIT = 3;
 
@@ -25,6 +26,11 @@ export interface CsLobbyView {
   members: CsMember[];
   difficulty: Difficulty;
   teamSize: number;
+}
+
+/** A lista de jogadores sem o que é privado de cada um (dinheiro, armas e equipamento): quem entra ou volta recebe só isto. */
+export function publicRoster(roster: readonly RosterEntry[]): RosterEntry[] {
+  return roster.map(({ id, name, team, bot, character }) => ({ id, name, team, bot, character, money: 0, weapon: STARTER_WEAPON }));
 }
 
 /** O que o cliente precisa saber de uma partida que começou (ou recomeçou) para montar a cena. */

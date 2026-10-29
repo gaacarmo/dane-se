@@ -383,7 +383,7 @@ function stepBomb(world: World, inputs: Record<string, PlayerInput>, dtMs: numbe
 
   if (bomb.status !== 'planted' || !bomb.pos) return;
 
-  const defuser = world.players.find(
+  const reaching = world.players.filter(
     (p) =>
       p.alive &&
       p.side === 'defense' &&
@@ -391,6 +391,8 @@ function stepBomb(world: World, inputs: Record<string, PlayerInput>, dtMs: numbe
       isStill(input(p.id)) &&
       distanceXZ(p.body.pos, bomb.pos!) <= BOMB_REACH,
   );
+  // Quem já está desarmando continua (um colega que chega não zera o progresso); ao começarem juntos, vai o do kit.
+  const defuser = reaching.find((p) => p.id === bomb.progress?.who) ?? reaching.find((p) => p.kit) ?? reaching[0];
   const progressMs = defuser ? (bomb.progress?.who === defuser.id ? bomb.progress.ms : 0) + dtMs : 0;
   bomb.progress = defuser ? { who: defuser.id, ms: progressMs } : null;
   const remaining = bomb.explodeInMs - dtMs;
@@ -560,9 +562,10 @@ function fireShot(world: World, shooter: SimPlayer, weapon: WeaponDef): void {
   }
   world.events.push({ type: 'shot', shooter: shooter.id, weapon: weapon.id, from: origin, to: at(nearest), hit: 'player' });
 
-  const absorbed = absorbDamage(damageFor(weapon, zone), zone, victim);
+  const absorbed = absorbDamage(damageFor(weapon, zone), zone, victim, weapon.category);
   const damage = absorbed.hp;
   victim.armor = absorbed.armor;
+  victim.helmet = victim.helmet && absorbed.armor > 0;
   victim.hp = Math.max(0, victim.hp - damage);
   const killed = victim.hp <= 0;
   world.events.push({ type: 'hit', attacker: shooter.id, victim: victim.id, zone, damage, killed });

@@ -27,8 +27,8 @@ export function buyList(side: Side): readonly BuyItem[] {
 const CATEGORY: Record<string, string> = { pistol: 'Pistola', smg: 'Submetralhadora', rifle: 'Fuzil', sniper: 'Sniper' };
 
 const GEAR_NOTE: Record<EquipmentId, string> = {
-  kevlar: 'Corta o dano no corpo pela metade',
-  kevlar_helmet: 'Corta o dano no corpo e na cabeça',
+  kevlar: 'Reduz o dano dos tiros no corpo',
+  kevlar_helmet: 'Reduz o dano no corpo e na cabeça',
   kit: `Desarma a bomba em ${(DEFUSE_KIT_MS / 1000).toFixed(1).replace('.', ',')} s`,
 };
 
