@@ -16,7 +16,7 @@ Dê 5 cliques seguidos, em até 2 s, no título "Dane-se" do hub. Não há dica 
 | Mouse | olhar (clique na tela para travar o mouse) |
 | Botão esquerdo | atirar |
 | Espaço | pular |
-| C ou Ctrl esquerdo | agachar |
+| C | agachar (Ctrl não, porque Ctrl+W fecha a aba) |
 | R | recarregar |
 | 1 / 2 / roda do mouse | troca para a principal, para a secundária ou alterna |
 | E (segurar) | plantar ou desarmar a bomba |

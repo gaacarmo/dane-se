@@ -282,7 +282,8 @@ function CsGame({ onExit }: { onExit: () => void }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
+      // O slider da pausa mantém o foco; só campos de texto precisam ficar com o teclado.
+      if (e.target instanceof HTMLInputElement && e.target.type !== 'range') return;
       if (e.code === 'Tab') {
         e.preventDefault();
         if (!e.repeat) send({ type: 'key', key: 'map' });

@@ -78,10 +78,27 @@ describe('buyWeapon', () => {
     expect(buyWeapon(world, 'ghost', 'tabelinha')).toBe(world);
   });
 
-  it('lets a player take the free starter again after trading it for another pistol', () => {
+  it('refuses a downgrade in the same slot, so the free starter never overwrites a bought pistol', () => {
     const world = patchPlayer(makeWorld(), 'a1', { money: 0, weapon: 'tamanco' });
-    const bought = buyWeapon(world, 'a1', 'chinelo');
-    expect(player(bought, 'a1').weapon).toBe('chinelo');
-    expect(player(bought, 'a1').money).toBe(0);
+    expect(canBuy(world, 'a1', 'chinelo')).toBe(false);
+    expect(buyWeapon(world, 'a1', 'chinelo')).toBe(world);
+  });
+
+  it('refuses a cheaper primary over a better one, wherever the better one is', () => {
+    const inHand = patchPlayer(makeWorld(), 'a1', { money: 9000, weapon: 'cartao_vermelho' });
+    expect(canBuy(inHand, 'a1', 'tabelinha')).toBe(false);
+    expect(canBuy(inHand, 'a1', 'garcom')).toBe(false);
+    const holstered = patchPlayer(makeWorld(), 'a1', {
+      money: 9000,
+      weapon: 'chinelo',
+      holstered: { weapon: 'cartao_vermelho', ammo: 30, reserve: 60 },
+    });
+    expect(canBuy(holstered, 'a1', 'tabelinha')).toBe(false);
+  });
+
+  it('still allows an upgrade in the same slot', () => {
+    const world = patchPlayer(makeWorld(), 'a1', { money: 9000, weapon: 'tabelinha' });
+    expect(canBuy(world, 'a1', 'cartao_vermelho')).toBe(true);
+    expect(canBuy(patchPlayer(makeWorld(), 'a1', { money: 9000 }), 'a1', 'tamanco')).toBe(true);
   });
 });

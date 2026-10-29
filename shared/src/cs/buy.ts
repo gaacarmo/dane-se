@@ -5,11 +5,17 @@ function owns(player: SimPlayer, weaponId: WeaponId): boolean {
   return player.weapon === weaponId || player.holstered?.weapon === weaponId;
 }
 
+/** Trocar por uma arma do mesmo slot que não seja mais cara é rebaixar: a compra é recusada. */
+function isDowngrade(player: SimPlayer, weaponId: WeaponId): boolean {
+  const held = [player.weapon, player.holstered?.weapon].find((w): w is WeaponId => !!w && slotOf(w) === slotOf(weaponId));
+  return !!held && WEAPONS[held].price >= WEAPONS[weaponId].price;
+}
+
 export function canBuy(world: World, playerId: string, weaponId: WeaponId): boolean {
   if (world.phase !== 'buy') return false;
   const weapon = WEAPONS[weaponId];
   const player = world.players.find((p) => p.id === playerId);
-  return !!weapon && !!player && player.alive && player.money >= weapon.price && !owns(player, weaponId);
+  return !!weapon && !!player && player.alive && player.money >= weapon.price && !owns(player, weaponId) && !isDowngrade(player, weaponId);
 }
 
 /** Devolve o mesmo `world` quando a compra é recusada. */

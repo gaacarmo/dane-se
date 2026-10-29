@@ -58,7 +58,7 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
           yaw: lookRef.current.yaw,
           pitch: lookRef.current.pitch,
           jump: k.has('Space'),
-          crouch: k.has('ControlLeft') || k.has('KeyC'),
+          crouch: k.has('KeyC'),
           walk: k.has('ShiftLeft') || k.has('ShiftRight'),
           fire: locked && firing.current,
           reload,
@@ -112,7 +112,7 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
       if (e.code === 'KeyR') reloadEdge.current = true;
       if (e.code === 'Digit1') slotEdge.current = 1;
       if (e.code === 'Digit2') slotEdge.current = 2;
-      if (e.code === 'Space' || e.code === 'ControlLeft') e.preventDefault();
+      if (e.code === 'Space') e.preventDefault();
     };
     const onKeyUp = (e: KeyboardEvent) => keys.current.delete(e.code);
     const onMouseMove = (e: MouseEvent) => {
