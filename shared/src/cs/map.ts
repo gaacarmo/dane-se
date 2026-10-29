@@ -1,6 +1,8 @@
 import { randomInt } from '../rng.js';
 import { raycast } from './physics.js';
 import { CANTINA } from './maps/cantina.js';
+import { ESTACIONAMENTO } from './maps/estacionamento.js';
+import { TERMINAL_BOQUEIRAO } from './maps/terminal-boqueirao.js';
 import type { Side, Vec3 } from './types.js';
 
 export interface Box {
@@ -23,7 +25,7 @@ export interface MapDef {
   stage?: Vec3;
 }
 
-export const MAPS: readonly MapDef[] = [CANTINA];
+export const MAPS: readonly MapDef[] = [CANTINA, ESTACIONAMENTO, TERMINAL_BOQUEIRAO];
 
 const withBarrierCache = new WeakMap<MapDef, MapDef>();
 
