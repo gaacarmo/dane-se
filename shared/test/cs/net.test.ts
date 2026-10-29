@@ -15,7 +15,28 @@ import { IDLE_INPUT, stepWorld, type PlayerInput, type World, type WorldEvent } 
 
 const validInput = (patch: Partial<PlayerInput> = {}): PlayerInput => ({ ...IDLE_INPUT, ...patch });
 
+describe('bomb in the snapshot', () => {
+  const carried = (): Match => {
+    const match = scattered(liveMatch());
+    const bomb = { ...match.world.bomb, status: 'carried' as const, pos: { x: 30, y: 0, z: 20 }, planterId: 'bot-A2', progress: { who: 'bot-A2', ms: 900 } };
+    return { ...match, world: { ...match.world, bomb } };
+  };
+
+  it('keeps the loose bomb and the plant in progress from the defenders', () => {
+    const bomb = snapFor(carried(), 'h2').bomb;
+    expect(bomb).toMatchObject({ pos: null, progress: null, planterId: null });
+  });
+
+  it('shows the attackers everything about the bomb', () => {
+    expect(snapFor(carried(), 'h1').bomb).toMatchObject({ pos: { x: 30, y: 0, z: 20 }, progress: { who: 'bot-A2', ms: 900 } });
+  });
+});
+
 describe('sanitizeInput', () => {
+  it('wraps a huge yaw into a turn', () => {
+    expect(Math.abs(sanitizeInput({ ...IDLE_INPUT, yaw: 1e20 })!.yaw)).toBeLessThanOrEqual(Math.PI);
+  });
+
   it('accepts a well formed input', () => {
     const input = validInput({ moveZ: 1, yaw: 1.2, pitch: 0.3, fire: true, slot: 2 });
     expect(sanitizeInput(input)).toEqual(input);

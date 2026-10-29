@@ -42,6 +42,8 @@ import type { GameSocket, IO, RoomManager } from '../rooms.js';
 const CODE_ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'; // sem vogais, como nas outras salas
 const MAX_HUMANS = TEAM_LIMIT * 2;
 const MAX_NAME_LENGTH = 16;
+/** Meio segundo sem entrada: a partir daí o jogador conta como parado. */
+const SILENT_STEPS_LIMIT = 30;
 const MAX_VOICE_SIGNAL_BYTES = 16_000;
 const PING_INTERVAL_MS = 300;
 const PING_KINDS: readonly PingKind[] = ['attention', 'enemy', 'go'];
@@ -74,6 +76,8 @@ interface CsMemberState {
   lastSeq: number;
   /** Rodada em que o cliente confirmou o olhar na última entrada; `undefined` se ele nunca informou. */
   lastRound: number | undefined;
+  /** Passos seguidos sem entrada nova; depois de um tempo a entrada repetida vira ociosa. */
+  silentSteps: number;
   /** Maior `seq` já aceito na fila, para ignorar repetidas e atrasadas. */
   acceptedSeq: number;
   lastPingAt: number;
@@ -215,11 +219,23 @@ export class CsRoomManager {
     const member = room.members.find((m) => m.token === token);
     if (!member) return fail('SESSION_NOT_FOUND');
 
+    const current = this.context(socket);
+    if (current && current.member !== member) return fail('ALREADY_IN_ROOM');
+
     socket.data.profileId = member.profileId;
     member.left = false;
     member.idleSince = null;
+    // O cliente que volta numera as entradas do zero e o olhar vale o do corpo atual.
+    const body = room.match?.world.players.find((p) => p.id === member.id);
+    member.queue = [];
+    member.acceptedSeq = 0;
+    member.lastSeq = 0;
+    member.lastRound = undefined;
+    member.silentSteps = 0;
+    member.lastInput = body ? { ...IDLE_INPUT, yaw: body.yaw, pitch: body.pitch } : IDLE_INPUT;
     if (room.status === 'playing' && room.match) room.match = setBotControl(room.match, member.id, false);
     this.attach(room, member, socket);
+    this.touchHost(room);
     this.sendStart(room, member);
     this.broadcastLobby(room);
     return { ok: true, ...this.session(room, member) };
@@ -245,6 +261,7 @@ export class CsRoomManager {
     if (ctx.room.status !== 'lobby') return fail('GAME_IN_PROGRESS');
     if (raw !== 'A' && raw !== 'B') return fail('INVALID_PAYLOAD');
     if (!canJoinTeam(this.publicMembers(ctx.room), ctx.member.id, raw)) return fail('TEAM_FULL');
+    this.dropVoice(ctx.room, ctx.member);
     ctx.member.team = raw;
     this.broadcastLobby(ctx.room);
     return OK;
@@ -284,6 +301,7 @@ export class CsRoomManager {
       targetSocket.emit('room:kicked');
     }
     target.socketId = null;
+    target.token = randomUUID();
     this.removeOrBot(ctx.room, target, true);
     return OK;
   }
@@ -433,6 +451,10 @@ export class CsRoomManager {
         m.lastInput = next.input;
         m.lastSeq = next.seq;
         m.lastRound = next.round;
+        m.silentSteps = 0;
+      } else if (++m.silentSteps > SILENT_STEPS_LIMIT) {
+        // Cliente mudo (aba oculta, rede parada): para de andar e atirar, mantendo o olhar.
+        m.lastInput = { ...IDLE_INPUT, yaw: m.lastInput.yaw, pitch: m.lastInput.pitch };
       } else {
         // Sem entrada nova repete a anterior, menos o que só vale uma vez (recarregar e trocar de arma).
         m.lastInput = { ...m.lastInput, reload: false, slot: 0 };
@@ -507,7 +529,11 @@ export class CsRoomManager {
     const { to, data } = payload as { to?: unknown; data?: unknown };
     const target = ctx.room.members.find((m) => m.id === to && m !== ctx.member && m.team === ctx.member.team);
     if (!target?.inVoice || !target.socketId) return;
-    if (!data || typeof data !== 'object' || JSON.stringify(data).length > MAX_VOICE_SIGNAL_BYTES) return;
+    try {
+      if (!data || typeof data !== 'object' || JSON.stringify(data).length > MAX_VOICE_SIGNAL_BYTES) return;
+    } catch {
+      return;
+    }
     this.socketOf(target.socketId)?.emit('voice:signal', { from: ctx.member.id, data: data as VoiceSignal });
   }
 
@@ -557,6 +583,8 @@ export class CsRoomManager {
       member.idleSince = Date.now();
     }
     if (!room.members.some((m) => m.socketId !== null)) {
+      // Partida acabada: quem recarregou a página ainda pode voltar até o sweep fechar a sala.
+      if (room.status === 'finished' && !left && room.members.length > 0) return;
       this.closeRoom(room, 'everyoneLeft');
       return;
     }
@@ -577,7 +605,7 @@ export class CsRoomManager {
     const now = Date.now();
     for (const room of [...this.rooms.values()]) {
       if (room.members.some((m) => m.socketId !== null)) continue;
-      const idle = Math.min(...room.members.map((m) => m.idleSince ?? now));
+      const idle = Math.max(...room.members.map((m) => m.idleSince ?? now));
       if (now - idle >= ttl) this.closeRoom(room, 'idle');
     }
   }
@@ -617,6 +645,7 @@ export class CsRoomManager {
       lastInput: IDLE_INPUT,
       lastSeq: 0,
       lastRound: undefined,
+      silentSteps: 0,
       acceptedSeq: 0,
       lastPingAt: 0,
       idleSince: null,

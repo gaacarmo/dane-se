@@ -40,7 +40,9 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 function wrapAngle(a: number): number {
-  return a - Math.PI * 2 * Math.round(a / (Math.PI * 2));
+  const turn = Math.PI * 2;
+  const r = a % turn;
+  return r > Math.PI ? r - turn : r < -Math.PI ? r + turn : r;
 }
 
 /** Entrada que veio da rede: nunca é confiável. Devolve null quando o formato não serve. */
@@ -283,12 +285,20 @@ export function buildSnapshot(
     forfeitedBy: match.forfeitedBy,
     pauseMs: match.pauseMs === null ? null : Math.round(match.pauseMs),
     end: world.end,
-    bomb: world.bomb,
+    bomb: visibleBomb(world, team),
     players,
     heard,
     events: filterEvents(events, world, viewerId, team, seenEnemies, ear),
     stats: match.stats,
   };
+}
+
+/** A defesa só fica sabendo da bomba quando ela é plantada: antes disso a posição e o plantio em andamento são do ataque. */
+function visibleBomb(world: World, team: TeamId): World['bomb'] {
+  const side = world.players.find((p) => p.team === team)?.side;
+  const { bomb } = world;
+  if (side !== 'defense' || bomb.status !== 'carried') return bomb;
+  return { ...bomb, pos: null, planterId: null, progress: null };
 }
 
 function blankPlayer(entry: RosterEntry, side: SimPlayer['side']): SimPlayer {

@@ -301,6 +301,20 @@ describe('match', () => {
     expect(p.self()!.yaw).toBeCloseTo(Math.PI / 2, 0);
   });
 
+  it('stops a player whose client went silent while holding a key', async () => {
+    const { players, code } = await started(1);
+    const p = players[0]!;
+    server.cs.advance(code, 41_000);
+    await p.until(() => p.lastSnapshot()?.phase === 'live');
+    const start = (await p.until(() => p.self()))!.x;
+    p.input(1, { moveZ: 1, yaw: -Math.PI / 2 });
+    await p.until(() => p.lastSnapshot()!.ack >= 1);
+    server.cs.advance(code, 4000);
+    const x = server.cs.match(code)!.world.players.find((q) => q.id === p.session!.playerId)!.body.pos.x;
+    expect(x - start).toBeGreaterThan(0.5);
+    expect(x - start).toBeLessThan(4);
+  });
+
   it('survives garbage input and keeps ticking', async () => {
     const { players } = await started();
     const p = players[0]!;
@@ -378,6 +392,34 @@ describe('match', () => {
     expect((await back.call('cs:resume', { code, token })).ok).toBe(true);
     await host.until(() => server.cs.match(code)?.roster.find((r) => r.id === id)?.bot === false);
     await back.until(() => back.started && back.snapshots.length > 0);
+  });
+
+  it('lets a player who comes back with the token move again even though the new socket numbers its inputs from 1', async () => {
+    const { players, code } = await started();
+    const [host, guest] = players as [CsClient, CsClient];
+    const token = guest.session!.token;
+    server.cs.advance(code, 41_000);
+    await guest.until(() => guest.lastSnapshot()?.phase === 'live');
+    for (let seq = 1; seq <= 300; seq++) guest.input(seq, { yaw: -Math.PI / 2 });
+    await guest.until(() => guest.lastSnapshot()!.ack >= 300);
+    guest.close();
+    await host.until(() => server.cs.match(code)?.roster.find((r) => r.id === guest.session!.playerId)?.bot === true);
+
+    const back = client('P2');
+    const resumed = await back.call<Session>('cs:resume', { code, token });
+    expect(resumed.ok).toBe(true);
+    if (resumed.ok) back.session = resumed;
+    await back.until(() => back.self());
+    const before = back.self()!;
+    let seq = 0;
+    const timer = setInterval(() => back.input(++seq, { moveZ: 1, yaw: -Math.PI / 2 }), 16);
+    try {
+      await back.until(() => (back.self()?.x ?? 0) > before.x + 0.5);
+    } finally {
+      clearInterval(timer);
+    }
+    expect(back.lastSnapshot()!.ack).toBeGreaterThan(0);
+    expect(back.lastSnapshot()!.ack).toBeLessThan(300);
   });
 
   it('ends the match for the other team when a whole team forfeits', async () => {
