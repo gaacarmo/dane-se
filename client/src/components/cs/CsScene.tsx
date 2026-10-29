@@ -1,7 +1,12 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useRef, type MutableRefObject } from 'react';
+import { Suspense, useMemo, useRef, type MutableRefObject } from 'react';
 import * as THREE from 'three';
-import { bodyHeight, eyePos, PLAYER_RADIUS, type Match, type MapDef, type TeamId } from '@dane-se/shared';
+import { bodyHeight, eyePos, type CharacterId, type Match, type MapDef, type TeamId } from '@dane-se/shared';
+import { CHARACTER_SPECS } from '../table3d/characterSpecs';
+import { bodyTexture } from '../table3d/bodyTextures';
+import { FACE_HEIGHT, PortraitHead } from '../table3d/PortraitHead';
+import type { Ping } from '@dane-se/shared';
+import { PING_KINDS } from './pings';
 import type { CsInput } from './useCsInput';
 
 const TEAM_COLOR: Record<TeamId, string> = { A: '#4a7a8c', B: '#a8703c' };
@@ -42,33 +47,69 @@ function MapGeometry({ map }: { map: MapDef }) {
   );
 }
 
-function PlayerMesh({ matchRef, id }: { matchRef: MutableRefObject<Match>; id: string }) {
+/** Altura do corpo desenhado; as caixas de acerto do motor (HITBOX_ZONES) seguem as mesmas proporções. */
+const FIGURE_HEIGHT = 1.8;
+const HEAD_TOP = 0.82 * FIGURE_HEIGHT;
+const TORSO_BOTTOM = 0.45 * FIGURE_HEIGHT;
+
+/** Figura estática do personagem: cabeça do retrato, camisa e pernas, sempre de frente para a câmera. */
+function CsFigure({ matchRef, id, character }: { matchRef: MutableRefObject<Match>; id: string; character: CharacterId }) {
   const group = useRef<THREE.Group>(null);
-  const body = useRef<THREE.Mesh>(null);
-  const head = useRef<THREE.Mesh>(null);
-  useFrame(() => {
+  const spec = CHARACTER_SPECS[character];
+  const shirt = useMemo(() => bodyTexture(spec), [spec]);
+  const team = matchRef.current.world.players.find((x) => x.id === id)!.team;
+
+  useFrame(({ camera }) => {
     const p = matchRef.current.world.players.find((x) => x.id === id);
     const g = group.current;
     if (!p || !g) return;
     g.visible = p.alive;
     g.position.set(p.body.pos.x, p.body.pos.y, p.body.pos.z);
-    g.rotation.y = p.yaw;
-    const h = bodyHeight(p.body);
-    body.current?.scale.set(1, (h - 0.35) / 1.45, 1);
-    if (body.current) body.current.position.y = (h - 0.35) / 2;
-    if (head.current) head.current.position.y = h - 0.18;
+    g.rotation.y = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z);
+    g.scale.y = bodyHeight(p.body) / FIGURE_HEIGHT;
   });
-  const team = matchRef.current.world.players.find((x) => x.id === id)!.team;
+
   return (
     <group ref={group}>
-      <mesh ref={body}>
-        <cylinderGeometry args={[PLAYER_RADIUS, PLAYER_RADIUS, 1.45, 12]} />
-        <meshStandardMaterial color={TEAM_COLOR[team]} />
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.03, 0]}>
+        <ringGeometry args={[0.36, 0.44, 24]} />
+        <meshBasicMaterial color={TEAM_COLOR[team]} side={THREE.DoubleSide} />
       </mesh>
-      <mesh ref={head}>
-        <sphereGeometry args={[0.18, 12, 10]} />
-        <meshStandardMaterial color="#c9b79c" />
+      {[-0.1, 0.1].map((x) => (
+        <mesh key={x} position={[x, TORSO_BOTTOM / 2, 0]}>
+          <boxGeometry args={[0.16, TORSO_BOTTOM, 0.16]} />
+          <meshStandardMaterial color="#23262b" />
+        </mesh>
+      ))}
+      <mesh position={[0, TORSO_BOTTOM + 0.36, 0]}>
+        <planeGeometry args={[0.72, 0.72]} />
+        <meshBasicMaterial map={shirt} transparent alphaTest={0.02} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
+      <group position={[0, HEAD_TOP, 0]} scale={(FIGURE_HEIGHT - HEAD_TOP) / FACE_HEIGHT}>
+        <Suspense fallback={null}>
+          <PortraitHead id={character} gaze={0} nod={0} />
+        </Suspense>
+      </group>
+    </group>
+  );
+}
+
+/** Coluna colorida no ponto pingado, visível de longe. */
+function PingMarkers({ pings }: { pings: Ping[] }) {
+  return (
+    <group>
+      {pings.map((ping) => (
+        <group key={ping.id} position={[ping.x, 0, ping.z]}>
+          <mesh position={[0, 1.4, 0]}>
+            <cylinderGeometry args={[0.07, 0.07, 2.8, 8]} />
+            <meshBasicMaterial color={PING_KINDS[ping.kind].color} transparent opacity={0.55} fog={false} />
+          </mesh>
+          <mesh rotation-x={-Math.PI / 2} position={[0, 0.04, 0]}>
+            <ringGeometry args={[0.5, 0.65, 24]} />
+            <meshBasicMaterial color={PING_KINDS[ping.kind].color} side={THREE.DoubleSide} fog={false} />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }
@@ -126,12 +167,14 @@ export function CsScene({
   meId,
   input,
   roundKey,
+  pings,
 }: {
   matchRef: MutableRefObject<Match>;
   meId: string;
   input: CsInput;
   /** Muda a cada rodada para remontar a cena com o mapa e os jogadores certos. */
   roundKey: number;
+  pings: Ping[];
 }) {
   const match = matchRef.current;
   return (
@@ -145,9 +188,10 @@ export function CsScene({
       {match.roster
         .filter((r) => r.id !== meId)
         .map((r) => (
-          <PlayerMesh key={`${roundKey}-${r.id}`} matchRef={matchRef} id={r.id} />
+          <CsFigure key={`${roundKey}-${r.id}`} matchRef={matchRef} id={r.id} character={r.character} />
         ))}
       <Bomb matchRef={matchRef} />
+      <PingMarkers pings={pings} />
       <FirstPerson matchRef={matchRef} meId={meId} input={input} />
     </Canvas>
   );
