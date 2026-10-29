@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { KILL_REWARD } from '../../src/cs/economy.js';
 import { WEAPONS } from '../../src/cs/weapons.js';
 import { spreadFor, stepWorld } from '../../src/cs/sim.js';
-import { aimInput, duel, input, patchPlayer, player, run, teleport, wallArena } from './helpers.js';
+import { aimInput, aimPoint, duel, input, patchPlayer, player, run, teleport, wallArena } from './helpers.js';
 
 const STEP = 10;
 
@@ -129,5 +129,34 @@ describe('spreadFor', () => {
     const weapon = WEAPONS.tabelinha;
     expect(spreadFor({ ...base, shots: 3 }, weapon)).toBeGreaterThan(spreadFor({ ...base, shots: 0 }, weapon));
     expect(spreadFor({ ...base, shots: 99 }, weapon)).toBe(weapon.spreadMax);
+  });
+});
+
+describe('hitbox', () => {
+  const shootAt = (x: number, y: number) => {
+    const world = duel();
+    const shot = { a1: aimPoint(world, 'a1', { x: 10 + x, y, z: 0 }, { fire: true }) };
+    return player(run(world, shot, STEP, STEP).world, 'b1');
+  };
+
+  it('is narrower at the head than the drawn shoulders', () => {
+    expect(shootAt(0.12, 1.64).alive).toBe(false);
+    expect(shootAt(0.25, 1.64).hp).toBe(100);
+    expect(shootAt(0.25, 1.15).hp).toBe(70);
+  });
+
+  it('is narrower at the legs than the torso', () => {
+    expect(shootAt(0.15, 0.4).hp).toBe(78);
+    expect(shootAt(0.32, 0.4).hp).toBe(100);
+  });
+
+  it('shrinks with the crouch', () => {
+    let world = duel();
+    world = patchPlayer(world, 'b1', { body: { ...player(world, 'b1').body, crouch: true } });
+    const shot = {
+      a1: aimPoint(world, 'a1', { x: 10, y: 1.6, z: 0 }, { fire: true }),
+      b1: input({ crouch: true }),
+    };
+    expect(player(run(world, shot, STEP, STEP).world, 'b1').hp).toBe(100);
   });
 });

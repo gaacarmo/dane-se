@@ -3,6 +3,7 @@ import { START_MONEY } from '../../src/cs/economy.js';
 import { MAX_ROUNDS_WON, SWAP_EVERY, matchWinner, sideOf } from '../../src/cs/match.js';
 import { createMatch, forfeit, stepMatch, type Match } from '../../src/cs/runner.js';
 import type { TeamId } from '../../src/cs/types.js';
+import { CHARACTER_IDS } from '../../src/characters.js';
 
 const human = (id: string) => ({ id, name: id });
 const teamOf = (match: Match, team: TeamId) => match.roster.filter((r) => r.team === team);
@@ -60,6 +61,23 @@ describe('createMatch', () => {
     expect(match.mapId).toBe(match.world.map.id);
     expect(match.world.phase).toBe('buy');
     expect(match.score).toEqual({ A: 0, B: 0 });
+  });
+});
+
+describe('characters', () => {
+  it('gives each of the six players a different Dane-se character', () => {
+    const match = createMatch([human('h1')], 1);
+    const ids = match.roster.map((r) => r.character);
+    expect(new Set(ids).size).toBe(6);
+    for (const id of ids) expect(CHARACTER_IDS).toContain(id);
+    expect(match.world.players.map((p) => p.character)).toEqual(ids);
+  });
+
+  it('is deterministic per seed and varies across seeds', () => {
+    const pick = (seed: number) => createMatch([], seed).roster.map((r) => r.character).join();
+    expect(pick(5)).toBe(pick(5));
+    const seen = new Set([1, 2, 3, 4, 5, 6].map(pick));
+    expect(seen.size).toBeGreaterThan(1);
   });
 });
 

@@ -1,8 +1,9 @@
+import type { CharacterId } from '../characters.js';
 import { nextRandom, randomInt } from '../rng.js';
 import { DEFUSE_REWARD, KILL_REWARD, PLANT_REWARD, addMoney } from './economy.js';
 import { sideOf } from './match.js';
 import type { Box, MapDef } from './map.js';
-import { bodyHeight, eyePos, moveBody, PLAYER_RADIUS, raycast, rayBoxDistance, type Body } from './physics.js';
+import { bodyHeight, eyePos, moveBody, raycast, rayBoxDistance, type Body } from './physics.js';
 import type { Side, TeamId, Vec3 } from './types.js';
 import { WEAPONS, damageFor, type HitZone, type WeaponDef, type WeaponId } from './weapons.js';
 
@@ -17,8 +18,15 @@ const BOMB_REACH = 1.5;
 const SHOT_RANGE = 200;
 const SHOT_DECAY_MS = 150;
 
-/** Frações da altura do corpo onde cada zona termina (pernas, corpo; o resto é cabeça). */
-export const HITBOX = { legsTop: 0.45, bodyTop: 0.82 } as const;
+/**
+ * Caixas de acerto por zona, em frações da altura do corpo, com a meia-largura em metros. Seguem o desenho do
+ * personagem: pernas finas, ombros largos e cabeça estreita, iguais para todos os personagens.
+ */
+export const HITBOX_ZONES: readonly { zone: HitZone; from: number; to: number; half: number }[] = [
+  { zone: 'legs', from: 0, to: 0.45, half: 0.25 },
+  { zone: 'body', from: 0.45, to: 0.82, half: 0.36 },
+  { zone: 'head', from: 0.82, to: 1, half: 0.18 },
+];
 const STILL_INPUT = 0.05;
 
 export type RoundPhase = 'buy' | 'live' | 'over';
@@ -54,6 +62,7 @@ export interface SimPlayer {
   team: TeamId;
   side: Side;
   bot: boolean;
+  character: CharacterId;
   alive: boolean;
   hp: number;
   body: Body;
@@ -105,6 +114,7 @@ export interface RosterEntry {
   name: string;
   team: TeamId;
   bot: boolean;
+  character: CharacterId;
   money: number;
   weapon: WeaponId;
 }
@@ -143,6 +153,7 @@ export function createWorld(map: MapDef, roundIndex: number, roster: RosterEntry
       team: entry.team,
       side,
       bot: entry.bot,
+      character: entry.character,
       alive: true,
       hp: MAX_HP,
       body: { pos: { ...spawn }, vel: { x: 0, y: 0, z: 0 }, onGround: true, crouch: false },
@@ -396,24 +407,27 @@ function fireShot(world: World, shooter: SimPlayer, weapon: WeaponDef): void {
 
   const wall = raycast(world.map, origin, dir, SHOT_RANGE) ?? Infinity;
   let victim: SimPlayer | null = null;
+  let zone: HitZone = 'body';
   let nearest = Infinity;
   for (const enemy of world.players) {
     if (!enemy.alive || enemy.team === shooter.team) continue;
     const feet = enemy.body.pos;
-    const box = {
-      min: { x: feet.x - PLAYER_RADIUS, y: feet.y, z: feet.z - PLAYER_RADIUS },
-      max: { x: feet.x + PLAYER_RADIUS, y: feet.y + bodyHeight(enemy.body), z: feet.z + PLAYER_RADIUS },
-    };
-    const t = rayBoxDistance(origin, dir, box, SHOT_RANGE);
-    if (t !== null && t < wall && t < nearest) {
-      nearest = t;
-      victim = enemy;
+    const height = bodyHeight(enemy.body);
+    for (const part of HITBOX_ZONES) {
+      const box = {
+        min: { x: feet.x - part.half, y: feet.y + height * part.from, z: feet.z - part.half },
+        max: { x: feet.x + part.half, y: feet.y + height * part.to, z: feet.z + part.half },
+      };
+      const t = rayBoxDistance(origin, dir, box, SHOT_RANGE);
+      if (t !== null && t < wall && t < nearest) {
+        nearest = t;
+        victim = enemy;
+        zone = part.zone;
+      }
     }
   }
   if (!victim) return;
 
-  const fraction = (origin.y + dir.y * nearest - victim.body.pos.y) / bodyHeight(victim.body);
-  const zone: HitZone = fraction < HITBOX.legsTop ? 'legs' : fraction < HITBOX.bodyTop ? 'body' : 'head';
   victim.hp = Math.max(0, victim.hp - damageFor(weapon, zone));
   if (victim.hp > 0) return;
   victim.alive = false;

@@ -16,10 +16,10 @@ import {
 } from '../../src/cs/sim.js';
 
 export const roster2v2: RosterEntry[] = [
-  { id: 'a1', name: 'A1', team: 'A', bot: false, money: 800, weapon: 'chinelo' },
-  { id: 'a2', name: 'A2', team: 'A', bot: false, money: 800, weapon: 'chinelo' },
-  { id: 'b1', name: 'B1', team: 'B', bot: false, money: 800, weapon: 'chinelo' },
-  { id: 'b2', name: 'B2', team: 'B', bot: false, money: 800, weapon: 'chinelo' },
+  { id: 'a1', name: 'A1', team: 'A', bot: false, character: 'carmelo', money: 800, weapon: 'chinelo' },
+  { id: 'a2', name: 'A2', team: 'A', bot: false, character: 'martelo', money: 800, weapon: 'chinelo' },
+  { id: 'b1', name: 'B1', team: 'B', bot: false, character: 'babin', money: 800, weapon: 'chinelo' },
+  { id: 'b2', name: 'B2', team: 'B', bot: false, character: 'dezin', money: 800, weapon: 'chinelo' },
 ];
 
 /** Rodada 0 na Cantina: o time A ataca e o time B defende. */
@@ -142,4 +142,17 @@ export function runBots(
     if (opts.stopWhen?.(current)) break;
   }
   return { world: current, events, memories };
+}
+
+/** Input que mira um ponto qualquer do mundo, com as outras teclas em `patch`. */
+export function aimPoint(
+  world: World,
+  shooterId: string,
+  point: { x: number; y: number; z: number },
+  patch: Partial<PlayerInput> = {},
+): PlayerInput {
+  const shooter = player(world, shooterId);
+  const eye = { x: shooter.body.pos.x, y: shooter.body.pos.y + 1.65, z: shooter.body.pos.z };
+  const look = aimAt(eye, point);
+  return input({ yaw: look.yaw, pitch: look.pitch, ...patch });
 }

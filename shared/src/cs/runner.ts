@@ -1,3 +1,5 @@
+import { CHARACTER_IDS, type CharacterId } from '../characters.js';
+import { shuffle } from '../rng.js';
 import { botBuy, botInput, createBotMemory, type BotMemory } from './bot.js';
 import { buyWeapon } from './buy.js';
 import { START_MONEY, addMoney, nextLossStreak, roundReward } from './economy.js';
@@ -34,6 +36,7 @@ function otherTeam(team: TeamId): TeamId {
 export function createMatch(humans: { id: string; name: string }[], seed: number): Match {
   const roster: RosterEntry[] = [];
   const memories: Record<string, BotMemory> = {};
+  const characters: CharacterId[] = shuffle(CHARACTER_IDS, seed).items;
   const seats: Record<TeamId, { id: string; name: string }[]> = {
     A: humans.slice(0, TEAM_SIZE),
     B: humans.slice(TEAM_SIZE, TEAM_SIZE * 2),
@@ -41,11 +44,27 @@ export function createMatch(humans: { id: string; name: string }[], seed: number
 
   for (const team of ['A', 'B'] as const) {
     for (const h of seats[team]) {
-      roster.push({ id: h.id, name: h.name, team, bot: false, money: START_MONEY, weapon: STARTER_WEAPON });
+      roster.push({
+        id: h.id,
+        name: h.name,
+        team,
+        bot: false,
+        character: characters[roster.length]!,
+        money: START_MONEY,
+        weapon: STARTER_WEAPON,
+      });
     }
     for (let n = seats[team].length + 1; n <= TEAM_SIZE; n++) {
       const id = `bot-${team}${n}`;
-      roster.push({ id, name: `Bot ${team}${n}`, team, bot: true, money: START_MONEY, weapon: STARTER_WEAPON });
+      roster.push({
+        id,
+        name: `Bot ${team}${n}`,
+        team,
+        bot: true,
+        character: characters[roster.length]!,
+        money: START_MONEY,
+        weapon: STARTER_WEAPON,
+      });
       memories[id] = createBotMemory(seed + roster.length * 13);
     }
   }
