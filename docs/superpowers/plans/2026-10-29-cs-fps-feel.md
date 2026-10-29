@@ -163,3 +163,36 @@ Regras: nova fase `buy` abre o mercado e solta o mouse; `live` fecha o mercado s
 - Cobre o pedido: mouse/mercado (T5, T6), tiro visível (T2, T7), "FPS de verdade" (T1 slots, T3 recuo, T4 inércia, T7 arma e câmera, T8 mira, HUD e áudio, T9 acabamento).
 - Fora desta rodada, de propósito: armadura e kit de desarme, granadas, rádio de voz, multiplayer (etapa 2), celular (etapa 3).
 - Consistência: `RoundPhase` vem de `sim.ts`; `slot`/`walk` nascem na T1 e a T4/T6 só os consomem; os eventos `shot`/`hit` nascem na T2 e a T3 os usa nos testes.
+
+---
+
+## Adendo (pedido do usuário depois da Task 8): bots roubados e começo de rodada estilo R6
+
+Pedido: "balancea os bots, tá muito roubado" e "a gente não pode se encontrar logo de cara, tem que ser momentos A, B e C, igual R6".
+Leitura (minha, a confirmar): os momentos são as fases da rodada: **A preparação** (times separados), **B ação** (o portão cai e os atacantes entram) e **C bomba plantada** (já existe).
+
+### Task 9: Habilidade dos bots
+
+**Files:** Modify `bot.ts`, `runner.ts`; Test `bot.test.ts`, `runner.test.ts`, `helpers.ts`.
+
+**Interfaces — Produces:** `interface BotSkill { reactionMs: [number, number]; aimErrorDeg: number; moveErrorDeg: number; distanceErrorDeg: number; turnRateDegS: number; headChance: number; recoilControl: number; fovDeg: number }`; `type Difficulty = 'easy' | 'normal' | 'hard'`; `BOT_SKILLS: Record<Difficulty, BotSkill>`; `createBotMemory(seed, skill = BOT_SKILLS.normal)`; `createMatch(humans, seed, difficulty = 'normal')`; cada bot recebe a habilidade da dificuldade com variação de ±15% por bot (semeada).
+Regras: o bot mira no peito e só mira a cabeça com probabilidade `headChance` por rajada; o erro de mira é persistente (renovado a cada 120–220 ms) e cresce com distância, movimento do bot e velocidade do alvo; compensa só `recoilControl` do recuo; só adquire alvo dentro de `fovDeg` e perde o alvo que sai de 150° de campo; reação e giro vêm da habilidade.
+
+- [ ] **Step 1: Failing tests.** Tempo mediano para o bot `normal` matar um alvo parado a 10 m com fuzil fica entre 1,0 s e 3,5 s em 20 seeds; `easy` é mais lento que `normal` e `normal` mais lento que `hard` (medianas); no `normal` a minoria dos abates é headshot (≤ 40% em 30 duelos); `createBotMemory` sem skill usa o `normal`; bot não atira em quem está fora do campo de visão.
+- [ ] **Step 2:** `npm run test -w shared -- cs/bot` — Expected: FAIL.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4:** `npm run test -w shared` — Expected: PASS (ajustar o limiar do teste antigo "acerta em 2 s" para a habilidade normal).
+- [ ] **Step 5: Commit** `feat(cs): habilidade e dificuldade dos bots`
+
+### Task 10: Fases da rodada (preparação, ação, bomba plantada)
+
+**Files:** Modify `map.ts`, `maps/cantina.ts`, `sim.ts`, `bot.ts`, `flow.ts`, `runner.ts`, `CsScene.tsx`, `CsMap.tsx`, `CsHud.tsx`, `audioDirector.ts`; Test `sim-round.test.ts`, `bot.test.ts`, `flow.test.ts`, `helpers.ts`.
+
+**Interfaces — Produces:** `RoundPhase = 'buy' | 'prep' | 'live' | 'over'`; `PREP_MS = 25_000`; `MapDef.barrier: Box` (portão que separa os times) e `MapDef.stage: Vec3` (ponto de espera dos atacantes); `World.baseMap: MapDef` e `World.map` passa a ser o mapa efetivo (com o portão como sólido durante `buy` e `prep`); `ATTACK_EXECUTE_MS = 14_000`.
+Regras: `buy` (15 s, parado) → `prep` (25 s, anda dentro do próprio lado, sem atirar, sem plantar) → `live` (5 min, o portão cai); o fim de rodada só vale em `live`. Atacantes bots esperam no `stage` durante `prep` e nos primeiros `ATTACK_EXECUTE_MS` de `live`, depois entram juntos; defensores seguram os pontos. O cliente mostra "Preparação" e "Ação", desenha o portão translúcido e o remove na ação.
+
+- [ ] **Step 1: Failing tests.** Portão existe em `buy` e `prep` e some em `live`; jogador não cruza o portão em 20 s empurrando; sem tiro e sem planta em `prep`; `prep` dura `PREP_MS` e `live` começa com `LIVE_MS`; fluxo trata `prep` como jogo (sem mercado, pausa à espera do clique); bots atacantes ficam do lado deles durante `prep` e só cruzam depois de `ATTACK_EXECUTE_MS`; partidas completas de bots ainda terminam e as duas equipes ganham.
+- [ ] **Step 2:** `npm run test -w shared` — Expected: FAIL nos novos.
+- [ ] **Step 3: Implement** motor, bots e fluxo; depois cliente (HUD, cena, mapa, áudio).
+- [ ] **Step 4:** `npm run typecheck && npm test` — Expected: PASS; captura de tela do portão e da fase no navegador.
+- [ ] **Step 5: Commit** `feat(cs): fase de preparação com portão e entrada dos atacantes`
