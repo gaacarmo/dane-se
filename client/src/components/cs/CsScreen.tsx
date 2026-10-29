@@ -84,6 +84,8 @@ function CsGame({ onExit }: { onExit: () => void }) {
   const input = useCsInput(stage3d);
   const pausedRef = useRef(false);
   pausedRef.current = menuOpen;
+  const lockedRef = useRef(false);
+  lockedRef.current = input.locked;
 
   const me = hud.world.players.find((p) => p.id === meId)!;
   const phase = hud.world.phase;
@@ -107,7 +109,9 @@ function CsGame({ onExit }: { onExit: () => void }) {
     const tick = (now: number) => {
       const dt = Math.min(100, now - last);
       last = now;
-      if (!pausedRef.current) {
+      const current = matchRef.current;
+      const waitingForLock = current.world.phase === 'live' && !lockedRef.current && !current.winner;
+      if (!pausedRef.current && !waitingForLock) {
         acc += dt;
         let steps = 0;
         while (acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
@@ -126,6 +130,7 @@ function CsGame({ onExit }: { onExit: () => void }) {
             input.setLook(mine.yaw, 0);
             setRoundKey(round);
             setBuyOpen(true);
+            input.releaseLock();
           }
           acc -= STEP_MS;
           steps++;
@@ -154,6 +159,10 @@ function CsGame({ onExit }: { onExit: () => void }) {
     if (wasLocked.current && !input.locked && phase !== 'buy' && !hud.winner) setMenuOpen(true);
     wasLocked.current = input.locked;
   }, [input.locked, phase, hud.winner]);
+
+  useEffect(() => {
+    if (hud.winner) input.releaseLock();
+  }, [hud.winner, input]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -196,7 +205,7 @@ function CsGame({ onExit }: { onExit: () => void }) {
   }
 
   const showBuy = phase === 'buy' && buyOpen && !hud.winner;
-  const needsClick = phase !== 'buy' && !input.locked && !menuOpen && !hud.winner;
+  const needsClick = !input.locked && !menuOpen && !hud.winner && !showBuy;
 
   return (
     <main className="fixed inset-0 z-50 overflow-hidden bg-black">
