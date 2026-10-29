@@ -6,6 +6,8 @@ import {
   RUN_SPEED,
   moveBody,
   raycast,
+  raycastHit,
+  worldRay,
   type Body,
 } from '../../src/cs/physics.js';
 
@@ -103,5 +105,58 @@ describe('raycast', () => {
   it('passes over a low solid', () => {
     const low: MapDef = { ...arena, solids: [box(10, 0, 0, 11, 1, 20)] };
     expect(raycast(low, origin, { x: 1, y: 0, z: 0 }, 50)).toBeNull();
+  });
+});
+
+describe('raycastHit', () => {
+  const origin = { x: 5, y: 1.5, z: 10 };
+
+  it('reports the face that was hit', () => {
+    const hit = raycastHit(arena, origin, { x: 1, y: 0, z: 0 }, 50)!;
+    expect(hit.dist).toBeCloseTo(5, 2);
+    expect(hit.normal).toEqual({ x: -1, y: 0, z: 0 });
+  });
+
+  it('reports the top face when coming from above', () => {
+    const low: MapDef = { ...arena, solids: [box(10, 0, 0, 11, 1, 20)] };
+    const hit = raycastHit(low, { x: 10.5, y: 3, z: 10 }, { x: 0, y: -1, z: 0 }, 50)!;
+    expect(hit.dist).toBeCloseTo(2, 2);
+    expect(hit.normal).toEqual({ x: 0, y: 1, z: 0 });
+  });
+
+  it('returns null on a miss', () => {
+    expect(raycastHit(arena, origin, { x: -1, y: 0, z: 0 }, 50)).toBeNull();
+  });
+});
+
+describe('worldRay', () => {
+  const origin = { x: 5, y: 1.5, z: 10 };
+
+  it('hits the floor', () => {
+    const hit = worldRay(arena, origin, { x: 0, y: -1, z: 0 }, 50)!;
+    expect(hit.dist).toBeCloseTo(1.5, 3);
+    expect(hit.normal).toEqual({ x: 0, y: 1, z: 0 });
+  });
+
+  it('hits the ceiling of the bounds', () => {
+    const hit = worldRay(arena, origin, { x: 0, y: 1, z: 0 }, 50)!;
+    expect(hit.dist).toBeCloseTo(4.5, 3);
+    expect(hit.normal).toEqual({ x: 0, y: -1, z: 0 });
+  });
+
+  it('hits the side of the bounds in open space', () => {
+    const hit = worldRay(arena, origin, { x: -1, y: 0, z: 0 }, 50)!;
+    expect(hit.dist).toBeCloseTo(5, 3);
+    expect(hit.normal).toEqual({ x: 1, y: 0, z: 0 });
+  });
+
+  it('prefers a solid that is closer than the bounds', () => {
+    const hit = worldRay(arena, origin, { x: 1, y: 0, z: 0 }, 50)!;
+    expect(hit.dist).toBeCloseTo(5, 3);
+    expect(hit.normal).toEqual({ x: -1, y: 0, z: 0 });
+  });
+
+  it('returns null when nothing is within maxDist', () => {
+    expect(worldRay(arena, origin, { x: -1, y: 0, z: 0 }, 3)).toBeNull();
   });
 });

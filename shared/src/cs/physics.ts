@@ -98,22 +98,57 @@ export function moveBody(
   return { pos, vel: { x: vx, y: vy, z: vz }, onGround, crouch };
 }
 
-/** Distância até o primeiro sólido ao longo do raio (slab method), ou null. */
-export function raycast(map: MapDef, origin: Vec3, dir: Vec3, maxDist: number): number | null {
+export interface RayHit {
+  dist: number;
+  /** Normal da face atingida, apontando para o lado de onde o raio veio. */
+  normal: Vec3;
+}
+
+function unit(dir: Vec3): Vec3 | null {
   const length = Math.hypot(dir.x, dir.y, dir.z);
-  if (length === 0) return null;
-  const d = { x: dir.x / length, y: dir.y / length, z: dir.z / length };
-  let nearest: number | null = null;
+  return length === 0 ? null : { x: dir.x / length, y: dir.y / length, z: dir.z / length };
+}
+
+/** Primeiro sólido atingido pelo raio (slab method), com a normal da face. */
+export function raycastHit(map: MapDef, origin: Vec3, dir: Vec3, maxDist: number): RayHit | null {
+  const d = unit(dir);
+  if (!d) return null;
+  let nearest: RayHit | null = null;
   for (const solid of map.solids) {
-    const hit = rayBoxDistance(origin, d, solid, maxDist);
-    if (hit !== null && (nearest === null || hit < nearest)) nearest = hit;
+    const hit = rayBoxHit(origin, d, solid, maxDist);
+    if (hit && (!nearest || hit.dist < nearest.dist)) nearest = hit;
   }
   return nearest;
 }
 
-export function rayBoxDistance(origin: Vec3, dir: Vec3, box: Box, maxDist: number): number | null {
+/** Distância até o primeiro sólido ao longo do raio, ou null. */
+export function raycast(map: MapDef, origin: Vec3, dir: Vec3, maxDist: number): number | null {
+  return raycastHit(map, origin, dir, maxDist)?.dist ?? null;
+}
+
+/** Como `raycastHit`, mas também para no chão, no teto e nas paredes dos limites do mapa. */
+export function worldRay(map: MapDef, origin: Vec3, dir: Vec3, maxDist: number): RayHit | null {
+  const d = unit(dir);
+  if (!d) return null;
+  let best = raycastHit(map, origin, d, maxDist);
+  const { min, max } = map.bounds;
+  const consider = (t: number, normal: Vec3) => {
+    if (t >= 0 && t <= maxDist && (!best || t < best.dist)) best = { dist: t, normal };
+  };
+  if (d.y < -1e-9) consider((min.y - origin.y) / d.y, { x: 0, y: 1, z: 0 });
+  if (d.y > 1e-9) consider((max.y - origin.y) / d.y, { x: 0, y: -1, z: 0 });
+  if (d.x > 1e-9) consider((max.x - origin.x) / d.x, { x: -1, y: 0, z: 0 });
+  if (d.x < -1e-9) consider((min.x - origin.x) / d.x, { x: 1, y: 0, z: 0 });
+  if (d.z > 1e-9) consider((max.z - origin.z) / d.z, { x: 0, y: 0, z: -1 });
+  if (d.z < -1e-9) consider((min.z - origin.z) / d.z, { x: 0, y: 0, z: 1 });
+  return best;
+}
+
+export function rayBoxHit(origin: Vec3, dir: Vec3, box: Box, maxDist: number): RayHit | null {
   let tMin = 0;
   let tMax = maxDist;
+  let entered: 'x' | 'y' | 'z' | null = null;
+  let sign = 0;
   for (const axis of ['x', 'y', 'z'] as const) {
     const o = origin[axis];
     const d = dir[axis];
@@ -121,12 +156,22 @@ export function rayBoxDistance(origin: Vec3, dir: Vec3, box: Box, maxDist: numbe
       if (o < box.min[axis] || o > box.max[axis]) return null;
       continue;
     }
-    let t1 = (box.min[axis] - o) / d;
-    let t2 = (box.max[axis] - o) / d;
-    if (t1 > t2) [t1, t2] = [t2, t1];
-    tMin = Math.max(tMin, t1);
-    tMax = Math.min(tMax, t2);
+    const t1 = (box.min[axis] - o) / d;
+    const t2 = (box.max[axis] - o) / d;
+    const near = Math.min(t1, t2);
+    if (near > tMin) {
+      tMin = near;
+      entered = axis;
+      sign = d > 0 ? -1 : 1;
+    }
+    tMax = Math.min(tMax, Math.max(t1, t2));
     if (tMin > tMax) return null;
   }
-  return tMin;
+  const normal = { x: 0, y: 0, z: 0 };
+  if (entered) normal[entered] = sign;
+  return { dist: tMin, normal };
+}
+
+export function rayBoxDistance(origin: Vec3, dir: Vec3, box: Box, maxDist: number): number | null {
+  return rayBoxHit(origin, dir, box, maxDist)?.dist ?? null;
 }

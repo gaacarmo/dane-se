@@ -209,3 +209,61 @@ describe('weapon slots', () => {
     expect(after.holstered).toEqual({ weapon: 'tabelinha', ammo: 10, reserve: 60 });
   });
 });
+
+describe('shot and hit events', () => {
+  const fireOnce = (world: ReturnType<typeof duel>, aim: ReturnType<typeof aimInput>) => run(world, { a1: { ...aim, fire: true } }, STEP, STEP).events;
+
+  it('reports a body hit with the entry point and the damage', () => {
+    const world = duel();
+    const result = run(world, { a1: { ...aimInput(world, 'a1', 'b1', 'body'), fire: true } }, STEP, STEP);
+    const events = result.events;
+    const shot = events.find((e) => e.type === 'shot')!;
+    expect(shot).toMatchObject({ type: 'shot', shooter: 'a1', weapon: 'tabelinha', hit: 'player' });
+    if (shot.type !== 'shot') throw new Error('unreachable');
+    const bodyHalf = 0.36;
+    expect(Math.abs(shot.to.z - (player(result.world, 'b1').body.pos.z + bodyHalf))).toBeLessThan(0.05);
+    expect(events.find((e) => e.type === 'hit')).toEqual({
+      type: 'hit',
+      attacker: 'a1',
+      victim: 'b1',
+      zone: 'body',
+      damage: 30,
+      killed: false,
+    });
+  });
+
+  it('marks the killing blow', () => {
+    const world = duel();
+    const events = fireOnce(world, aimInput(world, 'a1', 'b1', 'head'));
+    expect(events.find((e) => e.type === 'hit')).toMatchObject({ zone: 'head', killed: true });
+    expect(events.some((e) => e.type === 'kill')).toBe(true);
+  });
+
+  it('reports a wall hit with the face normal and no hit event', () => {
+    const world = duel(wallArena);
+    const events = fireOnce(world, aimInput(world, 'a1', 'b1', 'body'));
+    const shot = events.find((e) => e.type === 'shot')!;
+    expect(shot).toMatchObject({ hit: 'wall', normal: { x: 0, y: 0, z: 1 } });
+    if (shot.type !== 'shot') throw new Error('unreachable');
+    expect(Math.abs(shot.to.z - 5.1)).toBeLessThan(0.05);
+    expect(events.some((e) => e.type === 'hit')).toBe(false);
+  });
+
+  it('ends a shot at the floor', () => {
+    const world = duel();
+    const events = fireOnce(world, aimPoint(world, 'a1', { x: 10, y: 0, z: 6 }));
+    const shot = events.find((e) => e.type === 'shot')!;
+    expect(shot).toMatchObject({ hit: 'wall', normal: { x: 0, y: 1, z: 0 } });
+    if (shot.type !== 'shot') throw new Error('unreachable');
+    expect(shot.to.y).toBeCloseTo(0, 1);
+  });
+
+  it('ends a shot into the open sky at the ceiling of the map', () => {
+    const world = duel();
+    const events = fireOnce(world, input({ pitch: 1.2 }));
+    const shot = events.find((e) => e.type === 'shot')!;
+    expect(shot).toMatchObject({ hit: 'wall', normal: { x: 0, y: -1, z: 0 } });
+    if (shot.type !== 'shot') throw new Error('unreachable');
+    expect(shot.to.y).toBeCloseTo(6, 1);
+  });
+});

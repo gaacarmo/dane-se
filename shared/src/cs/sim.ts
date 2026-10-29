@@ -3,7 +3,7 @@ import { nextRandom, randomInt } from '../rng.js';
 import { DEFUSE_REWARD, KILL_REWARD, PLANT_REWARD, addMoney } from './economy.js';
 import { sideOf } from './match.js';
 import type { Box, MapDef } from './map.js';
-import { bodyHeight, eyePos, moveBody, raycast, rayBoxDistance, type Body } from './physics.js';
+import { bodyHeight, eyePos, moveBody, rayBoxDistance, worldRay, type Body } from './physics.js';
 import type { Side, TeamId, Vec3 } from './types.js';
 import { WEAPONS, damageFor, slotOf, type HitZone, type WeaponDef, type WeaponId } from './weapons.js';
 
@@ -106,6 +106,18 @@ export interface BombState {
 export type RoundEnd = { winner: TeamId; reason: 'elimination' | 'explosion' | 'defuse' | 'time' };
 
 export type WorldEvent =
+  | {
+      type: 'shot';
+      shooter: string;
+      weapon: WeaponId;
+      /** Olho de quem atirou; o cliente desenha o traçante a partir do cano. */
+      from: Vec3;
+      to: Vec3;
+      hit: 'none' | 'wall' | 'player';
+      /** Normal da superfície, nos tiros que acertam parede, chão ou teto. */
+      normal?: Vec3;
+    }
+  | { type: 'hit'; attacker: string; victim: string; zone: HitZone; damage: number; killed: boolean }
   | { type: 'kill'; killer: string; victim: string; headshot: boolean }
   | { type: 'plant'; by: string; site: 'A' | 'B' }
   | { type: 'defuse'; by: string }
@@ -442,7 +454,9 @@ function fireShot(world: World, shooter: SimPlayer, weapon: WeaponDef): void {
   const dir = { x: dx / length, y: dy / length, z: dz / length };
   const origin = eyePos(shooter.body);
 
-  const wall = raycast(world.map, origin, dir, SHOT_RANGE) ?? Infinity;
+  const wallHit = worldRay(world.map, origin, dir, SHOT_RANGE);
+  const wall = wallHit?.dist ?? Infinity;
+  const at = (dist: number): Vec3 => ({ x: origin.x + dir.x * dist, y: origin.y + dir.y * dist, z: origin.z + dir.z * dist });
   let victim: SimPlayer | null = null;
   let zone: HitZone = 'body';
   let nearest = Infinity;
@@ -463,10 +477,25 @@ function fireShot(world: World, shooter: SimPlayer, weapon: WeaponDef): void {
       }
     }
   }
-  if (!victim) return;
+  if (!victim) {
+    world.events.push({
+      type: 'shot',
+      shooter: shooter.id,
+      weapon: weapon.id,
+      from: origin,
+      to: at(wallHit?.dist ?? SHOT_RANGE),
+      hit: wallHit ? 'wall' : 'none',
+      ...(wallHit ? { normal: wallHit.normal } : {}),
+    });
+    return;
+  }
+  world.events.push({ type: 'shot', shooter: shooter.id, weapon: weapon.id, from: origin, to: at(nearest), hit: 'player' });
 
-  victim.hp = Math.max(0, victim.hp - damageFor(weapon, zone));
-  if (victim.hp > 0) return;
+  const damage = damageFor(weapon, zone);
+  victim.hp = Math.max(0, victim.hp - damage);
+  const killed = victim.hp <= 0;
+  world.events.push({ type: 'hit', attacker: shooter.id, victim: victim.id, zone, damage, killed });
+  if (!killed) return;
   victim.alive = false;
   shooter.money = addMoney(shooter.money, KILL_REWARD);
   world.events.push({ type: 'kill', killer: shooter.id, victim: victim.id, headshot: zone === 'head' });
