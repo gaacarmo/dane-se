@@ -16,7 +16,7 @@ import {
   type Match,
   type Ping,
   type PingKind,
-  type WeaponId,
+  type BuyItem,
   type WorldEvent,
   type Vec3,
   WEAPONS,
@@ -26,7 +26,7 @@ import { useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
 import { VoiceButton } from '../VoiceButton';
 import { Button } from '../ui/Button';
-import { BUY_LIST, CsBuyMenu } from './CsBuyMenu';
+import { CsBuyMenu, buyList } from './CsBuyMenu';
 import { AudioDirector } from './audioDirector';
 import { CsHud, type DamageFlash, type FeedItem, type HitMarker, type MoneyGain } from './CsHud';
 import { CsMap } from './CsMap';
@@ -213,8 +213,8 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
   }, [input, matchRef, meId, placePing]);
 
   const buy = useCallback(
-    (weapon: WeaponId) => {
-      driver.buy(weapon);
+    (item: BuyItem) => {
+      driver.buy(item);
       setHud(matchRef.current);
     },
     [driver, matchRef],
@@ -366,7 +366,11 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
       if (e.code === 'Escape') send({ type: 'key', key: 'escape' });
       else if (e.code === 'KeyB') send({ type: 'key', key: 'buy' });
       else if (e.code === 'KeyQ' && input.isLocked()) pingAhead();
-      else if (flowRef.current.overlay === 'buy' && /^Digit[1-6]$/.test(e.code)) buy(BUY_LIST[Number(e.code.slice(5)) - 1]!);
+      else if (flowRef.current.overlay === 'buy' && /^Digit[1-9]$/.test(e.code)) {
+        const side = matchRef.current.world.players.find((p) => p.id === meId)?.side;
+        const item = side && buyList(side)[Number(e.code.slice(5)) - 1];
+        if (item) buy(item);
+      }
     };
     const onClick = (e: MouseEvent) => {
       if (e.button === 0 && spectateRef.current && input.isLocked()) spectateIndex.current++;
@@ -377,7 +381,7 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('mousedown', onClick);
     };
-  }, [stage, input, send, pingAhead, buy]);
+  }, [stage, input, send, pingAhead, buy, matchRef, meId]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;

@@ -133,7 +133,7 @@ function registerHandlers(socket: GameSocket, rooms: RoomManager, cs: CsRoomMana
   socket.on('cs:start', handle(() => cs.start(socket)));
   socket.on('cs:rematch', handle(() => cs.rematch(socket)));
   socket.on('cs:input', (p) => cs.input(socket, p));
-  socket.on('cs:buy', handle<Body>((p) => cs.buy(socket, p.weapon)));
+  socket.on('cs:buy', handle<Body>((p) => cs.buy(socket, p.item)));
   socket.on('cs:ping', (p) => cs.ping(socket, p));
   socket.on('cs:forfeit', handle(() => cs.forfeit(socket)));
   socket.on('disconnect', () => {

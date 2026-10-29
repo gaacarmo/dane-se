@@ -8,7 +8,6 @@ import {
   ROOM_CODE_LENGTH,
   TEAM_LIMIT,
   VisionTracker,
-  WEAPONS,
   autoTeam,
   buildSnapshot,
   buyForPlayer,
@@ -16,6 +15,7 @@ import {
   createMatch,
   forfeit as forfeitMatch,
   forfeitPassed,
+  isBuyItem,
   normalizeRoomCode,
   sanitizeInput,
   setBotControl,
@@ -34,7 +34,6 @@ import {
   type Session,
   type TeamId,
   type VoiceSignal,
-  type WeaponId,
   type WorldEvent,
 } from '@dane-se/shared';
 import type { GameSocket, IO, RoomManager } from '../rooms.js';
@@ -353,11 +352,11 @@ export class CsRoomManager {
     if (member.queue.length > CS_MAX_PENDING) member.queue.splice(0, member.queue.length - CS_MAX_PENDING);
   }
 
-  buy(socket: GameSocket, weapon: unknown): Ack {
+  buy(socket: GameSocket, item: unknown): Ack {
     const ctx = this.context(socket);
     if (!ctx?.room.match || ctx.room.status !== 'playing') return fail('NOT_IN_MATCH');
-    if (typeof weapon !== 'string' || !Object.hasOwn(WEAPONS, weapon)) return fail('INVALID_PAYLOAD');
-    const next = buyForPlayer(ctx.room.match, ctx.member.id, weapon as WeaponId);
+    if (typeof item !== 'string' || !isBuyItem(item)) return fail('INVALID_PAYLOAD');
+    const next = buyForPlayer(ctx.room.match, ctx.member.id, item);
     if (next === ctx.room.match) return fail('INVALID_ACTION');
     ctx.room.match = next;
     return OK;

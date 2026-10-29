@@ -1,5 +1,5 @@
 import type { CSSProperties, RefObject } from 'react';
-import { DEFUSE_MS, PLANT_MS, WEAPONS, slotOf, type Match, type WeaponId } from '@dane-se/shared';
+import { DEFUSE_KIT_MS, DEFUSE_MS, PLANT_MS, WEAPONS, slotOf, type Match, type WeaponId } from '@dane-se/shared';
 import { Button } from '../ui/Button';
 
 export interface FeedItem {
@@ -148,7 +148,7 @@ export function CsHud({
   const theirs = mine === 'A' ? 'B' : 'A';
   const planted = world.bomb.status === 'planted';
   const progress = world.bomb.progress?.who === meId ? world.bomb.progress.ms : 0;
-  const progressMax = planted ? DEFUSE_MS : PLANT_MS;
+  const progressMax = planted ? (me.kit ? DEFUSE_KIT_MS : DEFUSE_MS) : PLANT_MS;
 
   const held: { id: WeaponId; ammo: number; reserve: number; active: boolean }[] = [
     { id: me.weapon, ammo: me.ammo, reserve: me.reserve, active: true },
@@ -230,6 +230,12 @@ export function CsHud({
 
       <div className="absolute bottom-4 left-4 rounded-lg bg-black/55 px-4 py-2">
         <p className={`text-3xl font-bold ${lowHp ? 'text-red-400' : ''}`}>{me.alive ? me.hp : 0}</p>
+        {me.alive && me.armor > 0 && (
+          <p className="text-xs text-stone-300">
+            Colete {me.armor}
+            {me.helmet ? ' · capacete' : ''}
+          </p>
+        )}
         <p className="relative text-xs text-gold-400">
           $ {me.money}
           {moneyGain && (
@@ -267,6 +273,12 @@ export function CsHud({
           <div className="flex items-center justify-between rounded-lg bg-black/35 px-3 py-1 text-xs text-stone-400">
             <span>Bomba</span>
             <span className="text-stone-500">E no ponto</span>
+          </div>
+        )}
+        {me.kit && (
+          <div className="flex items-center justify-between rounded-lg bg-black/35 px-3 py-1 text-xs text-stone-400">
+            <span>Kit de desarme</span>
+            <span className="text-stone-500">desarma mais rápido</span>
           </div>
         )}
         {reloading && (

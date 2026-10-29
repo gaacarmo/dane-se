@@ -13,6 +13,7 @@ import {
   predictBody,
   stepMatch,
   type ClientToServerEvents,
+  type BuyItem,
   type CsInputMsg,
   type CsSnapshot,
   type CsStartInfo,
@@ -23,7 +24,6 @@ import {
   type PlayerInput,
   type ServerToClientEvents,
   type Vec3,
-  type WeaponId,
   type WorldEvent,
 } from '@dane-se/shared';
 import type { CsInput } from './useCsInput';
@@ -56,7 +56,7 @@ export interface CsDriver {
   start(): () => void;
   /** A cada quadro do navegador: avança a simulação, envia entradas ou interpola. */
   frame(now: number, dtMs: number, ctx: { input: CsInput; paused: boolean }): void;
-  buy(weapon: WeaponId): void;
+  buy(item: BuyItem): void;
   forfeit(): void;
   ping(kind: PingKind, x: number, z: number): void;
 }
@@ -99,8 +99,8 @@ export class LocalDriver implements CsDriver {
     if (steps === MAX_STEPS_PER_FRAME) this.acc = 0;
   }
 
-  buy(weapon: WeaponId): void {
-    this.matchRef.current = buyForPlayer(this.matchRef.current, this.meId, weapon);
+  buy(item: BuyItem): void {
+    this.matchRef.current = buyForPlayer(this.matchRef.current, this.meId, item);
   }
 
   forfeit(): void {
@@ -223,8 +223,8 @@ export class NetDriver implements CsDriver {
     return { ...server, world: { ...server.world, players } };
   }
 
-  buy(weapon: WeaponId): void {
-    this.socket.emit('cs:buy', { weapon }, () => {});
+  buy(item: BuyItem): void {
+    this.socket.emit('cs:buy', { item }, () => {});
   }
 
   forfeit(): void {

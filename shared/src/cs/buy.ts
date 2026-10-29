@@ -1,5 +1,13 @@
+import { EQUIPMENT, MAX_ARMOR, equipmentPrice, isEquipment, type EquipmentId } from './equipment.js';
 import { RESERVE_MAGS, type Holstered, type SimPlayer, type World } from './sim.js';
 import { WEAPONS, slotOf, type WeaponId } from './weapons.js';
+
+/** Tudo o que o mercado vende. */
+export type BuyItem = WeaponId | EquipmentId;
+
+export function isBuyItem(id: string): id is BuyItem {
+  return isEquipment(id) || Object.hasOwn(WEAPONS, id);
+}
 
 function owns(player: SimPlayer, weaponId: WeaponId): boolean {
   return player.weapon === weaponId || player.holstered?.weapon === weaponId;
@@ -51,5 +59,39 @@ function equipBought(p: SimPlayer, fresh: Holstered, price: number): SimPlayer {
     cooldownMs: 0,
     equipLeftMs: 0,
     shots: 0,
+  };
+}
+
+function missing(player: SimPlayer, id: EquipmentId): boolean {
+  switch (id) {
+    case 'kevlar':
+      return player.armor < MAX_ARMOR;
+    case 'kevlar_helmet':
+      return player.armor < MAX_ARMOR || !player.helmet;
+    case 'kit':
+      return !player.kit;
+  }
+}
+
+export function canBuyEquipment(world: World, playerId: string, id: EquipmentId): boolean {
+  if (world.phase !== 'buy') return false;
+  const item = EQUIPMENT[id];
+  const player = world.players.find((p) => p.id === playerId);
+  if (!item || !player?.alive) return false;
+  if (item.side && player.side !== item.side) return false;
+  return player.money >= equipmentPrice(player, id) && missing(player, id);
+}
+
+/** Devolve o mesmo `world` quando a compra é recusada. */
+export function buyEquipment(world: World, playerId: string, id: EquipmentId): World {
+  if (!canBuyEquipment(world, playerId, id)) return world;
+  return {
+    ...world,
+    players: world.players.map((p) => {
+      if (p.id !== playerId) return p;
+      const paid = { money: p.money - equipmentPrice(p, id) };
+      if (id === 'kit') return { ...p, ...paid, kit: true };
+      return { ...p, ...paid, armor: MAX_ARMOR, helmet: id === 'kevlar_helmet' ? true : p.helmet };
+    }),
   };
 }

@@ -2,24 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { sideOf } from '../../src/cs/match.js';
 import { CANTINA } from '../../src/cs/maps/cantina.js';
 import { BOMB_MS, BUY_MS, DEFUSE_MS, LIVE_MS, PLANT_MS, PREP_MS, stepWorld, type World } from '../../src/cs/sim.js';
-import { aimInput, input, kill, makeWorld, patchPlayer, player, run, skipBuy, skipToPrep, teleport } from './helpers.js';
-
-const siteA = CANTINA.sites.A;
-const siteACenter = { x: (siteA.min.x + siteA.max.x) / 2, z: (siteA.min.z + siteA.max.z) / 2 };
-
-function carrierId(world: World): string {
-  return world.players.find((p) => p.hasBomb)!.id;
-}
-
-/** Rodada ao vivo com a bomba plantada no site A pelo portador. */
-function plantedWorld(): World {
-  let world = skipBuy(makeWorld());
-  const id = carrierId(world);
-  world = teleport(world, id, siteACenter.x, siteACenter.z);
-  world = run(world, { [id]: input({ use: true }) }, PLANT_MS + 100).world;
-  expect(world.bomb.status).toBe('planted');
-  return world;
-}
+import { aimInput, carrierId, input, kill, makeWorld, patchPlayer, plantedWorld, player, run, siteACenter, skipBuy, skipToPrep, teleport } from './helpers.js';
 
 describe('createWorld', () => {
   it('places each player on a spawn of their side, alive with full hp', () => {

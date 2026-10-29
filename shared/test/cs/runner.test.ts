@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { START_MONEY } from '../../src/cs/economy.js';
 import { MAX_ROUNDS_WON, SWAP_EVERY, matchWinner, sideOf } from '../../src/cs/match.js';
-import { createMatch, forfeit, setBotControl, stepMatch, type Match } from '../../src/cs/runner.js';
+import { buyForPlayer, createMatch, forfeit, setBotControl, stepMatch, type Match } from '../../src/cs/runner.js';
 import type { TeamId } from '../../src/cs/types.js';
 import { CHARACTER_IDS } from '../../src/characters.js';
 
@@ -28,6 +28,7 @@ function playOut(match: Match): { match: Match; ms: number } {
         if (current.roundIndex % SWAP_EVERY === 0) {
           expect(p.money).toBe(START_MONEY);
           expect(p.weapon).toBe('chinelo');
+          expect(p).toMatchObject({ armor: 0, helmet: false, kit: false });
         }
       }
     }
@@ -97,6 +98,51 @@ describe('carry-over between rounds', () => {
     expect(next('h1').holstered?.weapon).toBe('tamanco');
     expect(next('bot-A2').weapon).toBe('chinelo');
     expect(next('bot-A2').holstered).toBeNull();
+  });
+});
+
+describe('gear', () => {
+  /** Encerra a rodada 0 com `patch` aplicado aos jogadores e devolve o começo da rodada 1. */
+  function nextRound(patch: (p: Match['world']['players'][number]) => Match['world']['players'][number]): Match {
+    let match = createMatch([human('h1')], 1);
+    const players = match.world.players.map(patch);
+    match = { ...match, world: { ...match.world, phase: 'over', players, end: { winner: 'A', reason: 'time' } } };
+    for (let i = 0; i < 100 && match.roundIndex === 0; i++) match = stepMatch(match, {}, 100);
+    return match;
+  }
+
+  it('lets a survivor keep the vest, helmet and kit, and takes them from the dead', () => {
+    const match = nextRound((p) =>
+      p.id === 'h1' || p.id === 'bot-A2' ? { ...p, armor: 60, helmet: true, kit: true, alive: p.id === 'h1', hp: p.id === 'h1' ? 100 : 0 } : p,
+    );
+    const next = (id: string) => match.world.players.find((p) => p.id === id)!;
+    expect(next('h1')).toMatchObject({ armor: 60, helmet: true, kit: true });
+    expect(next('bot-A2')).toMatchObject({ armor: 0, helmet: false, kit: false });
+  });
+
+  it('buys gear for a human through the same call as weapons', () => {
+    let match = createMatch([human('h1')], 1);
+    match = { ...match, world: { ...match.world, players: match.world.players.map((p) => (p.id === 'h1' ? { ...p, money: 2000 } : p)) } };
+    const bought = buyForPlayer(match, 'h1', 'kevlar_helmet');
+    expect(bought.world.players.find((p) => p.id === 'h1')).toMatchObject({ armor: 100, helmet: true, money: 1000 });
+    expect(buyForPlayer(bought, 'h1', 'kevlar_helmet')).toBe(bought);
+  });
+
+  it('has bots put on vest and helmet after the weapon, and the kit on defense', () => {
+    let match = createMatch([human('h1')], 1);
+    match = { ...match, world: { ...match.world, players: match.world.players.map((p) => (p.bot ? { ...p, money: 9000 } : p)) } };
+    const bots = stepMatch(match, {}, 50).world.players.filter((p) => p.bot);
+    expect(bots.length).toBeGreaterThan(0);
+    for (const p of bots) {
+      expect(p).toMatchObject({ armor: 100, helmet: true, kit: p.side === 'defense' });
+      expect(p.weapon).not.toBe('chinelo');
+    }
+  });
+
+  it('keeps the weapon first: a bot that can only afford it does not buy gear', () => {
+    let match = createMatch([human('h1')], 1);
+    match = { ...match, world: { ...match.world, players: match.world.players.map((p) => (p.bot ? { ...p, money: 500 } : p)) } };
+    for (const p of stepMatch(match, {}, 50).world.players.filter((x) => x.bot)) expect(p).toMatchObject({ armor: 0, kit: false });
   });
 });
 

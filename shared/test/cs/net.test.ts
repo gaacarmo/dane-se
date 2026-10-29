@@ -100,6 +100,18 @@ describe('buildSnapshot', () => {
     expect(mate.punchPitch).toBeUndefined();
   });
 
+  it('sends vest, helmet and kit to the owner and the team, never to an enemy', () => {
+    let match = place(place(scattered(liveMatch()), 'h1', 10, 25), 'bot-B2', 18, 26);
+    const wear = { armor: 70, helmet: true, kit: true };
+    match = { ...match, world: { ...match.world, players: match.world.players.map((p) => ({ ...p, ...wear })) } };
+    const players = snapFor(match, 'h1').players;
+    expect(players.find((p) => p.id === 'h1')).toMatchObject(wear);
+    expect(players.find((p) => p.id === 'bot-A2')).toMatchObject(wear);
+    const enemy = players.find((p) => p.id === 'bot-B2')!;
+    expect(enemy.armor).toBeUndefined();
+    expect(enemy.kit).toBeUndefined();
+  });
+
   it('carries the round, score and ack of the viewer', () => {
     const snap = snapFor(scattered(liveMatch()), 'h1');
     expect(snap).toMatchObject({ tick: 7, ack: 3, phase: 'live', roundIndex: 0, winner: null });
@@ -216,6 +228,14 @@ describe('applySnapshot', () => {
     expect(view.mapId).toBe('cantina');
     expect(view.world.map).toBe(CANTINA);
     expect(Object.keys(view.stats)).toHaveLength(6);
+  });
+
+  it('rebuilds the vest, helmet and kit of the viewer and the team', () => {
+    let match = scattered(liveMatch());
+    match = { ...match, world: { ...match.world, players: match.world.players.map((p) => ({ ...p, armor: 45, helmet: true, kit: p.id === 'h1' })) } };
+    const view = applySnapshot(null, snapFor(match, 'h1'), base(match));
+    expect(view.world.players.find((p) => p.id === 'h1')).toMatchObject({ armor: 45, helmet: true, kit: true });
+    expect(view.world.players.find((p) => p.id === 'bot-A2')).toMatchObject({ armor: 45, helmet: true, kit: false });
   });
 
   it('hides the enemies the snapshot did not include', () => {

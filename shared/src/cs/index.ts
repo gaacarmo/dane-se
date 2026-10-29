@@ -7,6 +7,7 @@ export * from './maps/cantina.js';
 export * from './physics.js';
 export * from './sim.js';
 export * from './buy.js';
+export * from './equipment.js';
 export * from './bot.js';
 export * from './runner.js';
 export * from './pings.js';

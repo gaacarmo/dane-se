@@ -1,4 +1,5 @@
 import { nextRandom } from '../rng.js';
+import type { EquipmentId } from './equipment.js';
 import type { MapDef } from './map.js';
 import { bodyHeight, eyePos, raycast } from './physics.js';
 import { IDLE_INPUT, LIVE_MS, aimAt, lookDirection, type PlayerInput, type SimPlayer, type World } from './sim.js';
@@ -189,6 +190,9 @@ function prefersSniper(id: string): boolean {
   for (const ch of id) sum += ch.charCodeAt(0);
   return sum % 3 === 0;
 }
+
+/** O que o bot tenta comprar depois da arma, nesta ordem; cada item só sai se faltar e houver dinheiro. */
+export const BOT_GEAR_ORDER: readonly EquipmentId[] = ['kevlar_helmet', 'kevlar', 'kit'];
 
 /** Arma que o bot quer comprar nesta rodada, ou null quando já tem uma principal ou não vale trocar. */
 export function botBuy(world: World, playerId: string): WeaponId | null {

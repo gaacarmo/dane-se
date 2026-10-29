@@ -1,7 +1,8 @@
 import { CHARACTER_IDS, type CharacterId } from '../characters.js';
 import { shuffle } from '../rng.js';
-import { BOT_SKILLS, botBuy, botInput, createBotMemory, varySkill, type BotMemory, type Difficulty } from './bot.js';
-import { buyWeapon } from './buy.js';
+import { BOT_GEAR_ORDER, BOT_SKILLS, botBuy, botInput, createBotMemory, varySkill, type BotMemory, type Difficulty } from './bot.js';
+import { buyEquipment, buyWeapon, type BuyItem } from './buy.js';
+import { isEquipment } from './equipment.js';
 import { START_MONEY, addMoney, nextLossStreak, roundReward } from './economy.js';
 import { isSideSwapRound, matchWinner, sideOf } from './match.js';
 import { drawMap } from './map.js';
@@ -177,8 +178,8 @@ function withStats(stats: Record<string, PlayerStats>, events: WorldEvent[]): Re
 }
 
 /** Compra de um humano; devolve a mesma partida se o mercado recusar. */
-export function buyForPlayer(match: Match, playerId: string, weapon: WeaponId): Match {
-  const world = buyWeapon(match.world, playerId, weapon);
+export function buyForPlayer(match: Match, playerId: string, item: BuyItem): Match {
+  const world = isEquipment(item) ? buyEquipment(match.world, playerId, item) : buyWeapon(match.world, playerId, item);
   return world === match.world ? match : { ...match, world };
 }
 
@@ -189,19 +190,30 @@ export function forfeit(match: Match, team: TeamId): Match {
 interface Loadout {
   weapon: WeaponId;
   holstered?: WeaponId;
+  armor?: number;
+  helmet?: boolean;
+  kit?: boolean;
 }
 
-/** Quem sobrevive começa a próxima rodada com a principal na mão e a pistola no coldre. */
+/** Quem sobrevive começa a próxima rodada com a principal na mão, a pistola no coldre e o equipamento que tinha. */
 function carriedLoadout(p: SimPlayer): Loadout {
   const held = [p.weapon, p.holstered?.weapon].filter((w): w is WeaponId => !!w);
   const primary = held.find((w) => slotOf(w) === 1);
   const pistol = held.find((w) => slotOf(w) === 2) ?? STARTER_WEAPON;
-  return primary ? { weapon: primary, holstered: pistol } : { weapon: pistol };
+  const gear = { armor: p.armor, helmet: p.helmet, kit: p.kit };
+  return primary ? { weapon: primary, holstered: pistol, ...gear } : { weapon: pistol, ...gear };
 }
 
 function withLoadout(entry: RosterEntry, money: number, loadout: Loadout): RosterEntry {
-  const { holstered: _previous, ...rest } = entry;
-  return { ...rest, money, weapon: loadout.weapon, ...(loadout.holstered ? { holstered: loadout.holstered } : {}) };
+  const { holstered: _holstered, armor: _armor, helmet: _helmet, kit: _kit, ...rest } = entry;
+  return {
+    ...rest,
+    money,
+    weapon: loadout.weapon,
+    ...(loadout.holstered ? { holstered: loadout.holstered } : {}),
+    ...(loadout.armor ? { armor: loadout.armor, helmet: !!loadout.helmet } : {}),
+    ...(loadout.kit ? { kit: true } : {}),
+  };
 }
 
 function settleRound(match: Match): Match {
@@ -257,6 +269,7 @@ export function stepMatch(match: Match, humanInputs: Record<string, PlayerInput>
       if (!entry.bot) continue;
       const pick = botBuy(world, entry.id);
       if (pick) world = buyWeapon(world, entry.id, pick);
+      for (const id of BOT_GEAR_ORDER) world = buyEquipment(world, entry.id, id);
     }
   }
 

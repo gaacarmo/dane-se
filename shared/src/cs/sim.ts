@@ -1,6 +1,7 @@
 import type { CharacterId } from '../characters.js';
 import { nextRandom, randomInt } from '../rng.js';
 import { DEFUSE_REWARD, KILL_REWARD, PLANT_REWARD, addMoney } from './economy.js';
+import { absorbDamage } from './equipment.js';
 import { sideOf } from './match.js';
 import { withBarrier, type Box, type MapDef } from './map.js';
 import { bodyHeight, eyePos, moveBody, rayBoxDistance, worldRay, type Body } from './physics.js';
@@ -13,6 +14,7 @@ export const LIVE_MS = 300_000;
 export const BOMB_MS = 40_000;
 export const PLANT_MS = 3_200;
 export const DEFUSE_MS = 7_000;
+export const DEFUSE_KIT_MS = 3_500;
 export const MAX_HP = 100;
 
 const BOMB_REACH = 1.5;
@@ -102,6 +104,10 @@ export interface SimPlayer {
   sinceShotMs: number;
   money: number;
   hasBomb: boolean;
+  /** Pontos de colete (0 a MAX_ARMOR), capacete e kit de desarme. */
+  armor: number;
+  helmet: boolean;
+  kit: boolean;
 }
 
 export interface BombState {
@@ -159,6 +165,10 @@ export interface RosterEntry {
   weapon: WeaponId;
   /** Segunda arma que o jogador leva consigo (a pistola, quando a principal está na mão). */
   holstered?: WeaponId;
+  /** Equipamento que sobrevive de uma rodada para a outra. */
+  armor?: number;
+  helmet?: boolean;
+  kit?: boolean;
 }
 
 export const RESERVE_MAGS = 2;
@@ -217,6 +227,9 @@ export function createWorld(map: MapDef, roundIndex: number, roster: RosterEntry
       sinceShotMs: 0,
       money: entry.money,
       hasBomb: false,
+      armor: entry.armor ?? 0,
+      helmet: entry.helmet ?? false,
+      kit: entry.kit ?? false,
     };
   });
 
@@ -382,7 +395,7 @@ function stepBomb(world: World, inputs: Record<string, PlayerInput>, dtMs: numbe
   bomb.progress = defuser ? { who: defuser.id, ms: progressMs } : null;
   const remaining = bomb.explodeInMs - dtMs;
 
-  if (defuser && progressMs >= DEFUSE_MS && remaining > 0) {
+  if (defuser && progressMs >= (defuser.kit ? DEFUSE_KIT_MS : DEFUSE_MS) && remaining > 0) {
     bomb.status = 'defused';
     bomb.progress = null;
     defuser.money = addMoney(defuser.money, DEFUSE_REWARD);
@@ -547,7 +560,9 @@ function fireShot(world: World, shooter: SimPlayer, weapon: WeaponDef): void {
   }
   world.events.push({ type: 'shot', shooter: shooter.id, weapon: weapon.id, from: origin, to: at(nearest), hit: 'player' });
 
-  const damage = damageFor(weapon, zone);
+  const absorbed = absorbDamage(damageFor(weapon, zone), zone, victim);
+  const damage = absorbed.hp;
+  victim.armor = absorbed.armor;
   victim.hp = Math.max(0, victim.hp - damage);
   const killed = victim.hp <= 0;
   world.events.push({ type: 'hit', attacker: shooter.id, victim: victim.id, zone, damage, killed });

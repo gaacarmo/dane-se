@@ -314,13 +314,24 @@ describe('match', () => {
   it('only lets a player buy in the buy phase, charging the money', async () => {
     const { players, code } = await started();
     const p = players[0]!;
-    expect((await p.call('cs:buy', { weapon: 'tamanco' })).ok).toBe(true);
+    expect((await p.call('cs:buy', { item: 'tamanco' })).ok).toBe(true);
     await p.until(() => p.self()?.money === 300);
     expect(p.self()!.weapon).toBe('tamanco');
-    expect(await p.call('cs:buy', { weapon: 'nada' })).toMatchObject({ ok: false });
+    expect(await p.call('cs:buy', { item: 'nada' })).toMatchObject({ ok: false });
     server.cs.advance(code, 41_000);
     await p.until(() => p.lastSnapshot()?.phase === 'live');
-    expect(await p.call('cs:buy', { weapon: 'garcom' })).toMatchObject({ ok: false });
+    expect(await p.call('cs:buy', { item: 'garcom' })).toMatchObject({ ok: false });
+  });
+
+  it('sells the vest and shows it in the snapshot, refusing what is worn, unaffordable or for the other side', async () => {
+    const { players } = await started(1);
+    const p = players[0]!;
+    expect((await p.call('cs:buy', { item: 'kevlar' })).ok).toBe(true);
+    await p.until(() => p.self()?.armor === 100);
+    expect(p.self()).toMatchObject({ helmet: false, money: 150 });
+    expect(await p.call('cs:buy', { item: 'kevlar' })).toMatchObject({ ok: false });
+    expect(await p.call('cs:buy', { item: 'kevlar_helmet' })).toMatchObject({ ok: false });
+    expect(await p.call('cs:buy', { item: 'kit' })).toMatchObject({ ok: false });
   });
 
   it('relays pings to the team only', async () => {

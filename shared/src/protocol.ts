@@ -12,7 +12,7 @@ import type { CsLobbyView, CsStartInfo } from './cs/lobby.js';
 import type { CsInputMsg, CsSnapshot } from './cs/net.js';
 import type { PingKind } from './cs/pings.js';
 import type { TeamId } from './cs/types.js';
-import type { WeaponId } from './cs/weapons.js';
+import type { BuyItem } from './cs/buy.js';
 
 export type RoomStatus = 'lobby' | 'playing' | 'finished';
 
@@ -279,7 +279,7 @@ export interface ClientToServerEvents {
   'cs:rematch': (ack: AckFn) => void;
   /** Uma entrada por passo de 1/60 s, numerada. Sem ack: é enviada o tempo todo. */
   'cs:input': (payload: CsInputMsg) => void;
-  'cs:buy': (payload: { weapon: WeaponId }, ack: AckFn) => void;
+  'cs:buy': (payload: { item: BuyItem }, ack: AckFn) => void;
   /** Marca um ponto do mapa para o seu time. Sem ack. */
   'cs:ping': (payload: { kind: PingKind; x: number; z: number }) => void;
   /** Vota para desistir; a resposta traz a contagem. */

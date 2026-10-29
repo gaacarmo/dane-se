@@ -5,6 +5,7 @@ import { WEAPONS, type WeaponId } from '../../src/cs/weapons.js';
 import {
   BUY_MS,
   IDLE_INPUT,
+  PLANT_MS,
   PREP_MS,
   aimAt,
   createWorld,
@@ -188,4 +189,21 @@ export function aimer(
     const shooter = player(world, shooterId);
     return { ...base, yaw: base.yaw - shooter.punchYaw, pitch: base.pitch - shooter.punchPitch };
   };
+}
+
+const siteA = CANTINA.sites.A;
+export const siteACenter = { x: (siteA.min.x + siteA.max.x) / 2, z: (siteA.min.z + siteA.max.z) / 2 };
+
+export function carrierId(world: World): string {
+  return world.players.find((p) => p.hasBomb)!.id;
+}
+
+/** Rodada ao vivo com a bomba plantada no site A pelo portador. */
+export function plantedWorld(): World {
+  let world = skipBuy(makeWorld());
+  const id = carrierId(world);
+  world = teleport(world, id, siteACenter.x, siteACenter.z);
+  world = run(world, { [id]: input({ use: true }) }, PLANT_MS + 100).world;
+  if (world.bomb.status !== 'planted') throw new Error('the bomb should be planted');
+  return world;
 }

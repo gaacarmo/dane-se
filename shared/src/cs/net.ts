@@ -89,6 +89,9 @@ export interface CsPlayerSnap {
   hp?: number;
   hasBomb?: boolean;
   money?: number;
+  armor?: number;
+  helmet?: boolean;
+  kit?: boolean;
   ammo?: number;
   reserve?: number;
   holstered?: CsHolstered | null;
@@ -183,6 +186,9 @@ function playerSnap(p: SimPlayer, self: boolean, mate: boolean): CsPlayerSnap {
     snap.hp = p.hp;
     snap.hasBomb = p.hasBomb;
     snap.money = p.money;
+    snap.armor = p.armor;
+    snap.helmet = p.helmet;
+    snap.kit = p.kit;
   }
   if (self) {
     snap.ammo = p.ammo;
@@ -313,6 +319,9 @@ function blankPlayer(entry: RosterEntry, side: SimPlayer['side']): SimPlayer {
     sinceShotMs: 0,
     money: 0,
     hasBomb: false,
+    armor: 0,
+    helmet: false,
+    kit: false,
   };
 }
 
@@ -347,6 +356,9 @@ function toSimPlayer(entry: RosterEntry, snap: CsPlayerSnap | undefined, prev: S
     sinceShotMs: snap.sinceShotMs ?? 0,
     money: snap.money ?? base.money,
     hasBomb: snap.hasBomb ?? false,
+    armor: snap.armor ?? 0,
+    helmet: snap.helmet ?? false,
+    kit: snap.kit ?? false,
   };
 }
 
