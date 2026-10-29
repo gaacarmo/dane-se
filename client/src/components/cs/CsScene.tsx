@@ -1,12 +1,14 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Suspense, useMemo, useRef, type MutableRefObject } from 'react';
 import * as THREE from 'three';
-import { bodyHeight, eyePos, type CharacterId, type Match, type MapDef, type TeamId } from '@dane-se/shared';
+import { bodyHeight, type CharacterId, type Match, type MapDef, type TeamId, type WorldEvent } from '@dane-se/shared';
 import { CHARACTER_SPECS } from '../table3d/characterSpecs';
 import { bodyTexture } from '../table3d/bodyTextures';
 import { FACE_HEIGHT, PortraitHead } from '../table3d/PortraitHead';
 import type { Ping } from '@dane-se/shared';
 import { PING_KINDS } from './pings';
+import { CsEffects } from './CsEffects';
+import { FirstPersonRig } from './CsViewModel';
 import type { CsInput } from './useCsInput';
 
 const TEAM_COLOR: Record<TeamId, string> = { A: '#4a7a8c', B: '#a8703c' };
@@ -136,38 +138,13 @@ function Bomb({ matchRef }: { matchRef: MutableRefObject<Match> }) {
   );
 }
 
-/** Câmera no olho do jogador local e arma em primeira pessoa. */
-function FirstPerson({ matchRef, meId, input }: { matchRef: MutableRefObject<Match>; meId: string; input: CsInput }) {
-  const { camera } = useThree();
-  const gun = useRef<THREE.Mesh>(null);
-  useFrame(() => {
-    const me = matchRef.current.world.players.find((p) => p.id === meId);
-    if (!me) return;
-    const eye = eyePos(me.body);
-    const look = me.alive ? input.look() : { yaw: me.yaw, pitch: me.pitch };
-    camera.position.set(eye.x, eye.y, eye.z);
-    camera.rotation.order = 'YXZ';
-    camera.rotation.set(look.pitch, look.yaw, 0);
-    const g = gun.current;
-    if (!g) return;
-    g.visible = me.alive;
-    g.position.copy(camera.position).add(new THREE.Vector3(0.22, -0.2, -0.45).applyQuaternion(camera.quaternion));
-    g.quaternion.copy(camera.quaternion);
-  });
-  return (
-    <mesh ref={gun}>
-      <boxGeometry args={[0.07, 0.09, 0.45]} />
-      <meshStandardMaterial color="#1c1f23" />
-    </mesh>
-  );
-}
-
 export function CsScene({
   matchRef,
   meId,
   input,
   roundKey,
   pings,
+  fx,
 }: {
   matchRef: MutableRefObject<Match>;
   meId: string;
@@ -175,8 +152,11 @@ export function CsScene({
   /** Muda a cada rodada para remontar a cena com o mapa e os jogadores certos. */
   roundKey: number;
   pings: Ping[];
+  /** Fila de eventos do motor que o cenário consome para desenhar tiros e impactos. */
+  fx: MutableRefObject<WorldEvent[]>;
 }) {
   const match = matchRef.current;
+  const muzzle = useRef(new THREE.Vector3());
   return (
     <Canvas camera={{ fov: 75, near: 0.05, far: 200 }} dpr={[1, 1.5]} gl={{ antialias: true }}>
       <color attach="background" args={['#0b0d10']} />
@@ -192,7 +172,8 @@ export function CsScene({
         ))}
       <Bomb matchRef={matchRef} />
       <PingMarkers pings={pings} />
-      <FirstPerson matchRef={matchRef} meId={meId} input={input} />
+      <CsEffects key={`fx-${roundKey}`} fx={fx} meId={meId} muzzle={muzzle} />
+      <FirstPersonRig matchRef={matchRef} meId={meId} input={input} muzzle={muzzle} />
     </Canvas>
   );
 }

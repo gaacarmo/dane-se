@@ -40,6 +40,7 @@ const FEED_SIZE = 5;
 const FEED_TTL_MS = 6000;
 const INTERACT_REACH = 1.5;
 const PING_RANGE = 60;
+const MAX_FX_QUEUE = 300;
 
 function unsupportedReason(): string | null {
   if (!webglSupported) return 'Este navegador não tem WebGL, necessário para o modo CS.';
@@ -103,6 +104,7 @@ function CsGame({ onExit }: { onExit: () => void }) {
   const pingKindRef = useRef<PingKind>('attention');
   pingKindRef.current = pingKind;
   const pingId = useRef(0);
+  const fxRef = useRef<WorldEvent[]>([]);
 
   const flowRef = useRef<FlowState>(initialFlow());
   const [flow, setFlow] = useState<FlowState>(flowRef.current);
@@ -191,11 +193,14 @@ function CsGame({ onExit }: { onExit: () => void }) {
             for (const e of after.world.events) {
               const text = eventText(after, e);
               if (text) items.push({ id: feedId++, text, at: now });
+              if (e.type === 'shot') fxRef.current.push(e);
             }
+            if (fxRef.current.length > MAX_FX_QUEUE) fxRef.current.splice(0, fxRef.current.length - MAX_FX_QUEUE);
           }
           if (after.roundIndex !== round) {
             round = after.roundIndex;
             input.setLook(after.world.players.find((p) => p.id === meId)!.yaw, 0);
+            fxRef.current.length = 0;
             setRoundKey(round);
           }
           acc -= STEP_MS;
@@ -271,7 +276,7 @@ function CsGame({ onExit }: { onExit: () => void }) {
   return (
     <main className="fixed inset-0 z-50 overflow-hidden bg-black">
       <div ref={stage3d} className="absolute inset-0">
-        <CsScene matchRef={matchRef} meId={meId} input={input} roundKey={roundKey} pings={pings} />
+        <CsScene matchRef={matchRef} meId={meId} input={input} roundKey={roundKey} pings={pings} fx={fxRef} />
       </div>
       <CsHud match={hud} meId={meId} feed={feed} hint={hint} onExit={onExit} />
 
