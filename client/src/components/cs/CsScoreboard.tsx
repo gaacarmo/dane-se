@@ -50,7 +50,7 @@ function TeamTable({
         </thead>
         <tbody>
           {rows.map(({ entry, player, stats }) => (
-            <tr key={entry.id} className={dead.has(entry.id) ? 'text-stone-500' : 'text-stone-200'}>
+            <tr key={entry.id} className={(mine ? player?.alive === false : dead.has(entry.id)) ? 'text-stone-500' : 'text-stone-200'}>
               <td className="py-0.5">
                 <span className={entry.id === meId ? 'font-bold' : ''}>{playerName(entry)}</span>
                 {entry.id === meId && <span className="text-stone-500"> (você)</span>}

@@ -240,7 +240,8 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
           if (e.type === 'hit' && e.victim === meId) {
             const mine = match.world.players.find((p) => p.id === meId);
             const shot = events.find((x) => x.type === 'shot' && x.shooter === e.attacker);
-            const source = shot?.type === 'shot' ? shot.from : match.world.players.find((p) => p.id === e.attacker)?.body.pos;
+            const attacker = match.world.players.find((p) => p.id === e.attacker);
+            const source = shot?.type === 'shot' ? shot.from : attacker?.alive ? attacker.body.pos : undefined;
             const angle = mine && source && e.attacker !== meId ? angleTo(mine.body.pos, source, input.look().yaw) : null;
             setDamage({ id: ++counter.hud, angle, amount: Math.min(1, e.damage / 60) });
           }
@@ -357,7 +358,7 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
       if (e.target instanceof HTMLInputElement && e.target.type !== 'range') return;
       if (e.code === 'Tab') {
         // Na pausa o Tab continua navegando entre os botões.
-        if (flowRef.current.overlay === 'pause') return;
+        if (flowRef.current.overlay === 'pause' || flowRef.current.ended) return;
         e.preventDefault();
         if (!e.repeat) send({ type: 'key', key: 'map' });
         return;
@@ -457,7 +458,7 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
         >
           <span>{flow.lockFailed ? 'Clique para voltar ao jogo' : 'Clique para jogar'}</span>
           <span className="text-xs text-stone-400">
-            WASD move · Shift anda devagar · Espaço pula · C agacha · R recarrega · 1/2 troca de arma · E interage · Tab mapa e placar · Q ping · B mercado · Esc pausa
+            WASD move · Shift anda devagar · Espaço pula · C agacha · R recarrega · 1/2 troca de arma · E interage · Tab mapa e placar · Q ping · B mercado · Esc {driver.solo ? 'pausa' : 'menu'}
           </span>
         </button>
       )}
@@ -489,6 +490,7 @@ function PauseMenu({
   onExit: () => void;
 }) {
   const { csSensitivity, muted } = usePrefs();
+  const [confirmExit, setConfirmExit] = useState(false);
   return (
     <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/75 font-mono text-stone-200">
       <p className="mb-2 text-sm tracking-[0.2em] uppercase">{solo ? 'Pausa' : 'Menu'}</p>
@@ -517,9 +519,23 @@ function PauseMenu({
           Votos do seu time: {forfeitVote.votes} de {forfeitVote.needed}
         </p>
       )}
-      <Button variant="ghost" onClick={onExit}>
-        Sair
-      </Button>
+      {!solo && confirmExit ? (
+        <div className="flex flex-col items-center gap-2">
+          <p className="max-w-64 text-center text-[11px] text-stone-500">Um bot assume o seu lugar e você não volta para esta partida.</p>
+          <div className="flex gap-2">
+            <Button variant="danger" onClick={onExit}>
+              Sair mesmo
+            </Button>
+            <Button variant="secondary" onClick={() => setConfirmExit(false)}>
+              Ficar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="ghost" onClick={solo ? onExit : () => setConfirmExit(true)}>
+          Sair
+        </Button>
+      )}
     </div>
   );
 }

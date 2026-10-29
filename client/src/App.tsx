@@ -9,7 +9,7 @@ import { ConnectionBanner, Toast } from './components/ui/Toast';
 import { VoiceButton } from './components/VoiceButton';
 import { InviteToast } from './components/InviteToast';
 import { CsLobby } from './components/cs/CsLobby';
-import { CsNetGame } from './components/cs/CsNetGame';
+import { CsNetGame, CsWaiting } from './components/cs/CsNetGame';
 import { CsScreen } from './components/cs/CsScreen';
 import { csMode, useCsOpen } from './lib/csMode';
 import { useClient } from './lib/store';
@@ -34,6 +34,13 @@ export function App() {
   if (csLobby && csStart) return (
     <>
       <CsNetGame />
+      <Toast />
+      <ConnectionBanner />
+    </>
+  );
+  if (csLobby) return (
+    <>
+      <CsWaiting lobby={csLobby} />
       <Toast />
       <ConnectionBanner />
     </>

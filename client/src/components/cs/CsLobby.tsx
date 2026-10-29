@@ -191,7 +191,7 @@ export function CsLobby({ lobby }: { lobby: CsLobbyView }) {
           </Button>
         </div>
         <p className="pb-4 text-center text-[11px] text-stone-500">
-          Quem sair no meio da partida é substituído por um bot, e pode voltar pelo mesmo link.
+          Quem sair no meio da partida é substituído por um bot. Se a conexão cair, dá para voltar pelo mesmo link.
         </p>
       </div>
     </main>

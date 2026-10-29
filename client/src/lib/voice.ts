@@ -168,4 +168,11 @@ export function useLeaveVoiceWithRoom(): void {
   useEffect(() => {
     if (!inRoom && state.joined) leaveVoice();
   }, [inRoom]);
+  // O botão some junto com a sala: sem isto o microfone ficaria aberto depois de sair.
+  useEffect(
+    () => () => {
+      if (state.joined) leaveVoice();
+    },
+    [],
+  );
 }

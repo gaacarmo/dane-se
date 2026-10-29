@@ -53,6 +53,7 @@ export function CsMap({
             key={k}
             type="button"
             onClick={() => onKind(k)}
+            aria-pressed={kind === k}
             className={`rounded-lg border px-3 py-1.5 transition ${kind === k ? 'border-white/60 bg-white/10' : 'border-white/10 hover:bg-white/10'}`}
           >
             <span className="mr-1.5 inline-block size-2 rounded-full" style={{ background: PING_KINDS[k].color }} />

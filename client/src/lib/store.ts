@@ -301,12 +301,16 @@ async function resumeSaved(): Promise<void> {
   if (savedCs && (!urlCode || urlCode === savedCs.code)) {
     const result = await call<Session>('cs:resume', { code: savedCs.code, token: savedCs.token });
     if (result.ok) return;
-    leaveRoomLocally(
-      result.error === 'ROOM_NOT_FOUND'
-        ? 'Essa sala não existe mais — o servidor pode ter dormido ou reiniciado. Crie uma nova sala e chame a galera de novo!'
-        : 'Não encontramos seu lugar nessa sala. Entre de novo pelo código.',
-    );
-    return;
+    writeStorage(CS_SESSION_KEY, null);
+    // Sessão velha do CS não pode apagar a de uma sala comum que ainda vale.
+    if (!readJson<Session>(SESSION_KEY)) {
+      leaveRoomLocally(
+        result.error === 'ROOM_NOT_FOUND'
+          ? 'Essa sala não existe mais — o servidor pode ter dormido ou reiniciado. Crie uma nova sala e chame a galera de novo!'
+          : 'Não encontramos seu lugar nessa sala. Entre de novo pelo código.',
+      );
+      return;
+    }
   }
   const saved = readJson<Session>(SESSION_KEY);
   if (!saved || (urlCode && urlCode !== saved.code)) {
@@ -341,10 +345,12 @@ async function send<T = object>(event: keyof ClientToServerEvents, ...args: unkn
 }
 
 function remember(session: Session): void {
+  writeStorage(CS_SESSION_KEY, null);
   writeStorage(SESSION_KEY, JSON.stringify(session));
 }
 
 function rememberCs(session: Session): void {
+  writeStorage(SESSION_KEY, null);
   writeStorage(CS_SESSION_KEY, JSON.stringify(session));
 }
 

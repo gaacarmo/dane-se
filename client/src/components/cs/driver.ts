@@ -4,6 +4,7 @@ import {
   CS_INTERP_MS,
   CS_MAX_PENDING,
   CS_STEP_MS,
+  IDLE_INPUT,
   MAPS,
   applySnapshot,
   buyForPlayer,
@@ -125,6 +126,8 @@ export class NetDriver implements CsDriver {
   private seq = 0;
   /** Rodada para a qual o olhar já foi ajustado ao spawn; as entradas levam esse número para o servidor confiar nelas. */
   private lookRound = -1;
+  private lastPressed: PlayerInput = IDLE_INPUT;
+  private hiddenTimer: ReturnType<typeof setInterval> | undefined;
   private acc = 0;
   private pingId = 0;
   private listening = 0;
@@ -144,18 +147,40 @@ export class NetDriver implements CsDriver {
     if (this.listening++ === 0) {
       this.socket.on('cs:snapshot', this.onSnapshot);
       this.socket.on('cs:ping', this.onPing);
+      document.addEventListener('visibilitychange', this.onVisibility);
+      this.hiddenTimer = setInterval(() => document.hidden && this.sendNeutral(), 1000);
     }
     return () => {
       if (--this.listening === 0) {
         this.socket.off('cs:snapshot', this.onSnapshot);
         this.socket.off('cs:ping', this.onPing);
+        document.removeEventListener('visibilitychange', this.onVisibility);
+        clearInterval(this.hiddenTimer);
       }
     };
   }
 
   private readonly onSnapshot = (snap: CsSnapshot) => this.receive(snap);
 
+  /** Aba oculta não desenha quadros e portanto não manda entradas: avisa o servidor para parar o personagem. */
+  private readonly onVisibility = () => {
+    if (document.hidden) this.sendNeutral();
+  };
+
+  private sendNeutral(): void {
+    if (!this.serverMatch) return;
+    const msg: CsInputMsg = {
+      seq: ++this.seq,
+      input: { ...IDLE_INPUT, yaw: this.lastPressed.yaw, pitch: this.lastPressed.pitch },
+      round: this.lookRound,
+    };
+    this.pending.push(msg);
+    if (this.pending.length > MAX_UNACKED) this.pending.shift();
+    this.socket.volatile.emit('cs:input', msg);
+  }
+
   private readonly onPing = (p: { from: string; kind: PingKind; x: number; z: number }) =>
+    p.from !== this.meId &&
     this.hooks.onPing({ id: 1_000_000 + this.pingId++, kind: p.kind, x: p.x, z: p.z, by: p.from, at: performance.now() });
 
   private receive(snap: CsSnapshot): void {
@@ -166,6 +191,8 @@ export class NetDriver implements CsDriver {
     if (this.snaps.length > SNAPSHOT_HISTORY) this.snaps.shift();
     this.pending = this.pending.filter((p) => p.seq > snap.ack);
     if (first) {
+      // Um servidor que ainda guarda numeração velha (volta por F5) não pode engolir as entradas novas.
+      this.seq = Math.max(this.seq, snap.ack);
       this.matchRef.current = match;
       this.onReady();
     }
@@ -187,10 +214,11 @@ export class NetDriver implements CsDriver {
     let steps = 0;
     while (this.acc >= CS_STEP_MS && steps < MAX_STEPS_PER_FRAME) {
       const pressed = input.read();
+      this.lastPressed = pressed;
       const msg: CsInputMsg = { seq: ++this.seq, input: pressed, round: this.lookRound };
       this.pending.push(msg);
       if (this.pending.length > MAX_UNACKED) this.pending.shift();
-      this.socket.emit('cs:input', msg);
+      this.socket.volatile.emit('cs:input', msg);
       this.hooks.onInput(pressed, this.matchRef.current, now);
       this.acc -= CS_STEP_MS;
       steps++;
