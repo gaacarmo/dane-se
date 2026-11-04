@@ -27,7 +27,7 @@ const NODES = {
   // plataforma sul (ponto B) e corredor sul
   pb1: at(60, 63), pb2: at(72, 63), pb3: at(85.5, 63), ls1: at(60, 47.5), ls2: at(72, 47.5), ls3: at(87, 47.5),
   // corredor leste, portão dos fundos e garagem da defesa
-  ce: at(88.5, 35), dw: at(93.8, 35), g1: at(99, 35), gs: at(106, 35),
+  ce: at(88.5, 35), dw: at(93.8, 35), g1: at(99, 35), gm: at(106, 35), gs: at(113, 35),
   // fundos norte e sul, com porta para a garagem
   rn1: at(93.8, 7), rn2: at(106.5, 7), rn3: at(114, 8.5), rn4: at(114, 21), rdn: at(114, 26), gdn: at(114, 30.8),
   rs1: at(93.8, 63), rs2: at(106.5, 63), rs3: at(114, 61.5), rs4: at(114, 49), rds: at(114, 44), gds: at(114, 39.2),
@@ -41,10 +41,10 @@ const LINKS: [NodeName, NodeName][] = [
   ['yne', 'p0n'], ['yse', 'p0s'], ['yc', 'p1'], ['yc', 'p2'],
   ['p0n', 'f0n'], ['p1', 'f1'], ['p2', 'f2'], ['p0s', 'f0s'],
   ['f0n', 'h0n'], ['f1', 'h1'], ['f2', 'h2'], ['f0s', 'h0s'],
-  ['h0n', 'h1'], ['h1', 'h2'], ['h2', 'h0s'],
+  ['h0n', 'h1'], ['h2', 'h0s'],
   ['h0n', 'pa1'], ['pa1', 'pa2'], ['pa2', 'pa3'], ['h1', 'ln1'], ['ln1', 'ln2'], ['ln2', 'ln3'], ['pa2', 'ln2'],
   ['h0s', 'pb1'], ['pb1', 'pb2'], ['pb2', 'pb3'], ['h2', 'ls1'], ['ls1', 'ls2'], ['ls2', 'ls3'], ['pb2', 'ls2'],
-  ['ln3', 'ce'], ['ls3', 'ce'], ['ce', 'dw'], ['dw', 'g1'], ['g1', 'gs'],
+  ['ce', 'dw'], ['dw', 'g1'], ['g1', 'gm'], ['gm', 'gs'],
   ['pa3', 'rn1'], ['rn1', 'rn2'], ['rn2', 'rn3'], ['rn3', 'rn4'], ['rn4', 'rdn'], ['rdn', 'gdn'], ['gdn', 'gs'],
   ['pb3', 'rs1'], ['rs1', 'rs2'], ['rs2', 'rs3'], ['rs3', 'rs4'], ['rs4', 'rds'], ['rds', 'gds'], ['gds', 'gs'],
 ];
@@ -67,7 +67,8 @@ export const TERMINAL_BOQUEIRAO: MapDef = {
     // fachada, com portas em z 2,5-8,5, 19,5-26,5, 43,5-50,5 e 61,5-67,5
     box(42.5, 0, 0.5, 43.5, 4, 2.5),
     box(42.5, 0, 8.5, 43.5, 4, 19.5),
-    box(42.5, 0, 26.5, 43.5, 4, 43.5),
+    // bilheteria: bloco maciço entre as portas centrais, separa o saguão norte do sul
+    box(42.5, 0, 26.5, 49, 4, 43.5),
     box(42.5, 0, 50.5, 43.5, 4, 61.5),
     box(42.5, 0, 67.5, 43.5, 4, 69.5),
     // prédio administrativo
@@ -93,14 +94,14 @@ export const TERMINAL_BOQUEIRAO: MapDef = {
     bench(61.5, 3), bench(71, 2.5), bench(79, 3), bench(61.5, 66.3), bench(71, 66.8), bench(79, 66.3),
     bench(63, 18.5), bench(78, 18.5), bench(63, 51), bench(78, 51),
     // bloqueios do saguão e dos corredores
-    gate(50, 15.5), gate(50, 30.5), gate(50, 38.5), gate(50, 53),
+    gate(50, 15.5), gate(50, 53),
     gate(66.5, 25.5), gate(70, 25.5), gate(74, 25.5), gate(66.5, 43), gate(70, 43), gate(74, 43),
     // ônibus parados nos fundos e caixas da garagem
     box(96, 0, 14, 109.5, 3, 16.5),
     box(96, 0, 53, 109.5, 3, 56.5),
     box(98, 0, 40.5, 100, 1.2, 42.5),
-    box(116, 0, 30.5, 118, 1.2, 33),
-    box(116, 0, 37, 118, 1.2, 39.5),
+    box(105.5, 0, 30.5, 107.5, 1.2, 33),
+    box(105.5, 0, 37, 107.5, 1.2, 39.5),
   ],
   sites: {
     A: box(64, 0, 2, 82, 3, 10),
@@ -108,7 +109,7 @@ export const TERMINAL_BOQUEIRAO: MapDef = {
   },
   spawns: {
     attack: [at(6.5, 33), at(9, 34), at(6.5, 37), at(9, 36.5)],
-    defense: [at(104, 33), at(107, 32.5), at(108, 36.5), at(105, 37.5)],
+    defense: [at(111, 33), at(114, 32.5), at(115, 36), at(112, 37.5)],
   },
   barrier: box(35, 0, 0.5, 36, 4, 69.5),
   stage: at(33, 36.5),
