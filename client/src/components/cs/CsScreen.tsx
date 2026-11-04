@@ -38,7 +38,7 @@ import { CsScene } from './CsScene';
 import { playerName } from './CsScoreboard';
 import { LocalDriver, type CsDriver } from './driver';
 import { CsTouchControls } from './CsTouchControls';
-import { isTouchDevice, useCsInput, type CsInputHandlers } from './useCsInput';
+import { isTouchDevice, useCsInput, usePortrait, type CsInputHandlers } from './useCsInput';
 
 const HUD_REFRESH_MS = 100;
 const FEED_SIZE = 5;
@@ -187,6 +187,9 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
   };
 
   const touch = isTouchDevice();
+  const portrait = usePortrait() && touch;
+  const portraitRef = useRef(false);
+  portraitRef.current = portrait;
   const me = hud.world.players.find((p) => p.id === meId)!;
   const onDrawDone = useCallback(() => setStage('play'), []);
 
@@ -278,7 +281,7 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
       const dt = Math.min(100, now - last);
       last = now;
 
-      const paused = simPaused(flowRef.current, driver.solo);
+      const paused = simPaused(flowRef.current, driver.solo) || (driver.solo && portraitRef.current);
       driver.frame(now, dt, { input, paused });
       if (!paused) director.frame(matchRef.current, dt / 1000, meId, input.look().yaw);
 
@@ -415,6 +418,16 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
 
   return (
     <main className="fixed inset-0 z-50 overflow-hidden bg-black">
+      {portrait && (
+        <div role="alert" className="absolute inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-black p-8 text-center font-mono text-stone-200">
+          <span aria-hidden className="text-5xl">↻</span>
+          <p className="text-lg">Gire o celular para a horizontal</p>
+          <p className="max-w-xs text-xs text-stone-400">O modo CS é jogado com o celular deitado. {driver.solo ? 'O treino fica parado até você girar.' : 'A partida continua rolando enquanto isso.'}</p>
+          <Button variant="secondary" onClick={onExit}>
+            Sair
+          </Button>
+        </div>
+      )}
       <div ref={stage3d} className="absolute inset-0">
         <CsScene matchRef={matchRef} meId={meId} input={input} roundKey={roundKey} pings={pings} fx={fxRef} spectateRef={spectateRef} />
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { IDLE_INPUT, type PlayerInput } from '@dane-se/shared';
 import { getPrefs } from '../../lib/prefs';
 
@@ -36,6 +36,22 @@ export interface TouchApi {
   reload(): void;
   switchWeapon(): void;
   selectSlot(slot: 1 | 2): void;
+}
+
+/** Celular em pé: os controles de toque foram feitos para a horizontal. */
+export function usePortrait(): boolean {
+  const read = () => window.innerHeight > window.innerWidth;
+  const [portrait, setPortrait] = useState(read);
+  useEffect(() => {
+    const update = () => setPortrait(read());
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+  return portrait;
 }
 
 /** Aparelho de toque como entrada principal (celular e tablet). */
