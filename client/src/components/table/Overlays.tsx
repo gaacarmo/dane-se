@@ -69,7 +69,7 @@ export function RoundSummary({ game }: { game: PlayerView }) {
                     </div>
                     {res.gainedLetter && (
                       <span className="w-12 text-right text-xs font-bold text-card-red">
-                        +{word[res.lettersAfter - 1] ?? ''}
+                        +{word.slice(res.lettersAfter - (res.lettersGained ?? 1), res.lettersAfter)}
                         {res.eliminated && <span className="block">FORA!</span>}
                       </span>
                     )}

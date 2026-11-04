@@ -492,7 +492,7 @@ export function Table3DView({
           )}
           {game.blindRound && !p.eliminated && p.cardCount > 0 && (
             <group position={[0, 0.46, 0.06]} rotation={[0, 0, p.id === room.youId ? 0 : -0.07]} scale={1.25}>
-              <Card3D card={p.id === room.youId ? null : p.foreheadCard} />
+              <Card3D card={p.id === room.youId ? null : p.foreheadCard} highlight={p.id !== room.youId && p.foreheadCard?.rank === game.manilhaRank} />
             </group>
           )}
         </>

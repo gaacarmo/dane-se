@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { DaneseRoomView, PokerRoomView } from '@dane-se/shared';
 import { haptic, sfx } from './sound';
+import { notify } from './store';
 
 /**
  * Side effects driven by game state changes: sound effects, vibration, a
@@ -33,6 +34,13 @@ export function useGameEffects(room: DaneseRoomView): void {
     // Trick decided: a little fanfare if you took it.
     if (game.phase === 'trickEnd' && before.phase !== 'trickEnd' && game.trick.result?.winnerId === room.youId) {
       sfx.trickWon();
+    }
+
+    // Everything canceled: the next round is worth 2.
+    const result = game.trick.result;
+    if (game.phase === 'trickEnd' && before.phase !== 'trickEnd' && result?.winnerId === null && result.canceledPlayerIds.length === game.trick.plays.length) {
+      notify('Embuchou tudo! A próxima rodada vale 2.', 'info');
+      haptic([40, 40, 40]);
     }
 
     // Trick collected.

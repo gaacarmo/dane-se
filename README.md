@@ -165,7 +165,7 @@ See the in-game **Como jogar** for the player-facing summary. Decisions worth kn
 | --- | --- | --- |
 | Every trick of a round tied | The Pé gets one letter (never two in a round) | `DEALER_PENALTY_WHEN_ALL_TRICKS_TIED`, `applyRoundTiePenalty` in `shared/src/games/danese/rules.ts` |
 | Everyone left would be eliminated in the same round | Nobody gets that round's letter; the round is replayed with the same card count | `REPLAY_ROUND_ON_SIMULTANEOUS_ELIMINATION` |
-| Cards of the same rank in a trick | From the strongest rank down: a pair (or four) cancels ("embucha") and the next rank is checked; three of a rank are decided by suit (Ouros < Espadas < Copas < Paus). If everything cancels, nobody wins and the same player leads again | `resolveTrick` in `shared/src/games/danese/trick.ts` |
+| Cards of the same rank in a trick | From the strongest rank down: a pair (or four) cancels ("embucha") and the next rank is checked; three of a rank are decided by play order (the third one played wins, whatever its suit). If everything cancels, nobody wins, the same player leads again and the next round is worth 2 letters per missed bet | `resolveTrick` in `shared/src/games/danese/trick.ts` |
 | Card count | 1 → max → 1, each end played once (`1,2,…,6,5,…,1,2,…`); "back to 1" mode in settings | `nextCardCount` |
 | Deal cap | `min(6, floor(39 / players))`; never actually limits a 2–6 player game | `maxCardsPerPlayer` |
 | Following suit | Not required: any card can be played | — |

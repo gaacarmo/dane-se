@@ -33,6 +33,8 @@ export function Hud({
           </span>
         )}
         <Chip label="Rodada" value={String(game.roundNumber)} />
+        {game.roundStake > 1 && <Chip label="Esta rodada" value={`vale ${game.roundStake}`} highlight />}
+        {game.nextStake > 1 && <Chip label="Próxima" value={`vale ${game.nextStake}`} highlight />}
         <Chip label={n === 1 ? 'carta' : 'cartas'} value={String(n)} highlight={game.blindRound} suffix={game.blindRound ? ' · cega' : ''} reverse />
         <Chip
           label="Palpites"

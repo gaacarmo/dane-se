@@ -17,10 +17,11 @@ describe('resolveTrick', () => {
     expect(resolveTrick(plays(['a', '3C'], ['b', '5D']), manilha).winnerId).toBe('b');
   });
 
-  it('three cards of the same rank: the higher suit wins (Ouros < Espadas < Copas < Paus)', () => {
-    const result = resolveTrick(plays(['a', '4D'], ['b', 'KD'], ['c', 'KS'], ['d', 'KC']), manilha);
+  it('three cards of the same rank: the third one played wins, whatever its suit', () => {
+    const result = resolveTrick(plays(['a', '4D'], ['b', 'KC'], ['c', 'KS'], ['d', 'KD']), manilha);
     expect(result).toEqual({ winnerId: 'd', canceledPlayerIds: [] });
-    expect(resolveTrick(plays(['a', 'KH'], ['b', 'KD'], ['c', 'KS']), manilha).winnerId).toBe('a');
+    expect(resolveTrick(plays(['a', 'KH'], ['b', 'KD'], ['c', 'KS']), manilha).winnerId).toBe('c');
+    expect(resolveTrick(plays(['a', 'KC'], ['b', '4D'], ['c', 'KS'], ['d', 'KD']), manilha).winnerId).toBe('d');
   });
 
   it('two cards of the same rank cancel ("embucham") and the next highest wins', () => {
@@ -35,9 +36,9 @@ describe('resolveTrick', () => {
     expect(result.canceledPlayerIds.sort()).toEqual(['a', 'b', 'c', 'd']);
   });
 
-  it('a pair cancels, then three of a lower rank are decided by suit', () => {
-    const result = resolveTrick(plays(['a', '3D'], ['b', '3C'], ['c', '7D'], ['d', '7H'], ['e', '7S']), manilha);
-    expect(result.winnerId).toBe('d');
+  it('a pair cancels, then the third played of three of a lower rank wins', () => {
+    const result = resolveTrick(plays(['a', '3D'], ['b', '3C'], ['c', '7C'], ['d', '7H'], ['e', '7D']), manilha);
+    expect(result.winnerId).toBe('e');
   });
 
   it('four cards of the same rank cancel like a pair', () => {

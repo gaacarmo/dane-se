@@ -175,6 +175,8 @@ export interface PlayerRoundResult {
   tricksWon: number;
   hitBet: boolean;
   gainedLetter: boolean;
+  /** Letters received this round (the round's stake when the bet was missed). */
+  lettersGained?: number;
   lettersAfter: number;
   eliminated: boolean;
 }
@@ -196,24 +198,29 @@ export function scoreRound(input: {
   dealerId: string;
   allTricksTied: boolean;
   lives: number;
+  /** Letters per miss: 2 after a fully canceled trick, 1 otherwise. */
+  stake?: number;
 }): RoundScore {
   const { players, bets, tricksWon, dealerId, allTricksTied, lives } = input;
+  const stake = input.stake ?? 1;
 
   const missed = new Set(players.filter((p) => (tricksWon[p.id] ?? 0) !== bets[p.id]).map((p) => p.id));
   const { recipients, penaltyApplied } = applyRoundTiePenalty(missed, dealerId, allTricksTied);
 
-  const wouldBeEliminated = players.filter((p) => recipients.has(p.id) && p.letters + 1 >= lives);
+  const wouldBeEliminated = players.filter((p) => recipients.has(p.id) && p.letters + stake >= lives);
   const voided = REPLAY_ROUND_ON_SIMULTANEOUS_ELIMINATION && wouldBeEliminated.length === players.length;
 
   const results = players.map((p): PlayerRoundResult => {
     const gainedLetter = !voided && recipients.has(p.id);
-    const lettersAfter = p.letters + (gainedLetter ? 1 : 0);
+    const lettersGained = gainedLetter ? stake : 0;
+    const lettersAfter = p.letters + lettersGained;
     return {
       playerId: p.id,
       bet: bets[p.id] ?? 0,
       tricksWon: tricksWon[p.id] ?? 0,
       hitBet: !missed.has(p.id),
       gainedLetter,
+      lettersGained,
       lettersAfter,
       eliminated: lettersAfter >= lives,
     };
