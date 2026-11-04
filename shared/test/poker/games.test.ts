@@ -234,6 +234,31 @@ describe('poker view', () => {
     expect(view.isSpectator).toBe(true);
   });
 
+  it('shows a busted player the cards of everyone still in the hand', () => {
+    const state = start(3, 3);
+    const hand = state.hand!;
+    // p2 went broke before this hand: seated, but dealt out.
+    const { p2: _seat, ...seats } = hand.seats;
+    const { p2: _hole, ...hole } = hand.hole;
+    const busted: PokerGameState = {
+      ...state,
+      players: state.players.map((p) => (p.id === 'p2' ? { ...p, stack: 0 } : p)),
+      hand: { ...hand, seats, hole, order: hand.order.filter((id) => id !== 'p2') },
+    };
+    const view = getPokerView(busted, 'p2');
+    expect(view.hole).toEqual([]);
+    expect(view.spectatorHoles).toEqual([
+      { playerId: 'p0', cards: hole['p0'] },
+      { playerId: 'p1', cards: hole['p1'] },
+    ]);
+
+    // Folded players keep their cards hidden; players in the hand and outsiders never get any.
+    const folded = { ...busted, hand: { ...busted.hand!, seats: { ...seats, p1: { ...seats['p1']!, folded: true } } } };
+    expect(getPokerView(folded, 'p2').spectatorHoles.map((r) => r.playerId)).toEqual(['p0']);
+    expect(getPokerView(busted, 'p0').spectatorHoles).toEqual([]);
+    expect(getPokerView(busted, null).spectatorHoles).toEqual([]);
+  });
+
   it('offers only legal actions to the player on turn', () => {
     const state = start(2);
     const view = getPokerView(state, state.hand!.actor!);

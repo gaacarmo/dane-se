@@ -253,6 +253,8 @@ export function PokerTable3DView({ room }: { room: PokerRoomView }) {
     for (const r of game.lastHand.revealed ?? []) revealed.set(r.playerId, r.cards);
     for (const w of game.lastHand.winners) won.set(w.playerId, w.amount);
   }
+  // Busted and watching: everyone's cards face up.
+  for (const r of game.spectatorHoles) if (!revealed.has(r.playerId)) revealed.set(r.playerId, r.cards);
 
   const seats = ordered.map((s) => {
     const member = room.members.find((m) => m.id === s.id);

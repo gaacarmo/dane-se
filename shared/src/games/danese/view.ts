@@ -27,6 +27,11 @@ export interface PublicPlayer {
   foreheadCard: Card | null;
   /** Arcade: the public "aura" — true while this player's 1× special is still loaded. */
   specialCharged: boolean;
+  /**
+   * The cards this player is holding, shown only to a viewer who was eliminated and stayed to watch
+   * (they can't affect the game anymore). Null for everyone else and in the blind round.
+   */
+  revealedHand: Card[] | null;
 }
 
 /** The viewer's own arcade kit (private; only ever sent to its owner). */
@@ -81,6 +86,7 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
   const blind = isBlindRound(state);
   const viewer = state.players.find((p) => p.id === viewerId);
   const playsThisRound = viewer && !viewer.eliminated && state.roundOrder.includes(viewer.id);
+  const seesAllHands = !!viewer?.eliminated && !blind;
 
   const players = state.players.map((p): PublicPlayer => {
     const hand = state.hands[p.id] ?? [];
@@ -97,6 +103,7 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
       cardCount: inRound ? hand.length : 0,
       foreheadCard: blind && p.id !== viewerId && hand[0] ? { ...hand[0] } : null,
       specialCharged: state.arcade.enabled ? (arcadeSeat(state.arcade, p.id)?.specialCharged ?? false) : false,
+      revealedHand: seesAllHands && inRound && hand.length > 0 ? hand.map((c) => ({ ...c })) : null,
     };
   });
 

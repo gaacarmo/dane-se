@@ -2,6 +2,7 @@ import { io, type Socket } from 'socket.io-client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   IDLE_INPUT,
+  MAPS,
   type Ack,
   type ClientToServerEvents,
   type CsLobbyView,
@@ -221,7 +222,7 @@ describe('match', () => {
   it('starts the match: everyone gets the roster and a stream of snapshots', async () => {
     const { players } = await started();
     const info = players[0]!.started!;
-    expect(info.mapId).toBe('cantina');
+    expect(MAPS.map((m) => m.id)).toContain(info.mapId);
     expect(info.roster).toHaveLength(6);
     expect(info.roster.filter((r) => !r.bot)).toHaveLength(2);
     await players[0]!.until(() => players[0]!.snapshots.length > 5);

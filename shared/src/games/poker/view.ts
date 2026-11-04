@@ -57,6 +57,11 @@ export interface PokerView {
   seats: PokerSeatView[];
   /** The viewer's own hole cards (empty for spectators). */
   hole: PokerCard[];
+  /**
+   * A busted player (seated, but out of this hand) watches with everyone's cards face up: the hole
+   * cards of each player still in the hand. Empty for everyone else.
+   */
+  spectatorHoles: { playerId: string; cards: PokerCard[] }[];
   legal: PokerLegalView;
   /** True between hands for the viewer (the room still charges the wallet). */
   canRebuy: boolean;
@@ -94,6 +99,10 @@ export function getPokerView(state: PokerGameState, viewerId: string | null): Po
   });
 
   const seat = hand?.seats[viewerId ?? ''];
+  const busted = isPlayer && !!hand && !seat;
+  const spectatorHoles = busted
+    ? hand!.order.filter((id) => !hand!.seats[id]!.folded).map((id) => ({ playerId: id, cards: [...hand!.hole[id]!] }))
+    : [];
   const myTurn = state.status === 'hand' && hand?.phase === 'betting' && hand.actor === viewerId && !!seat;
 
   let legal: PokerLegalView = {
@@ -138,6 +147,7 @@ export function getPokerView(state: PokerGameState, viewerId: string | null): Po
     community: hand ? [...hand.community] : [],
     seats,
     hole: seat ? [...hand!.hole[viewerId!]!] : [],
+    spectatorHoles,
     legal,
     canRebuy: state.status === 'hand' && hand?.phase === 'done' && isPlayer,
     rebuyAmount: state.settings.entry,

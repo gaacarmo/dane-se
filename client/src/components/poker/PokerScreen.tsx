@@ -76,6 +76,8 @@ export function PokerScreen({ room, onHelp }: { room: PokerRoomView; onHelp: () 
     for (const r of game.lastHand.revealed ?? []) revealed.set(r.playerId, r.cards);
     for (const w of game.lastHand.winners) wonAmounts.set(w.playerId, w.amount);
   }
+  // Busted and watching: everyone's cards face up.
+  for (const r of game.spectatorHoles) if (!revealed.has(r.playerId)) revealed.set(r.playerId, r.cards);
 
   const actorMember = room.members.find((m) => m.id === game.actorId);
   const onTheClock = !!actorMember && !actorMember.autoPlay && actorMember.connected && game.handPhase === 'betting';
