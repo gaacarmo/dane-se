@@ -224,6 +224,37 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
     [driver, matchRef],
   );
 
+  // Celular: sem zoom por pinça nem por toque duplo (tocar várias vezes no botão de tiro dava zoom).
+  useEffect(() => {
+    if (!isTouchDevice()) return;
+    const stop = (e: Event) => e.preventDefault();
+    const stopMulti = (e: TouchEvent) => {
+      if (e.touches.length > 1) e.preventDefault();
+    };
+    let lastEnd = 0;
+    const stopDouble = (e: TouchEvent) => {
+      const now = e.timeStamp;
+      if (now - lastEnd < 350) e.preventDefault();
+      lastEnd = now;
+    };
+    const html = document.documentElement;
+    const previous = html.style.touchAction;
+    html.style.touchAction = 'none';
+    document.addEventListener('gesturestart', stop);
+    document.addEventListener('gesturechange', stop);
+    document.addEventListener('touchmove', stopMulti, { passive: false });
+    document.addEventListener('touchend', stopDouble, { passive: false });
+    document.addEventListener('dblclick', stop);
+    return () => {
+      html.style.touchAction = previous;
+      document.removeEventListener('gesturestart', stop);
+      document.removeEventListener('gesturechange', stop);
+      document.removeEventListener('touchmove', stopMulti);
+      document.removeEventListener('touchend', stopDouble);
+      document.removeEventListener('dblclick', stop);
+    };
+  }, []);
+
   useEffect(() => {
     const counter = counters.current;
     driver.hooks = {
@@ -417,7 +448,7 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
   }
 
   return (
-    <main className="fixed inset-0 z-50 overflow-hidden bg-black">
+    <main className="fixed inset-0 z-50 touch-none overflow-hidden bg-black select-none [-webkit-touch-callout:none]">
       {portrait && (
         <div role="alert" className="absolute inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-black p-8 text-center font-mono text-stone-200">
           <span aria-hidden className="text-5xl">↻</span>
