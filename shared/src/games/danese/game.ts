@@ -94,6 +94,10 @@ export interface GameState {
   turnPlayerId: string | null;
   lastRound: RoundSummary | null;
   winnerId: string | null;
+  /** Letters per missed bet in the current round (2 after a fully canceled trick). */
+  stake: number;
+  /** Stake the next round will have. */
+  nextStake: number;
 }
 
 export type GameAction =
@@ -158,6 +162,8 @@ export function createGame(
     turnPlayerId: null,
     lastRound: null,
     winnerId: null,
+    stake: 1,
+    nextStake: 1,
   };
   return { ok: true, state: dealRound(base) };
 }
@@ -321,6 +327,8 @@ function playCard(state: GameState, playerId: string, id: string): ActionResult 
     ...state,
     hands,
     tricksWon,
+    // Embuchou tudo: a próxima rodada vale 2 letras por erro.
+    nextStake: result.winnerId === null ? 2 : state.nextStake,
     phase: 'trickEnd',
     trick: { ...state.trick, plays, result },
     turnPlayerId: null,
@@ -359,6 +367,7 @@ function finishRound(state: GameState): GameState {
     dealerId: state.dealerId,
     allTricksTied: state.completedTricks.every((t) => t.result?.winnerId === null),
     lives: state.lives,
+    stake: state.stake,
   });
 
   const outcome = applyArcadeLetters(state.arcade, state.lives, score.results, state.pendingLetters);
@@ -420,8 +429,9 @@ export function applyArcadeLetters(
 
   let next = arcade;
   const adjusted = results.map((r): PlayerRoundResult => {
-    const before = r.lettersAfter - (r.gainedLetter ? 1 : 0);
-    let gain = (r.gainedLetter ? 1 : 0) + (extra[r.playerId] ?? 0);
+    const received = r.lettersGained ?? (r.gainedLetter ? 1 : 0);
+    const before = r.lettersAfter - received;
+    let gain = received + (extra[r.playerId] ?? 0);
     while (gain > 0) {
       const shielded = absorbHit(next, r.playerId);
       if (!shielded.absorbed) break;
@@ -440,7 +450,7 @@ export function applyArcadeLetters(
         eliminated = true;
       }
     }
-    return { ...r, gainedLetter: gain > 0, lettersAfter, eliminated };
+    return { ...r, gainedLetter: gain > 0, lettersGained: gain, lettersAfter, eliminated };
   });
 
   return {
@@ -465,6 +475,8 @@ function startNextRound(state: GameState): ActionResult {
     state: dealRound({
       ...state,
       roundNumber: state.roundNumber + 1,
+      stake: state.nextStake,
+      nextStake: 1,
       dealerId,
       cardsPerPlayer: next.cards,
       cardDirection: next.direction,

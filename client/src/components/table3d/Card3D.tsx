@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { Card } from '@dane-se/shared';
 import { cardTexture } from '../../lib/cardTextures';
@@ -33,9 +34,21 @@ export function Card3D({
       new THREE.MeshBasicMaterial({ map: cardTexture(null), color, toneMapped: false }),
     ];
   }, [card, highlight, dim, face]);
+  const glow = useRef<THREE.MeshBasicMaterial>(null);
+  useFrame(({ clock }) => {
+    if (glow.current) glow.current.opacity = 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(clock.elapsedTime * 3.2));
+  });
   return (
-    <mesh material={materials} castShadow receiveShadow>
-      <boxGeometry args={[CARD_W, CARD_H, 0.003]} />
-    </mesh>
+    <group>
+      {highlight && (
+        <mesh position={[0, 0, -0.004]}>
+          <planeGeometry args={[CARD_W * 1.55, CARD_H * 1.4]} />
+          <meshBasicMaterial ref={glow} color="#ffd666" transparent opacity={0.5} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+        </mesh>
+      )}
+      <mesh material={materials} castShadow receiveShadow>
+        <boxGeometry args={[CARD_W, CARD_H, 0.003]} />
+      </mesh>
+    </group>
   );
 }

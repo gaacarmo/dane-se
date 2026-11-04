@@ -133,6 +133,27 @@ describe('scoreRound', () => {
     expect(score.dealerTiePenalty).toBe(false);
   });
 
+  it('a round worth 2 gives 2 letters per miss and eliminates when 2 reach the limit', () => {
+    const score = scoreRound({
+      players: [
+        { id: 'a', letters: 0 },
+        { id: 'b', letters: 4 },
+        { id: 'pe', letters: 0 },
+      ],
+      bets: { a: 1, b: 1, pe: 0 },
+      tricksWon: { a: 0, b: 0, pe: 0 },
+      dealerId: 'pe',
+      allTricksTied: false,
+      lives: 6,
+      stake: 2,
+    });
+    expect(score.results.map((r) => [r.playerId, r.lettersGained, r.lettersAfter, r.eliminated])).toEqual([
+      ['a', 2, 2, false],
+      ['b', 2, 6, true],
+      ['pe', 0, 0, false],
+    ]);
+  });
+
   it('all tricks tied: Pé who hit 0 still gets exactly one letter, others scored normally', () => {
     const score = scoreRound({
       players,

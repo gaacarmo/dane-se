@@ -79,6 +79,10 @@ export interface PlayerView {
   tricksPlayed: number;
   lastRound: RoundSummary | null;
   winnerId: string | null;
+  /** Letters per missed bet in this round (2 after a fully canceled trick). */
+  roundStake: number;
+  /** Stake of the next round; 2 as soon as a trick is fully canceled. */
+  nextStake: number;
   arcade: ArcadeView;
 }
 
@@ -134,6 +138,8 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
     tricksPlayed: state.completedTricks.length,
     lastRound: state.lastRound,
     winnerId: state.winnerId,
+    roundStake: state.stake,
+    nextStake: state.nextStake,
     arcade: {
       enabled: state.arcade.enabled,
       loadout: viewerSeat ? { character: viewerSeat.character, talents: [...viewerSeat.talents] } : null,

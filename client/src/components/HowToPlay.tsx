@@ -81,9 +81,9 @@ function DaneseRules({ heading }: { heading: boolean }) {
         <p>
           A carta mais forte leva a vaza, e quem leva começa a próxima. Se <strong>duas</strong> cartas mais fortes
           tiverem o mesmo valor, elas <strong>embucham</strong> (se cancelam) e ganha a maior que sobrou; se tudo
-          embuchar, ninguém leva e quem começou começa de novo. Se forem <strong>três</strong> do mesmo valor, ganha a de
-          naipe maior: Paus ganha de Copas, que ganha de Espadas, que ganha de Ouros. Se a rodada inteira embuchar, o Pé
-          leva uma letra.
+          embuchar, ninguém leva e quem começou começa de novo, e a <strong>próxima rodada vale 2</strong> (cada erro
+          dá 2 letras). Se forem <strong>três</strong> do mesmo valor, ganha a <strong>terceira carta jogada</strong>,
+          seja qual for o naipe. Se a rodada inteira embuchar, o Pé leva uma letra.
         </p>
       </section>
     </section>

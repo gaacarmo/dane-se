@@ -22,6 +22,26 @@ function withLetters(state: GameState, letters: Record<string, number>): GameSta
   return { ...state, players: state.players.map((p) => ({ ...p, letters: letters[p.id] ?? p.letters })) };
 }
 
+describe('a fully canceled trick makes the next round worth 2', () => {
+  it('sets the next stake, applies it in the following round and then goes back to 1', () => {
+    let s = rig(newGame(2), { p0: ['KD'], p1: ['KC'] }, '4D');
+    expect(s.stake).toBe(1);
+    s = betAll(s, { p0: 0, p1: 0 });
+    s = playTrick(s, { p0: 'KD', p1: 'KC' });
+    expect(s.trick.result?.winnerId).toBeNull();
+    expect(s.nextStake).toBe(2);
+    expect(getPlayerView(s, 'p0').nextStake).toBe(2);
+    s = act(s, { type: 'collectTrick' });
+    s = act(s, { type: 'nextRound' });
+    expect(s.stake).toBe(2);
+    expect(s.nextStake).toBe(1);
+    expect(getPlayerView(s, 'p0').roundStake).toBe(2);
+    s = autoPlayRound(s);
+    s = act(s, { type: 'nextRound' });
+    expect(s.stake).toBe(1);
+  });
+});
+
 describe('createGame', () => {
   it('rejects fewer than 2 or more than 6 players', () => {
     expect(createGame([{ id: 'a', name: 'A' }], 1).ok).toBe(false);
@@ -140,14 +160,14 @@ describe('playing', () => {
     expect(t.tricksWon).toEqual({ [x]: 0, [y]: 0 });
   });
 
-  it('three of the same rank: the higher suit wins and leads next', () => {
+  it('three of the same rank: the third played wins and leads next', () => {
     let s = withCards(newGame(3), 2);
     const [a, b, pe] = order(s) as [string, string, string];
     s = rig(s, { [a]: ['KD', '3C'], [b]: ['KC', '6S'], [pe]: ['KH', '4S'] }, '7D'); // manilha Q
     s = betAll(s, { [a]: 0, [b]: 1, [pe]: 0 });
     s = act(playTrick(s, { [a]: 'KD', [b]: 'KC', [pe]: 'KH' }), { type: 'collectTrick' });
-    expect(s.trick.leaderId).toBe(b);
-    expect(s.tricksWon[b]).toBe(1);
+    expect(s.trick.leaderId).toBe(pe);
+    expect(s.tricksWon[pe]).toBe(1);
   });
 
   it('whole-round tie gives the Pé exactly one letter', () => {

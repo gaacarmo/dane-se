@@ -121,7 +121,7 @@ export const PlayingCard = memo(function PlayingCard({ card, highlight, classNam
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
-      className={`card-shadow block ${className ?? ''}`}
+      className={`${highlight ? 'manilha-glow' : 'card-shadow'} block ${className ?? ''}`}
       style={style}
       role="img"
       aria-label={cardLabel(card) + (highlight ? ' (manilha)' : '')}

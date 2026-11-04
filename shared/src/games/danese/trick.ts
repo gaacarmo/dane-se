@@ -15,7 +15,7 @@ export interface TrickResult {
 /**
  * Resolves a trick, from the strongest rank down:
  * - one card of that rank: it wins;
- * - three cards of that rank: the higher suit wins (Ouros < Espadas < Copas < Paus);
+ * - three cards of that rank: the third one played wins, whatever its suit;
  * - two (or four) cards of that rank "embucham": they cancel, and the next rank down is checked.
  * Manilhas never tie (each suit is its own strength).
  */
@@ -31,13 +31,13 @@ export function resolveTrick(plays: readonly Play[], manilhaRank: Rank): TrickRe
     const group = byStrength.get(strength)!;
     if (group.length === 1) return { winnerId: group[0]!.playerId, canceledPlayerIds };
     if (group.length === SUIT_BREAKS_A_TIE_OF) {
-      const best = group.reduce((x, y) => (SUITS.indexOf(y.card.suit) > SUITS.indexOf(x.card.suit) ? y : x));
-      return { winnerId: best.playerId, canceledPlayerIds };
+      // O terceiro a jogar vence, seja qual for o naipe.
+      return { winnerId: group[group.length - 1]!.playerId, canceledPlayerIds };
     }
     canceledPlayerIds.push(...group.map((p) => p.playerId));
   }
   return { winnerId: null, canceledPlayerIds };
 }
 
-/** Only three cards of the same rank are decided by suit; a pair (or four) cancels. */
+/** Three cards of the same rank are decided by play order (the third wins); a pair (or four) cancels. */
 const SUIT_BREAKS_A_TIE_OF = 3;
