@@ -37,6 +37,15 @@ const VIEW_MODES = [
 ] as const;
 
 /** Small all-caps section marker with a gold rule that fades out. */
+type HubTab = 'play' | 'friends' | 'ranking' | 'settings';
+
+const TABS: { id: HubTab; label: string }[] = [
+  { id: 'play', label: 'Jogar' },
+  { id: 'friends', label: 'Amigos' },
+  { id: 'ranking', label: 'Ranking' },
+  { id: 'settings', label: 'Ajustes' },
+];
+
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-center gap-3">
@@ -242,6 +251,7 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
   const linkCode = codeFromUrl();
   const [selected, setSelected] = useState<GameType | null>(null);
   const [entry, setEntry] = useState(0);
+  const [tab, setTab] = useState<HubTab>('play');
   const [code, setCode] = useState(linkCode ?? '');
   const [joinOpen, setJoinOpen] = useState(Boolean(linkCode));
   const [busy, setBusy] = useState(false);
@@ -278,107 +288,136 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
 
   return (
     <main className="room-bg flex min-h-full flex-col items-center px-4 py-7">
-      <div className="w-full max-w-md space-y-6">
-        <header className="hub-panel relative overflow-hidden px-4 py-5">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -top-16 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full bg-gold-400/10 blur-3xl"
-          />
-          <Button
-            variant="ghost"
-            onClick={onHelp}
-            className="absolute top-3 right-3 z-10 shrink-0 px-3 py-2 text-sm"
-          >
-            📖 Regras
-          </Button>
-          <div className="relative flex flex-col items-center text-center">
-            <CardFan size="sm" />
-            <h1 className="mt-1 font-display text-4xl font-bold tracking-wide gold-text drop-shadow">Dane-se</h1>
-            <p className="mt-1 text-sm text-stone-300">Escolha uma mesa e boa sorte.</p>
-          </div>
-        </header>
-
-        <WalletHeader profile={profile} />
-
-        <section className="space-y-3">
-          <SectionLabel>Escolha o jogo</SectionLabel>
-          {GAME_CATALOG.map((game, i) => (
-            <Fragment key={game.id}>
-              <motion.div
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.04 * i, duration: 0.35, ease: 'circOut' }}
-              >
-                <GameCard
-                  game={game}
-                  selected={selected === game.id}
-                  onSelect={() => {
-                    setSelected(selected === game.id ? null : game.id);
-                    setEntry(game.defaultEntry);
-                  }}
-                />
-              </motion.div>
-              {selected === game.id && (
-                <CreatePanel
-                  game={game}
-                  entry={entry}
-                  setEntry={setEntry}
-                  arcade={arcade}
-                  setArcade={setArcade}
-                  balance={profile.balance}
-                  busy={busy}
-                  onCreate={() => void create(game)}
-                />
-              )}
-            </Fragment>
-          ))}
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 * GAME_CATALOG.length, duration: 0.35, ease: 'circOut' }}
-          >
-            <CsCard onTrain={csMode.open} />
-          </motion.div>
-        </section>
-
-        <form onSubmit={join} className="hub-panel space-y-2.5 p-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-sm font-semibold text-stone-200">Entrar com código</h2>
-            <span className="text-[11px] text-stone-500">4 letras</span>
-          </div>
-          <div className="flex gap-2">
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/[^a-z]/gi, '').toUpperCase())}
-              maxLength={ROOM_CODE_LENGTH}
-              autoCapitalize="characters"
-              autoComplete="off"
-              placeholder="ABCD"
-              aria-label="Código da sala"
-              className="min-h-12 min-w-0 flex-1 rounded-xl bg-black/40 px-3 text-center font-mono text-2xl tracking-[0.5em] text-white uppercase ring-1 ring-white/15 placeholder:text-stone-600 focus:ring-gold-400 focus:outline-none"
+      <div className="w-full max-w-md lg:grid lg:max-w-6xl lg:grid-cols-[17rem_minmax(0,1fr)_21rem] lg:items-start lg:gap-6">
+        <div className="space-y-6 lg:order-2">
+          <header className="hub-panel relative overflow-hidden px-4 py-5">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-16 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full bg-gold-400/10 blur-3xl"
             />
-            <Button type="submit" disabled={!canJoin || busy} className="px-4">
-              Entrar
+            <Button
+              variant="ghost"
+              onClick={onHelp}
+              className="absolute top-3 right-3 z-10 shrink-0 px-3 py-2 text-sm"
+            >
+              📖 Regras
             </Button>
-          </div>
-          {!joinOpen && <p className="text-xs text-stone-500">Recebeu um código? Digite aqui (ex.: ABCD).</p>}
-        </form>
+            <div className="relative flex flex-col items-center text-center">
+              <CardFan size="sm" />
+              <h1 className="mt-1 font-display text-4xl font-bold tracking-wide gold-text drop-shadow">Dane-se</h1>
+              <p className="mt-1 text-sm text-stone-300">Escolha uma mesa e boa sorte.</p>
+            </div>
+          </header>
 
-        <ViewModePicker />
+
+          <WalletHeader profile={profile} />
+
+          <div role="tablist" aria-label="Seções" className="flex gap-1 rounded-xl bg-black/30 p-1 lg:hidden">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                onClick={() => setTab(t.id)}
+                className={`min-h-10 flex-1 rounded-lg px-2 text-sm font-semibold transition ${
+                  tab === t.id ? 'bg-gold-500/90 text-stone-950' : 'text-stone-300 hover:bg-white/10'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className={`space-y-6 ${tab === 'play' ? '' : 'hidden'} lg:block`}>
+          <section className="space-y-3">
+            <SectionLabel>Escolha o jogo</SectionLabel>
+            {GAME_CATALOG.map((game, i) => (
+              <Fragment key={game.id}>
+                <motion.div
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.04 * i, duration: 0.35, ease: 'circOut' }}
+                >
+                  <GameCard
+                    game={game}
+                    selected={selected === game.id}
+                    onSelect={() => {
+                      setSelected(selected === game.id ? null : game.id);
+                      setEntry(game.defaultEntry);
+                    }}
+                  />
+                </motion.div>
+                {selected === game.id && (
+                  <CreatePanel
+                    game={game}
+                    entry={entry}
+                    setEntry={setEntry}
+                    arcade={arcade}
+                    setArcade={setArcade}
+                    balance={profile.balance}
+                    busy={busy}
+                    onCreate={() => void create(game)}
+                  />
+                )}
+              </Fragment>
+            ))}
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 * GAME_CATALOG.length, duration: 0.35, ease: 'circOut' }}
+            >
+              <CsCard onTrain={csMode.open} />
+            </motion.div>
+          </section>
+
+
+          <form onSubmit={join} className="hub-panel space-y-2.5 p-4">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-sm font-semibold text-stone-200">Entrar com código</h2>
+              <span className="text-[11px] text-stone-500">4 letras</span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/[^a-z]/gi, '').toUpperCase())}
+                maxLength={ROOM_CODE_LENGTH}
+                autoCapitalize="characters"
+                autoComplete="off"
+                placeholder="ABCD"
+                aria-label="Código da sala"
+                className="min-h-12 min-w-0 flex-1 rounded-xl bg-black/40 px-3 text-center font-mono text-2xl tracking-[0.5em] text-white uppercase ring-1 ring-white/15 placeholder:text-stone-600 focus:ring-gold-400 focus:outline-none"
+              />
+              <Button type="submit" disabled={!canJoin || busy} className="px-4">
+                Entrar
+              </Button>
+            </div>
+            {!joinOpen && <p className="text-xs text-stone-500">Recebeu um código? Digite aqui (ex.: ABCD).</p>}
+          </form>
+
+
+          </div>
+        </div>
 
         {social && (
-          <>
-            <section className="space-y-3">
+          <aside className={`mt-6 space-y-3 ${tab === 'ranking' ? '' : 'hidden'} lg:order-1 lg:mt-0 lg:block`}>
+            <SectionLabel>Ranking entre amigos</SectionLabel>
+            <RankingPanel social={social} />
+          </aside>
+        )}
+
+        <aside className={`mt-6 space-y-6 ${tab === 'friends' || tab === 'settings' ? '' : 'hidden'} lg:order-3 lg:mt-0 lg:block`}>
+          {social && (
+            <section className={`space-y-3 ${tab === 'friends' ? '' : 'hidden'} lg:block`}>
               <SectionLabel>Amigos</SectionLabel>
               <FriendsPanel social={social} />
             </section>
-            <section className="space-y-3">
-              <SectionLabel>Ranking entre amigos</SectionLabel>
-              <RankingPanel social={social} />
-            </section>
-          </>
-        )}
-        <RecoveryPanel />
+          )}
+          <div className={`space-y-6 ${tab === 'settings' ? '' : 'hidden'} lg:block`}>
+            <ViewModePicker />
+            <RecoveryPanel />
+          </div>
+        </aside>
       </div>
     </main>
   );
