@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { actions, useClient } from '../lib/store';
 
 /** In the lobby: call online friends who aren't at this table yet. */
-export function InviteFriends() {
+export function InviteFriends({ names }: { names?: string[] } = {}) {
   const { social, room } = useClient();
   const [called, setCalled] = useState<Record<string, boolean>>({});
-  if (!social || !room) return null;
-  const here = new Set(room.members.map((m) => m.name));
+  const members = names ?? room?.members.map((m) => m.name);
+  if (!social || !members) return null;
+  const here = new Set(members);
   const online = social.friends.filter((f) => f.online && !here.has(f.nickname));
 
   async function call(id: string) {

@@ -1,5 +1,6 @@
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
+import { motion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import {
@@ -12,6 +13,7 @@ import {
 } from '@dane-se/shared';
 import { sfx } from '../../lib/sound';
 import { useClient } from '../../lib/store';
+import { CHARACTER_COLORS, withAlpha } from '../../lib/characters';
 import { Letters } from '../table/Letters';
 import { CARD_H, CARD_W, Card3D } from './Card3D';
 import { WatchSwitcher, useWatchedSeat } from './WatchSwitcher';
@@ -352,7 +354,78 @@ function Pile({ game }: { game: PlayerView }) {
   );
 }
 
-export function Table3DView({ room }: { room: DaneseRoomView }) {
+/**
+ * Arcade: the charged 1× special as a pulsing ring around the head. Rendered
+ * inside the seat's billboard group, so it always faces the camera. Public
+ * info — everyone sees whose special is still loaded.
+ */
+function SpecialAura({ color }: { color: string }) {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    const m = ref.current;
+    if (!m) return;
+    const t = clock.getElapsedTime();
+    m.scale.setScalar(1 + Math.sin(t * 3) * 0.05);
+    (m.material as THREE.MeshBasicMaterial).opacity = 0.5 + Math.sin(t * 3) * 0.22;
+  });
+  return (
+    <mesh ref={ref} position={[0, 0.24, 0.02]}>
+      <ringGeometry args={[0.31, 0.37, 48]} />
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={0.6}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
+/** Arcade: a short energy shock at the seat when that player's special fires. */
+function SpecialBurst3D({ burst, color }: { burst: number; color: string }) {
+  return (
+    <Html
+      center
+      position={[0, 0.24, 0.06]}
+      distanceFactor={2}
+      style={{ pointerEvents: 'none' }}
+      zIndexRange={[25, 5]}
+    >
+      <div key={burst} className="relative grid place-items-center">
+        <motion.span
+          className="block rounded-full border-2"
+          style={{ width: 96, height: 96, borderColor: color, boxShadow: `0 0 20px 5px ${withAlpha(color, 0.6)}` }}
+          initial={{ opacity: 0.95, scale: 0.4 }}
+          animate={{ opacity: 0, scale: 2.1 }}
+          transition={{ duration: 1.1, ease: 'easeOut' }}
+        />
+        <motion.span
+          className="absolute text-3xl"
+          initial={{ opacity: 1, scale: 0.4, y: 0 }}
+          animate={{ opacity: 0, scale: 1.7, y: -34 }}
+          transition={{ duration: 0.9, ease: 'easeOut' }}
+        >
+          ✨
+        </motion.span>
+      </div>
+    </Html>
+  );
+}
+
+export function Table3DView({
+  room,
+  arcade,
+  specialBursts,
+}: {
+  room: DaneseRoomView;
+  /** Arcade targeting: opponent ids the viewer may point at, and the commit callback. */
+  arcade?: { targetable: ReadonlySet<string>; onTarget: (playerId: string) => void };
+  /** Arcade: per-player burst id right after a charged 1× special fires. */
+  specialBursts?: ReadonlyMap<string, number>;
+}) {
   const game = room.game!;
   const word = wordLetters(game.settings.word);
   const n = game.players.length;
@@ -387,7 +460,29 @@ export function Table3DView({ room }: { room: DaneseRoomView }) {
       overhead: (
         <>
           <Reactions3D playerId={p.id} position={[0, 0.5, 0.05]} />
+          {p.specialCharged && !p.eliminated && <SpecialAura color={CHARACTER_COLORS[member?.character ?? 'carmelo']} />}
           <NameTag player={p} member={member} isYou={p.id === room.youId} isTurn={p.id === turnId} word={word} />
+          {specialBursts?.get(p.id) !== undefined && (
+            <SpecialBurst3D burst={specialBursts.get(p.id)!} color={CHARACTER_COLORS[member?.character ?? 'carmelo']} />
+          )}
+          {arcade?.targetable.has(p.id) && (
+            <Html center position={[0, 0.16, 0.06]} distanceFactor={2} zIndexRange={[45, 30]}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  arcade.onTarget(p.id);
+                }}
+                title={`Mirar em ${p.name}`}
+                aria-label={`Mirar em ${p.name}`}
+                className="relative grid size-16 animate-pulse cursor-pointer place-items-center rounded-full bg-sky-400/5 ring-4 ring-sky-300/90 transition hover:bg-sky-400/20"
+              >
+                <span className="absolute -bottom-3 rounded-full bg-black/75 px-1.5 py-0.5 text-[11px] font-bold whitespace-nowrap text-sky-100">
+                  🎯 Mirar
+                </span>
+              </button>
+            </Html>
+          )}
           {(() => {
             const last = [...room.chat].reverse().find((m) => m.playerId === p.id);
             return last && now - last.at < BUBBLE_MS ? <Bubble key={last.id} text={last.text} /> : null;

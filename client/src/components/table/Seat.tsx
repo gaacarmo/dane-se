@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { PublicPlayer, RoomMember } from '@dane-se/shared';
 import { avatarColor, initial } from '../../lib/avatar';
+import { CHARACTER_COLORS, withAlpha } from '../../lib/characters';
 import { CardBack, PlayingCard } from '../cards/PlayingCard';
 import type { Point } from './geometry';
 import { Letters } from './Letters';
@@ -21,6 +22,11 @@ interface SeatProps {
   roundKey: string;
   /** Shrinks the seat on short screens. */
   scale?: number;
+  /** Arcade: this opponent is a valid target right now, so the seat is clickable. */
+  targetable?: boolean;
+  onTarget?: () => void;
+  /** Arcade: changes when this player's 1× special just fired, triggering a one-shot burst. */
+  burst?: number;
 }
 
 export function Seat({
@@ -36,17 +42,27 @@ export function Seat({
   dealDelay,
   roundKey,
   scale = 1,
+  targetable = false,
+  onTarget,
+  burst,
 }: SeatProps) {
   const out = player.eliminated;
   const showFan = !blindRound && !isYou && !out && player.cardCount > 0;
   const showForehead = blindRound && !out && player.cardCount > 0;
+  /** The charged special glows in the character's own color. */
+  const accent = member ? CHARACTER_COLORS[member.character] : '#d946ef';
 
   return (
     <motion.div
-      className="absolute z-10 flex w-[100px] -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+      className={`absolute z-10 flex w-[100px] -translate-x-1/2 -translate-y-1/2 flex-col items-center ${
+        targetable ? 'z-30 cursor-pointer' : ''
+      }`}
       style={{ left: point.x, top: point.y, scale }}
       animate={{ left: point.x, top: point.y }}
       transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+      onClick={targetable ? onTarget : undefined}
+      role={targetable ? 'button' : undefined}
+      aria-label={targetable ? `Mirar em ${player.name}` : undefined}
     >
       {/* Blind round: the card sits on the forehead. You only see the back of yours. */}
       <AnimatePresence>
@@ -70,6 +86,18 @@ export function Seat({
       </AnimatePresence>
 
       <div className="relative">
+        {/* Arcade: a charged 1× special glows around the avatar (public info). */}
+        {player.specialCharged && !out && (
+          <motion.span
+            className="absolute -inset-1 rounded-full border-2"
+            style={{ borderColor: accent, boxShadow: `0 0 12px 2px ${withAlpha(accent, 0.5)}` }}
+            animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.06, 1] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            title="Especial carregado"
+            aria-label="Especial carregado"
+            aria-hidden
+          />
+        )}
         {/* Turn ring */}
         {isTurn && (
           <motion.span
@@ -78,6 +106,50 @@ export function Seat({
             transition={{ repeat: Infinity, duration: 1.4 }}
             aria-hidden
           />
+        )}
+        {/* Arcade: aimed at this opponent — click the seat to confirm. */}
+        {targetable && (
+          <>
+            <motion.span
+              className="absolute -inset-2 rounded-full ring-2 ring-sky-300"
+              style={{ boxShadow: '0 0 14px 3px rgb(125 211 252 / 0.65)' }}
+              animate={{ opacity: [0.45, 1, 0.45], scale: [1, 1.08, 1] }}
+              transition={{ repeat: Infinity, duration: 1.2 }}
+              aria-hidden
+            />
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-base drop-shadow" aria-hidden>
+              🎯
+            </span>
+          </>
+        )}
+        {/* Arcade: the moment a charged special goes off — an energy shock. */}
+        {burst !== undefined && (
+          <span className="pointer-events-none absolute inset-0" aria-hidden>
+            <motion.span
+              key={`${burst}-ring-a`}
+              className="absolute -inset-3 rounded-full border-2 border-fuchsia-300"
+              style={{ boxShadow: '0 0 18px 4px rgb(217 70 239 / 0.6)' }}
+              initial={{ opacity: 0.95, scale: 0.5 }}
+              animate={{ opacity: 0, scale: 2.2 }}
+              transition={{ duration: 1.1, ease: 'easeOut' }}
+            />
+            <motion.span
+              key={`${burst}-ring-b`}
+              className="absolute -inset-3 rounded-full border border-sky-300"
+              initial={{ opacity: 0.8, scale: 0.4 }}
+              animate={{ opacity: 0, scale: 1.8 }}
+              transition={{ duration: 1, ease: 'easeOut', delay: 0.08 }}
+            />
+            <motion.span
+              key={`${burst}-spark`}
+              className="absolute inset-0 grid place-items-center text-2xl drop-shadow"
+              initial={{ opacity: 1, scale: 0.4, y: 0 }}
+              animate={{ opacity: 0, scale: 1.6, y: -26 }}
+              transition={{ duration: 0.9, ease: 'easeOut' }}
+            >
+              ✨
+            </motion.span>
+          </span>
         )}
         <div
           className={`relative grid size-12 place-items-center rounded-full text-lg font-bold text-white shadow-lg ring-2 transition ${

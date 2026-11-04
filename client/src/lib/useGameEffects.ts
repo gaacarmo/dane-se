@@ -53,6 +53,13 @@ export function useGameEffects(room: DaneseRoomView): void {
       if (game.winnerId === room.youId) sfx.win();
       else sfx.lose();
     }
+
+    // A charged 1× arcade special was spent: one energy flash for the whole table.
+    const specialFired = game.players.some((p) => {
+      const was = before.players.find((q) => q.id === p.id);
+      return was?.specialCharged === true && p.specialCharged === false;
+    });
+    if (specialFired) sfx.special();
   }, [room, game]);
 
   // Your turn: ding + buzz.

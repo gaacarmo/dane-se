@@ -13,11 +13,14 @@ export function TableMenu({
   onClose,
   onHelp,
   onLeave,
+  onShowKit,
 }: {
   open: boolean;
   onClose: () => void;
   onHelp: () => void;
   onLeave: () => void;
+  /** Arcade: reopen the "your kit" briefing, when the viewer has a loadout. */
+  onShowKit?: () => void;
 }) {
   const prefs = usePrefs();
   const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
@@ -58,6 +61,17 @@ export function TableMenu({
         </div>
 
         <div className="flex flex-col gap-2 border-t border-white/10 pt-4">
+          {onShowKit && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                onClose();
+                onShowKit();
+              }}
+            >
+              🎴 Seu kit
+            </Button>
+          )}
           <Button
             variant="secondary"
             onClick={() => {

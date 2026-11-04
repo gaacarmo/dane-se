@@ -7,6 +7,8 @@ import {
   type CharacterId,
   type ChatMessage,
   type ClientToServerEvents,
+  type FriendInvite,
+  type CommonTalentId,
   type Entry,
   type ErrorCode,
   type GameSettings,
@@ -23,6 +25,7 @@ import {
   type Session,
   CHARACTER_IDS,
   CHAT_HISTORY,
+  COMMON_TALENT_IDS,
   MAX_CHAT_LENGTH,
   MAX_NAME_LENGTH,
   POKER_TURN_TIMEOUT_MS,
@@ -34,7 +37,10 @@ import {
   assertConservation,
   isCharacterId,
   isValidMoney,
+  isValidTalentSet,
   normalizeRoomCode,
+  parseLoadout,
+  talentsFor,
 } from '@dane-se/shared';
 import { type AnyGameModule, gameModule } from './hub/registry.js';
 import type { ProfileRow } from './hub/store.js';
@@ -60,6 +66,8 @@ export interface Timings {
   betweenHandsMs: number;
   /** How long a player has to act before auto check/fold (poker). */
   turnTimeoutMs: number;
+  /** Arcade lobby: how long players have to pick their common talents before auto-pick. */
+  talentPickMs: number;
 }
 
 export const DEFAULT_TIMINGS: Timings = {
@@ -73,6 +81,7 @@ export const DEFAULT_TIMINGS: Timings = {
   sweepIntervalMs: 60_000,
   betweenHandsMs: 30_000,
   turnTimeoutMs: POKER_TURN_TIMEOUT_MS,
+  talentPickMs: 40_000,
 };
 
 /** A seated player who times out this many turns in a row is sat out (bot plays). */
@@ -105,6 +114,8 @@ interface Member {
   lastLookAt: number;
   inVoice: boolean;
   character: CharacterId;
+  /** Common talents picked for arcade mode (empty = not picked). */
+  talents: CommonTalentId[];
   /** What this member paid into the room, or null if nothing (yet). */
   entry: number | null;
   /** Consecutive turns this player let the clock run out (poker). */
@@ -123,6 +134,8 @@ interface Room {
   settings: Record<string, unknown>;
   /** A room with bots is "treino": no money moves. */
   practice: boolean;
+  /** Arcade mode: every seat plays with a kit (passive + 1× special + talents). */
+  arcade: boolean;
   /** Join order = seat order. */
   members: Member[];
   game: unknown;
@@ -134,6 +147,9 @@ interface Room {
   gameTimer: NodeJS.Timeout | null;
   hostTimer: NodeJS.Timeout | null;
   emptyTimer: NodeJS.Timeout | null;
+  /** Arcade lobby: when the current talent-pick window closes (epoch ms), or null. */
+  talentDeadline: number | null;
+  talentTimer: NodeJS.Timeout | null;
   lastActivity: number;
   /** Sum of entries currently held by the room. */
   paidTotal: number;
@@ -237,7 +253,12 @@ export class RoomManager {
   inviteFriend(socket: GameSocket, otherId: unknown): Ack {
     const ctx = this.context(socket);
     if (!ctx) return fail('NOT_IN_ROOM');
-    const from = this.wallets.profileById(ctx.member.profileId);
+    return this.sendInvite(ctx.member.profileId, otherId, ctx.room.code, ctx.room.gameType);
+  }
+
+  /** Chama um amigo online para a sala `code` (de qualquer jogo, inclusive o CS). */
+  sendInvite(fromProfileId: string, otherId: unknown, code: string, gameType: FriendInvite['gameType']): Ack {
+    const from = this.wallets.profileById(fromProfileId);
     if (!from || typeof otherId !== 'string') return fail('INVALID_PAYLOAD');
     if (!this.social.areFriends(from.id, otherId)) return fail('NOT_FRIENDS');
     const targets = this.socketsOf(otherId);
@@ -246,7 +267,7 @@ export class RoomManager {
     const key = `${from.id}>${otherId}`;
     if (now - (this.lastInviteAt.get(key) ?? 0) < INVITE_COOLDOWN_MS) return fail('TOO_FAST');
     this.lastInviteAt.set(key, now);
-    const invite = { id: randomUUID().slice(0, 8), fromId: from.id, fromName: from.nickname, code: ctx.room.code, gameType: ctx.room.gameType };
+    const invite: FriendInvite = { id: randomUUID().slice(0, 8), fromId: from.id, fromName: from.nickname, code, gameType };
     for (const s of targets) s.emit('friend:invite', invite);
     return OK;
   }
@@ -257,8 +278,16 @@ export class RoomManager {
 
   private readonly presence: Presence = {
     online: (id) => this.socketsOf(id).length > 0,
-    inRoom: (id) => !!this.roomOfProfile(id),
+    inRoom: (id) => !!this.roomOfProfile(id) || this.externalInRoom(id),
   };
+
+  /** Salas de outros gerenciadores (CS): os códigos e a presença precisam valer para os dois lados. */
+  externalCodeTaken: (code: string) => boolean = () => false;
+  externalInRoom: (profileId: string) => boolean = () => false;
+
+  hasCode(code: string): boolean {
+    return this.rooms.has(code);
+  }
 
   private readonly lastInviteAt = new Map<string, number>();
 
@@ -273,7 +302,7 @@ export class RoomManager {
   }
 
   /** A profile came online, went offline, or sat down or got up: refresh it and the hubs that show it. */
-  private onPresenceChange(profileId: string): void {
+  onPresenceChange(profileId: string): void {
     this.pushSocial(profileId);
     for (const id of this.social.relatedIds(profileId)) this.pushSocial(id);
   }
@@ -307,7 +336,7 @@ export class RoomManager {
   // Lobby
   // -------------------------------------------------------------------------
 
-  create(socket: GameSocket, payload: { name?: unknown; gameType?: unknown; settings?: unknown }): Ack<Session> {
+  create(socket: GameSocket, payload: { name?: unknown; gameType?: unknown; settings?: unknown; arcade?: unknown }): Ack<Session> {
     const gameType = typeof payload.gameType === 'string' ? (payload.gameType as GameType) : 'danese';
     const module = gameModule(gameType);
     if (!module) return fail('INVALID_GAME');
@@ -315,7 +344,7 @@ export class RoomManager {
     const resolved = this.ensureProfile(socket, payload.name);
     if ('error' in resolved) return fail(resolved.error);
     const { profile } = resolved;
-    if (this.roomOfProfile(profile.id)) return fail('ALREADY_IN_ROOM');
+    if (this.roomOfProfile(profile.id) || this.externalInRoom(profile.id)) return fail('ALREADY_IN_ROOM');
 
     const settings = module.validateSettings(payload.settings ?? {});
     if (!settings) return fail('INVALID_SETTINGS');
@@ -329,6 +358,7 @@ export class RoomManager {
       status: 'lobby',
       settings: settings as Record<string, unknown>,
       practice: false,
+      arcade: payload.arcade === true,
       members: [member],
       game: null,
       gameSeq: 0,
@@ -338,12 +368,15 @@ export class RoomManager {
       gameTimer: null,
       hostTimer: null,
       emptyTimer: null,
+      talentDeadline: null,
+      talentTimer: null,
       lastActivity: Date.now(),
       paidTotal: 0,
       settled: false,
       results: null,
     };
     this.rooms.set(room.code, room);
+    this.refreshTalentTimer(room);
     this.attach(room, member, socket);
     return { ok: true, ...session(room, member) };
   }
@@ -359,7 +392,7 @@ export class RoomManager {
     const resolved = this.ensureProfile(socket, rawName);
     if ('error' in resolved) return fail(resolved.error);
     const { profile } = resolved;
-    if (this.roomOfProfile(profile.id)) return fail('ALREADY_IN_ROOM');
+    if (this.roomOfProfile(profile.id) || this.externalInRoom(profile.id)) return fail('ALREADY_IN_ROOM');
     if (room.members.some((m) => m.name.toLowerCase() === profile.nickname.toLowerCase())) return fail('NAME_TAKEN');
 
     // Money is only charged at the start (so a lobby with bots can still become "treino"),
@@ -372,6 +405,7 @@ export class RoomManager {
 
     const member = newMember(profile, room.members.map((m) => m.character));
     room.members.push(member);
+    this.refreshTalentTimer(room);
     this.attach(room, member, socket);
     return { ok: true, ...session(room, member) };
   }
@@ -415,6 +449,7 @@ export class RoomManager {
       return OK;
     }
     if (room.hostId === member.id) this.transferHost(room);
+    this.refreshTalentTimer(room);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -462,6 +497,46 @@ export class RoomManager {
     if (!room || !member) return fail('NOT_IN_ROOM');
     if (!isCharacterId(character)) return fail('INVALID_PAYLOAD');
     member.character = character;
+    // A new character may allow a different number of talents: make them re-pick.
+    if (room.arcade) member.talents = [];
+    this.refreshTalentTimer(room);
+    this.touch(room);
+    this.broadcast(room);
+    return OK;
+  }
+
+  /** Host: toggle arcade mode in the lobby. Turning it off clears everyone's picks. */
+  setArcade(socket: GameSocket, raw: unknown): Ack {
+    const ctx = this.hostContext(socket);
+    if (!ctx.ok) return ctx;
+    const { room } = ctx;
+    if (room.status !== 'lobby') return fail('GAME_IN_PROGRESS');
+    if (typeof raw !== 'boolean') return fail('INVALID_PAYLOAD');
+    room.arcade = raw;
+    if (!raw) {
+      for (const m of room.members) m.talents = [];
+    } else {
+      for (const m of room.members) if (m.isBot) m.talents = autoTalents(m.character);
+    }
+    this.refreshTalentTimer(room);
+    this.touch(room);
+    this.broadcast(room);
+    return OK;
+  }
+
+  /** A player picks their own common talents (validated against their character). */
+  setTalents(socket: GameSocket, raw: unknown): Ack {
+    const { code, playerId } = socket.data;
+    const room = code ? this.rooms.get(code) : undefined;
+    const member = room?.members.find((m) => m.id === playerId);
+    if (!room || !member) return fail('NOT_IN_ROOM');
+    if (room.status !== 'lobby') return fail('GAME_IN_PROGRESS');
+    if (!room.arcade) return fail('INVALID_TALENTS');
+    if (!Array.isArray(raw)) return fail('INVALID_TALENTS');
+    const talents = raw.filter((t): t is CommonTalentId => typeof t === 'string');
+    if (talents.length !== raw.length || !isValidTalentSet(member.character, talents)) return fail('INVALID_TALENTS');
+    member.talents = talents;
+    this.refreshTalentTimer(room);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -482,7 +557,10 @@ export class RoomManager {
 
     const taken = new Set(room.members.map((m) => m.name.toLowerCase()));
     const name = BOT_NAMES.find((n) => !taken.has(n.toLowerCase())) ?? `Bot ${room.members.length + 1}`;
-    room.members.push({ ...newMember({ id: '', token: '', nickname: name, createdAt: 0 }), autoPlay: true, isBot: true });
+    const bot = { ...newMember({ id: '', token: '', nickname: name, createdAt: 0 }), autoPlay: true, isBot: true };
+    if (room.arcade) bot.talents = autoTalents(bot.character);
+    room.members.push(bot);
+    this.refreshTalentTimer(room);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -511,12 +589,23 @@ export class RoomManager {
     if (room.status !== 'lobby') return fail('GAME_IN_PROGRESS');
     if (room.members.length < module.minPlayers) return fail('NOT_ENOUGH_PLAYERS');
 
+    if (room.arcade) {
+      for (const m of room.members) {
+        if (m.isBot && parseLoadout(m.character, m.talents) === null) m.talents = autoTalents(m.character);
+      }
+      if (room.members.some((m) => parseLoadout(m.character, m.talents) === null)) return fail('TALENTS_REQUIRED');
+    }
+
     const collected = this.collectEntries(room, module);
     if (collected) return fail(collected);
 
     room.gameSeq += 1;
     const created = module.create(
-      room.members.map((m) => ({ id: m.id, name: m.name })),
+      room.members.map((m) => ({
+        id: m.id,
+        name: m.name,
+        arcade: room.arcade ? { character: m.character, talents: m.talents } : undefined,
+      })),
       room.settings,
       randomInt(2 ** 31),
     );
@@ -529,6 +618,7 @@ export class RoomManager {
       m.timeouts = 0;
       m.autoPlay = m.isBot;
     }
+    this.clearTalentTimer(room);
     this.afterGameChange(room);
     return OK;
   }
@@ -562,6 +652,7 @@ export class RoomManager {
       }
     }
     if (!room.members.some((m) => m.id === room.hostId)) this.transferHost(room);
+    this.refreshTalentTimer(room);
     this.touch(room);
     this.broadcast(room);
     return OK;
@@ -983,6 +1074,7 @@ export class RoomManager {
       socket.emit('room:kicked');
     }
     if (room.hostId === member.id) this.transferHost(room);
+    this.refreshTalentTimer(room);
   }
 
   private transferHost(room: Room): void {
@@ -997,7 +1089,8 @@ export class RoomManager {
     return id ? (this.wallets.profileById(id) ?? null) : null;
   }
 
-  private ensureProfile(socket: GameSocket, rawName: unknown): { profile: ProfileRow } | { error: ErrorCode } {
+  /** Perfil do socket, criando um novo com `rawName` quando ainda não existe (usado também pelas salas do CS). */
+  ensureProfile(socket: GameSocket, rawName: unknown): { profile: ProfileRow } | { error: ErrorCode } {
     const existing = this.profileFor(socket);
     if (existing) return { profile: existing };
     const name = validName(rawName);
@@ -1008,7 +1101,7 @@ export class RoomManager {
     return { profile };
   }
 
-  private roomOfProfile(profileId: string): Room | undefined {
+  roomOfProfile(profileId: string): Room | undefined {
     for (const room of this.rooms.values()) {
       if (room.members.some((m) => !m.isBot && !m.left && m.profileId === profileId)) return room;
     }
@@ -1042,11 +1135,15 @@ export class RoomManager {
   private viewFor(room: Room, memberId: string): RoomView {
     const module = gameModule(room.gameType);
     const entry = module && !room.practice ? module.entryFor(room.settings) : 0;
+    const viewer = room.members.find((m) => m.id === memberId);
     const base: RoomViewBase = {
       code: room.code,
       youId: memberId,
       hostId: room.hostId,
       status: room.status,
+      arcade: room.arcade,
+      yourTalents: viewer ? [...viewer.talents] : [],
+      talentDeadline: room.talentDeadline,
       members: room.members.map((m) => ({
         id: m.id,
         name: m.name,
@@ -1055,6 +1152,7 @@ export class RoomManager {
         autoPlay: m.autoPlay,
         isBot: m.isBot,
         character: m.character,
+        talentsReady: room.arcade ? parseLoadout(m.character, m.talents) !== null : true,
         entry: m.entry,
       })),
       money: { entry, pot: room.paidTotal, practice: room.practice, settled: room.settled },
@@ -1081,8 +1179,52 @@ export class RoomManager {
   }
 
   private clearTimers(room: Room): void {
-    for (const timer of [room.gameTimer, room.hostTimer, room.emptyTimer]) if (timer) clearTimeout(timer);
-    room.gameTimer = room.hostTimer = room.emptyTimer = null;
+    for (const timer of [room.gameTimer, room.hostTimer, room.emptyTimer, room.talentTimer]) if (timer) clearTimeout(timer);
+    room.gameTimer = room.hostTimer = room.emptyTimer = room.talentTimer = null;
+    room.talentDeadline = null;
+  }
+
+  private clearTalentTimer(room: Room): void {
+    if (room.talentTimer) clearTimeout(room.talentTimer);
+    room.talentTimer = null;
+    room.talentDeadline = null;
+  }
+
+  /**
+   * Keeps the arcade talent-pick window honest: arms a single 40s countdown while
+   * someone still hasn't picked, and disarms it once everyone's ready (or the game
+   * starts). Picks made mid-window don't extend it.
+   */
+  private refreshTalentTimer(room: Room): void {
+    const waiting =
+      room.arcade &&
+      room.status === 'lobby' &&
+      room.members.some((m) => parseLoadout(m.character, m.talents) === null);
+    if (!waiting) {
+      this.clearTalentTimer(room);
+      return;
+    }
+    if (room.talentTimer) return; // already counting down
+    room.talentDeadline = Date.now() + this.timings.talentPickMs;
+    room.talentTimer = setTimeout(() => this.expireTalents(room), this.timings.talentPickMs);
+    room.talentTimer.unref();
+  }
+
+  /** The window closed: stragglers get the first talents their character allows. */
+  private expireTalents(room: Room): void {
+    room.talentTimer = null;
+    room.talentDeadline = null;
+    if (!room.arcade || room.status !== 'lobby') return;
+    let changed = false;
+    for (const m of room.members) {
+      if (parseLoadout(m.character, m.talents) === null) {
+        m.talents = autoTalents(m.character);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    this.touch(room);
+    this.broadcast(room);
   }
 
   private closeRoom(room: Room, reason: RoomClosedReason): void {
@@ -1110,7 +1252,7 @@ export class RoomManager {
     for (;;) {
       let code = '';
       for (let i = 0; i < ROOM_CODE_LENGTH; i++) code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
-      if (!this.rooms.has(code)) return code;
+      if (!this.rooms.has(code) && !this.externalCodeTaken(code)) return code;
     }
   }
 }
@@ -1135,10 +1277,16 @@ function newMember(profile: ProfileRow, taken: CharacterId[] = []): Member {
     lastLookAt: 0,
     inVoice: false,
     character: pickCharacter(taken),
+    talents: [],
     entry: null,
     timeouts: 0,
     left: false,
   };
+}
+
+/** Bots don't pick in the lobby: give them the first N common talents. */
+function autoTalents(character: CharacterId): CommonTalentId[] {
+  return COMMON_TALENT_IDS.slice(0, talentsFor(character)) as CommonTalentId[];
 }
 
 function session(room: Room, member: Member): Session {

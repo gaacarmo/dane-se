@@ -1,4 +1,5 @@
 import type { CharacterId } from './characters.js';
+import type { ArcadeAbilityId, CommonTalentId } from './arcade/index.js';
 import type { GameError } from './games/danese/game.js';
 import type { GameSettings } from './games/danese/rules.js';
 import type { PlayerView } from './games/danese/view.js';
@@ -6,6 +7,12 @@ import type { PokerSettings } from './games/poker/rules.js';
 import type { PokerView } from './games/poker/view.js';
 import type { EngineError, GameType } from './hub/gameModule.js';
 import type { Money } from './hub/money.js';
+import type { Difficulty } from './cs/bot.js';
+import type { CsLobbyView, CsStartInfo } from './cs/lobby.js';
+import type { CsInputMsg, CsSnapshot } from './cs/net.js';
+import type { PingKind } from './cs/pings.js';
+import type { TeamId } from './cs/types.js';
+import type { BuyItem } from './cs/buy.js';
 
 export type RoomStatus = 'lobby' | 'playing' | 'finished';
 
@@ -20,6 +27,8 @@ export interface RoomMember {
   isBot: boolean;
   /** Who the player looks like at the 3D table. Several players may pick the same one. */
   character: CharacterId;
+  /** Arcade rooms only: true once this member has picked a full set of common talents. */
+  talentsReady: boolean;
   /** What this member put in the pot (buy-in), or null in practice rooms / before paying. */
   entry: Money | null;
 }
@@ -63,6 +72,15 @@ export interface RoomViewBase {
   youId: string;
   hostId: string;
   status: RoomStatus;
+  /** Arcade mode: every seat carries a kit (passive + 1× special + chosen talents). */
+  arcade: boolean;
+  /** The viewer's own common talents (private: opponents never receive them). */
+  yourTalents: CommonTalentId[];
+  /**
+   * Arcade: epoch ms when the talent-pick window closes (stragglers get auto-picked),
+   * or null when not counting down.
+   */
+  talentDeadline: number | null;
   /** In seat order (= play order). */
   members: RoomMember[];
   money: RoomMoney;
@@ -150,7 +168,7 @@ export interface FriendInvite {
   fromId: string;
   fromName: string;
   code: string;
-  gameType: GameType;
+  gameType: GameType | 'cs';
 }
 
 /** Friend codes: unambiguous letters and digits (no 0/O, 1/I/L). */
@@ -178,6 +196,8 @@ export type ErrorCode =
   | 'TOO_FAST'
   | 'CHAT_TOO_FAST'
   | 'INVALID_GAME'
+  | 'INVALID_TALENTS'
+  | 'TALENTS_REQUIRED'
   | 'INSUFFICIENT_BALANCE'
   | 'INVALID_ENTRY'
   | 'PRACTICE_LOCKED'
@@ -188,7 +208,9 @@ export type ErrorCode =
   | 'ALREADY_FRIENDS'
   | 'NOT_FRIENDS'
   | 'FRIEND_OFFLINE'
-  | 'REFILL_NOT_ELIGIBLE';
+  | 'REFILL_NOT_ELIGIBLE'
+  | 'TEAM_FULL'
+  | 'NOT_IN_MATCH';
 
 export type Ack<T = object> = ({ ok: true } & T) | { ok: false; error: ErrorCode };
 export type AckFn<T = object> = (result: Ack<T>) => void;
@@ -215,13 +237,17 @@ export interface ClientToServerEvents {
   /** Call an online friend to the table you're at. */
   'friend:invite': (payload: { id: string }, ack: AckFn) => void;
   'room:create': (
-    payload: { name?: string; gameType?: GameType; settings?: Record<string, unknown> },
+    payload: { name?: string; gameType?: GameType; settings?: Record<string, unknown>; arcade?: boolean },
     ack: AckFn<Session>,
   ) => void;
   'room:join': (payload: { code: string; name?: string }, ack: AckFn<Session>) => void;
   'room:resume': (payload: { code: string; token: string }, ack: AckFn<Session>) => void;
   'room:leave': (ack: AckFn) => void;
   'room:settings': (payload: Partial<GameSettings>, ack: AckFn) => void;
+  /** Host: turn arcade mode on/off in the lobby (same for both games). */
+  'room:arcade': (payload: { arcade: boolean }, ack: AckFn) => void;
+  /** Pick your own common talents (validated against your character: 1, or 2 for Carmelo). */
+  'room:talent': (payload: { talents: CommonTalentId[] }, ack: AckFn) => void;
   'room:start': (ack: AckFn) => void;
   'room:character': (payload: { character: CharacterId }, ack: AckFn) => void;
   'chat:send': (payload: { text: string }, ack: AckFn) => void;
@@ -240,15 +266,46 @@ export interface ClientToServerEvents {
   'voice:leave': (ack: AckFn) => void;
   /** WebRTC signaling (offer/answer/ICE candidate) for one other player in voice. */
   'voice:signal': (payload: { to: string; data: VoiceSignal }) => void;
+  /** Modo CS: sala com times. Os eventos `cs:*` têm gerenciador próprio no servidor. */
+  'cs:create': (payload: { name?: string }, ack: AckFn<Session>) => void;
+  'cs:join': (payload: { code: string; name?: string }, ack: AckFn<Session>) => void;
+  'cs:resume': (payload: { code: string; token: string }, ack: AckFn<Session>) => void;
+  'cs:leave': (ack: AckFn) => void;
+  'cs:team': (payload: { team: TeamId }, ack: AckFn) => void;
+  'cs:difficulty': (payload: { difficulty: Difficulty }, ack: AckFn) => void;
+  'cs:character': (payload: { character: CharacterId }, ack: AckFn) => void;
+  'cs:kick': (payload: { playerId: string }, ack: AckFn) => void;
+  'cs:start': (ack: AckFn) => void;
+  'cs:rematch': (ack: AckFn) => void;
+  /** Uma entrada por passo de 1/60 s, numerada. Sem ack: é enviada o tempo todo. */
+  'cs:input': (payload: CsInputMsg) => void;
+  'cs:buy': (payload: { item: BuyItem }, ack: AckFn) => void;
+  /** Marca um ponto do mapa para o seu time. Sem ack. */
+  'cs:ping': (payload: { kind: PingKind; x: number; z: number }) => void;
+  /** Vota para desistir; a resposta traz a contagem. */
+  'cs:forfeit': (ack: AckFn<{ votes: number; needed: number }>) => void;
   'game:bet': (payload: { bet: number }, ack: AckFn) => void;
   /** In the blind round the player can't see their card, so `cardId` is omitted. */
   'game:play': (payload: { cardId?: string }, ack: AckFn) => void;
   /**
    * Named, amount-free game actions for games that need them (poker:
-   * `fold`/`check`/`call`/`allIn`), plus `rebuy` between hands. Engines without
-   * commands reject it.
+   * `fold`/`check`/`call`/`allIn`), plus `rebuy` between hands. Arcade abilities
+   * ride the same event as `{ type: 'arcade', ability, targetId?, bet? }`.
+   * Engines without commands reject it.
    */
-  'game:action': (payload: { type: string; amount?: number }, ack: AckFn) => void;
+  'game:action': (
+    payload: {
+      type: string;
+      amount?: number;
+      /** Arcade only: which ability to fire. */
+      ability?: ArcadeAbilityId;
+      /** Arcade only: the chosen opponent for targeted abilities. */
+      targetId?: string;
+      /** Arcade only: Catimba's new bet. */
+      bet?: number;
+    },
+    ack: AckFn,
+  ) => void;
 }
 
 export type RoomClosedReason = 'everyoneLeft' | 'idle';
@@ -258,6 +315,13 @@ export interface ServerToClientEvents {
   'social:state': (social: SocialView) => void;
   'friend:invite': (invite: FriendInvite) => void;
   'room:state': (view: RoomView) => void;
+  'cs:lobby': (view: CsLobbyView) => void;
+  'cs:started': (info: CsStartInfo) => void;
+  'cs:snapshot': (snapshot: CsSnapshot) => void;
+  'cs:ping': (ping: { id: string; from: string; kind: PingKind; x: number; z: number }) => void;
+  /** Quantos do seu time já votaram para desistir e quantos faltam. */
+  'cs:forfeit': (vote: { votes: number; needed: number }) => void;
+  'cs:closed': (reason: RoomClosedReason) => void;
   'room:kicked': () => void;
   'room:closed': (reason: RoomClosedReason) => void;
   'room:reaction': (reaction: Reaction) => void;
@@ -312,6 +376,8 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   INVALID_PLAYER_COUNT: 'A partida precisa de 2 a 6 jogadores.',
   INVALID_ACTION: 'Jogada inválida.',
   NOT_ENOUGH_CHIPS: 'Fichas insuficientes para essa jogada.',
+  ABILITY_UNAVAILABLE: 'Essa habilidade não está disponível agora.',
+  INVALID_TARGET: 'Alvo inválido.',
   ROOM_NOT_FOUND: 'Essa sala não existe mais. O servidor pode ter reiniciado — crie uma nova sala.',
   SESSION_NOT_FOUND: 'Não encontramos seu lugar nessa sala.',
   ROOM_FULL: 'A sala está cheia.',
@@ -326,6 +392,8 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   TOO_FAST: 'Calma! Espere um pouquinho.',
   CHAT_TOO_FAST: 'Calma, mais devagar no chat.',
   INVALID_GAME: 'Esse jogo não existe.',
+  INVALID_TALENTS: 'Escolha os talentos do seu personagem.',
+  TALENTS_REQUIRED: 'Todo mundo precisa escolher os talentos antes de começar.',
   INSUFFICIENT_BALANCE: 'Saldo insuficiente para essa entrada.',
   INVALID_ENTRY: 'Essa entrada não é válida.',
   PRACTICE_LOCKED: 'Não dá para virar treino (ou adicionar bot) depois que alguém já pagou a entrada.',
@@ -337,4 +405,6 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   NOT_FRIENDS: 'Vocês não são amigos.',
   FRIEND_OFFLINE: 'Seu amigo não está online agora.',
   REFILL_NOT_ELIGIBLE: 'Você só pode recarregar quando o saldo estiver baixo, uma vez por hora.',
+  TEAM_FULL: 'Esse time já tem 3 jogadores.',
+  NOT_IN_MATCH: 'A partida não está rolando.',
 };

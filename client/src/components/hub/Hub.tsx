@@ -9,10 +9,12 @@ import {
   type GameType,
 } from '@dane-se/shared';
 import { setPref, usePrefs } from '../../lib/prefs';
+import { csMode } from '../../lib/csMode';
 import { actions, codeFromUrl, useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
 import { CardFan } from '../cards/CardFan';
 import { Button } from '../ui/Button';
+import { CsCard } from './CsCard';
 import { GameCard } from './GameCard';
 import { FriendsPanel } from './FriendsPanel';
 import { RankingPanel } from './RankingPanel';
@@ -142,6 +144,8 @@ function CreatePanel({
   game,
   entry,
   setEntry,
+  arcade,
+  setArcade,
   balance,
   busy,
   onCreate,
@@ -149,6 +153,8 @@ function CreatePanel({
   game: GameCatalogEntry;
   entry: number;
   setEntry: (value: number) => void;
+  arcade: boolean;
+  setArcade: (value: boolean) => void;
   balance: number;
   busy: boolean;
   onCreate: () => void;
@@ -194,6 +200,35 @@ function CreatePanel({
         {formatMoney(game.minEntry)}.
       </p>
 
+      {game.id === 'danese' && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={arcade}
+          onClick={() => setArcade(!arcade)}
+          className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left ring-1 transition ${
+            arcade ? 'bg-fuchsia-500/15 ring-fuchsia-400/50' : 'bg-black/25 ring-white/10 hover:ring-white/25'
+          }`}
+        >
+          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-xl bg-black/30 text-lg">
+            ⚡
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-white">Modo arcade</span>
+            <span className="block text-xs text-stone-300">
+              Kit por personagem + um talento comum. Cada um monta o seu no lobby.
+            </span>
+          </span>
+          <span
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+              arcade ? 'bg-fuchsia-500/25 text-fuchsia-200' : 'bg-white/10 text-stone-400'
+            }`}
+          >
+            {arcade ? 'ligado' : 'desligado'}
+          </span>
+        </button>
+      )}
+
       <Button className="w-full" disabled={busy || balance < entry} onClick={onCreate}>
         {busy ? 'Abrindo…' : `Criar sala de ${game.name}`}
       </Button>
@@ -210,6 +245,7 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
   const [code, setCode] = useState(linkCode ?? '');
   const [joinOpen, setJoinOpen] = useState(Boolean(linkCode));
   const [busy, setBusy] = useState(false);
+  const [arcade, setArcade] = useState(false);
 
   if (!profile) {
     return (
@@ -226,7 +262,7 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
 
   async function create(game: GameCatalogEntry) {
     setBusy(true);
-    await actions.createRoom({ gameType: game.id, settings: { entry } });
+    await actions.createRoom({ gameType: game.id, settings: { entry }, arcade });
     setBusy(false);
   }
 
@@ -287,6 +323,8 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
                   game={game}
                   entry={entry}
                   setEntry={setEntry}
+                  arcade={arcade}
+                  setArcade={setArcade}
                   balance={profile.balance}
                   busy={busy}
                   onCreate={() => void create(game)}
@@ -294,6 +332,13 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
               )}
             </Fragment>
           ))}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 * GAME_CATALOG.length, duration: 0.35, ease: 'circOut' }}
+          >
+            <CsCard onTrain={csMode.open} />
+          </motion.div>
         </section>
 
         <form onSubmit={join} className="hub-panel space-y-2.5 p-4">

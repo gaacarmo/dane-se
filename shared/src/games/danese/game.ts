@@ -1,8 +1,22 @@
 import { type Card, type Rank, cardId, createDeck, manilhaRankFor } from './cards.js';
 import { randomInt, shuffle } from '../../rng.js';
 import {
+  type ArcadeAbilityId,
+  type ArcadeLoadout,
+  type ArcadeMatchState,
+  CHARACTER_KITS,
+  absorbHit,
+  arcadeSeat,
+  canRevive,
+  createArcadeMatchState,
+  eliminationThreshold,
+  spendRevive,
+} from '../../arcade/index.js';
+import { applyArcadeAbility, applyManilhaMagic } from './arcade.js';
+import {
   type CardDirection,
   type GameSettings,
+  type PlayerRoundResult,
   type RoundScore,
   DEFAULT_SETTINGS,
   MAX_PLAYERS,
@@ -41,8 +55,16 @@ export interface RoundSummary extends RoundScore {
   vira: Card;
 }
 
+/** An opponent card shown privately to one player (Rádio Corredor/Leitura de Jogo/Olheiro). */
+export interface ArcadeReveal {
+  targetId: string;
+  card: Card;
+}
+
 export interface GameState {
   settings: GameSettings;
+  /** Arcade abilities (passives/specials). Disabled = normal match. */
+  arcade: ArcadeMatchState;
   lives: number;
   /** Seat order = play order (counter-clockwise): players[i + 1] sits to the right of players[i]. */
   players: PlayerState[];
@@ -55,6 +77,14 @@ export interface GameState {
   vira: Card;
   manilhaRank: Rank;
   hands: Record<string, Card[]>;
+  /** Cartas que sobraram do baralho (a Substituição compra daqui). Nunca vai pro cliente. */
+  deck: Card[];
+  /** Cartas de oponentes reveladas a cada jogador. Segredo por assento. */
+  arcadePrivate: Record<string, ArcadeReveal[]>;
+  /** Letras concedidas por acusações (Pênalti), aplicadas no fim da rodada. */
+  pendingLetters: Record<string, number>;
+  /** Babin já usou a "manilha mágica" nesta rodada (1× por rodada). */
+  manilhaMagicUsed: Record<string, boolean>;
   /** Alive players for this round, starting right of the Pé and ending with the Pé. */
   roundOrder: string[];
   bets: Record<string, number>;
@@ -72,7 +102,9 @@ export type GameAction =
   /** Clears a finished trick from the table (server sends it after a short pause). */
   | { type: 'collectTrick' }
   /** Starts the next round after the round summary. */
-  | { type: 'nextRound' };
+  | { type: 'nextRound' }
+  /** Arcade: fire a special or a common talent. */
+  | { type: 'arcade'; playerId: string; ability: ArcadeAbilityId; targetId?: string; bet?: number };
 
 export type GameError =
   | 'WRONG_PHASE'
@@ -80,7 +112,9 @@ export type GameError =
   | 'ILLEGAL_BET'
   | 'CARD_NOT_IN_HAND'
   | 'UNKNOWN_PLAYER'
-  | 'INVALID_PLAYER_COUNT';
+  | 'INVALID_PLAYER_COUNT'
+  | 'ABILITY_UNAVAILABLE'
+  | 'INVALID_TARGET';
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: GameError };
 
@@ -89,7 +123,7 @@ export type ActionResult = { ok: true; state: GameState } | { ok: false; error: 
 // ---------------------------------------------------------------------------
 
 export function createGame(
-  players: readonly { id: string; name: string }[],
+  players: readonly { id: string; name: string; arcade?: ArcadeLoadout }[],
   seed: number,
   settings: GameSettings = DEFAULT_SETTINGS,
 ): ActionResult {
@@ -98,6 +132,9 @@ export function createGame(
   const firstDealer = randomInt(seed, players.length);
   const base: GameState = {
     settings,
+    arcade: createArcadeMatchState(
+      players.flatMap((p) => (p.arcade ? [{ id: p.id, loadout: p.arcade }] : [])),
+    ),
     lives: livesFor(settings),
     players: players.map((p) => ({ id: p.id, name: p.name, letters: 0, eliminated: false, eliminatedInRound: null })),
     phase: 'betting',
@@ -109,6 +146,10 @@ export function createGame(
     vira: { rank: '4', suit: 'D' },
     manilhaRank: '5',
     hands: {},
+    deck: [],
+    arcadePrivate: {},
+    pendingLetters: {},
+    manilhaMagicUsed: {},
     roundOrder: [],
     bets: {},
     tricksWon: {},
@@ -150,13 +191,35 @@ function dealRound(state: GameState): GameState {
   }
   const vira = deck.pop()!;
 
+  // Olheiro (Martelo): a cada rodada espia 1 carta aleatória de um adversário.
+  let rng = shuffled.state;
+  const arcadePrivate: Record<string, ArcadeReveal[]> = {};
+  for (const id of order) {
+    const seat = arcadeSeat(state.arcade, id);
+    if (!seat || CHARACTER_KITS[seat.character].passive.id !== 'xereta') continue;
+    const opponents = order.filter((o) => o !== id);
+    if (opponents.length === 0) continue;
+    const who = randomInt(rng, opponents.length);
+    rng = who.state;
+    const target = opponents[who.value]!;
+    const targetHand = hands[target] ?? [];
+    if (targetHand.length === 0) continue;
+    const which = randomInt(rng, targetHand.length);
+    rng = which.state;
+    arcadePrivate[id] = [{ targetId: target, card: { ...targetHand[which.value]! } }];
+  }
+
   return {
     ...state,
     phase: 'betting',
-    rng: shuffled.state,
+    rng,
     vira,
     manilhaRank: manilhaRankFor(vira),
     hands,
+    deck,
+    arcadePrivate,
+    pendingLetters: {},
+    manilhaMagicUsed: {},
     roundOrder: order,
     bets: {},
     tricksWon: Object.fromEntries(order.map((p) => [p, 0])),
@@ -209,6 +272,8 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
       return collectTrick(state);
     case 'nextRound':
       return startNextRound(state);
+    case 'arcade':
+      return applyArcadeAbility(state, action);
   }
 }
 
@@ -252,10 +317,15 @@ function playCard(state: GameState, playerId: string, id: string): ActionResult 
   const tricksWon = result.winnerId
     ? { ...state.tricksWon, [result.winnerId]: (state.tricksWon[result.winnerId] ?? 0) + 1 }
     : state.tricksWon;
-  return {
-    ok: true,
-    state: { ...state, hands, tricksWon, phase: 'trickEnd', trick: { ...state.trick, plays, result }, turnPlayerId: null },
+  const finished: GameState = {
+    ...state,
+    hands,
+    tricksWon,
+    phase: 'trickEnd',
+    trick: { ...state.trick, plays, result },
+    turnPlayerId: null,
   };
+  return { ok: true, state: applyManilhaMagic(finished) };
 }
 
 function collectTrick(state: GameState): ActionResult {
@@ -291,7 +361,8 @@ function finishRound(state: GameState): GameState {
     lives: state.lives,
   });
 
-  const resultById = new Map(score.results.map((r) => [r.playerId, r]));
+  const outcome = applyArcadeLetters(state.arcade, state.lives, score.results, state.pendingLetters);
+  const resultById = new Map(outcome.results.map((r) => [r.playerId, r]));
   const players = state.players.map((p) => {
     const r = resultById.get(p.id);
     if (!r) return p;
@@ -305,6 +376,8 @@ function finishRound(state: GameState): GameState {
 
   const lastRound: RoundSummary = {
     ...score,
+    results: outcome.results,
+    eliminatedIds: outcome.eliminatedIds,
     roundNumber: state.roundNumber,
     cardsPerPlayer: state.cardsPerPlayer,
     dealerId: state.dealerId,
@@ -316,11 +389,64 @@ function finishRound(state: GameState): GameState {
   return {
     ...state,
     players,
+    arcade: outcome.arcade,
+    pendingLetters: {},
     lastRound,
     phase: gameOver ? 'gameOver' : 'roundSummary',
     trick: { leaderId: '', plays: [], result: null },
     turnPlayerId: null,
     winnerId: stillAlive.length === 1 ? stillAlive[0]!.id : null,
+  };
+}
+
+/**
+ * Aplica o arcade por cima das letras cruas da rodada: a Trave anula uma letra,
+ * o buffer do Zagueirão sobe o limiar de eliminação e a Prorrogação salva da primeira
+ * morte (volta com 1 letra abaixo do letal). Sem arcade ligado é pass-through.
+ */
+export function applyArcadeLetters(
+  arcade: ArcadeMatchState,
+  lives: number,
+  results: readonly PlayerRoundResult[],
+  extra: Readonly<Record<string, number>> = {},
+): { arcade: ArcadeMatchState; results: PlayerRoundResult[]; eliminatedIds: string[] } {
+  if (!arcade.enabled) {
+    return {
+      arcade,
+      results: [...results],
+      eliminatedIds: results.filter((r) => r.eliminated).map((r) => r.playerId),
+    };
+  }
+
+  let next = arcade;
+  const adjusted = results.map((r): PlayerRoundResult => {
+    const before = r.lettersAfter - (r.gainedLetter ? 1 : 0);
+    let gain = (r.gainedLetter ? 1 : 0) + (extra[r.playerId] ?? 0);
+    while (gain > 0) {
+      const shielded = absorbHit(next, r.playerId);
+      if (!shielded.absorbed) break;
+      next = shielded.state;
+      gain -= 1;
+    }
+
+    const threshold = eliminationThreshold(next, r.playerId, lives);
+    let lettersAfter = before + gain;
+    let eliminated = false;
+    if (gain > 0 && lettersAfter >= threshold) {
+      if (canRevive(next, r.playerId)) {
+        next = spendRevive(next, r.playerId);
+        lettersAfter = threshold - 1;
+      } else {
+        eliminated = true;
+      }
+    }
+    return { ...r, gainedLetter: gain > 0, lettersAfter, eliminated };
+  });
+
+  return {
+    arcade: next,
+    results: adjusted,
+    eliminatedIds: adjusted.filter((r) => r.eliminated).map((r) => r.playerId),
   };
 }
 

@@ -1,5 +1,8 @@
 import type { Card, Rank } from './cards.js';
+import { type ArcadeLoadout, arcadeSeat } from '../../arcade/index.js';
+import { gatoAlerts, viewerReveals } from './arcade.js';
 import {
+  type ArcadeReveal,
   type GameState,
   type Phase,
   type RoundSummary,
@@ -22,11 +25,29 @@ export interface PublicPlayer {
   cardCount: number;
   /** Blind round only: the card on this player's forehead. Always null for the viewer's own seat. */
   foreheadCard: Card | null;
+  /** Arcade: the public "aura" — true while this player's 1× special is still loaded. */
+  specialCharged: boolean;
   /**
    * The cards this player is holding, shown only to a viewer who was eliminated and stayed to watch
    * (they can't affect the game anymore). Null for everyone else and in the blind round.
    */
   revealedHand: Card[] | null;
+}
+
+/** The viewer's own arcade kit (private; only ever sent to its owner). */
+export interface ArcadeView {
+  enabled: boolean;
+  loadout: ArcadeLoadout | null;
+  /** Whether the viewer's 1× special is still loaded. */
+  specialCharged: boolean;
+  /** Remaining talent uses (Rádio Corredor/Substituição). */
+  charges: number;
+  /** Active shields (Trave / Carrinho). */
+  shields: number;
+  /** Opponent cards revealed privately to the viewer. */
+  reveals: ArcadeReveal[];
+  /** Targets the VAR flagged as "de gato" (only for the owner). */
+  gatoAlerts: string[];
 }
 
 /**
@@ -58,6 +79,7 @@ export interface PlayerView {
   tricksPlayed: number;
   lastRound: RoundSummary | null;
   winnerId: string | null;
+  arcade: ArcadeView;
 }
 
 export function getPlayerView(state: GameState, viewerId: string | null): PlayerView {
@@ -80,11 +102,13 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
       tricksWon: inRound ? (state.tricksWon[p.id] ?? 0) : 0,
       cardCount: inRound ? hand.length : 0,
       foreheadCard: blind && p.id !== viewerId && hand[0] ? { ...hand[0] } : null,
+      specialCharged: state.arcade.enabled ? (arcadeSeat(state.arcade, p.id)?.specialCharged ?? false) : false,
       revealedHand: seesAllHands && inRound && hand.length > 0 ? hand.map((c) => ({ ...c })) : null,
     };
   });
 
   const dealerTurnToBet = state.phase === 'betting' && state.turnPlayerId === state.dealerId;
+  const viewerSeat = viewerId ? arcadeSeat(state.arcade, viewerId) : undefined;
 
   return {
     viewerId: viewerId,
@@ -110,5 +134,14 @@ export function getPlayerView(state: GameState, viewerId: string | null): Player
     tricksPlayed: state.completedTricks.length,
     lastRound: state.lastRound,
     winnerId: state.winnerId,
+    arcade: {
+      enabled: state.arcade.enabled,
+      loadout: viewerSeat ? { character: viewerSeat.character, talents: [...viewerSeat.talents] } : null,
+      specialCharged: viewerSeat?.specialCharged ?? false,
+      charges: viewerSeat?.charges ?? 0,
+      shields: viewerSeat?.shields ?? 0,
+      reveals: viewerReveals(state, viewerId),
+      gatoAlerts: gatoAlerts(state, viewerId),
+    },
   };
 }

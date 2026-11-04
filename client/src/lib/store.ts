@@ -3,8 +3,14 @@ import { io, type Socket } from 'socket.io-client';
 import {
   LOOK_INTERVAL_MS,
   type Ack,
+  type ArcadeAbilityId,
   type CharacterId,
   type ClientToServerEvents,
+  type CsLobbyView,
+  type CsStartInfo,
+  type Difficulty,
+  type TeamId,
+  type CommonTalentId,
   type ErrorCode,
   type GameSettings,
   type GameType,
@@ -25,6 +31,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const SESSION_KEY = 'dane-se:session';
+const CS_SESSION_KEY = 'dane-se:cs-session';
 const NAME_KEY = 'dane-se:name';
 const PROFILE_KEY = 'dane-se:profile-token';
 
@@ -104,6 +111,12 @@ export interface ClientState {
   /** False while a returning player's wallet is still loading. */
   profileReady: boolean;
   room: RoomView | null;
+  /** Sala do modo CS em que você está (lobby e partida), ou null. */
+  csLobby: CsLobbyView | null;
+  /** Mapa e elenco da partida do CS em andamento. */
+  csStart: CsStartInfo | null;
+  /** Votos para desistir do seu time, enquanto houver uma votação. */
+  csForfeit: { votes: number; needed: number } | null;
   notice: Notice | null;
   /** Emoji reactions currently floating over the table. */
   reactions: Reaction[];
@@ -118,10 +131,13 @@ const hadSavedProfile = savedProfileToken() !== null || savedName() !== '';
 let state: ClientState = {
   connection: 'connecting',
   slowConnect: false,
-  resuming: readJson<Session>(SESSION_KEY) !== null,
+  resuming: readJson<Session>(SESSION_KEY) !== null || readJson<Session>(CS_SESSION_KEY) !== null,
   profile: null,
   profileReady: !hadSavedProfile,
   room: null,
+  csLobby: null,
+  csStart: null,
+  csForfeit: null,
   notice: null,
   reactions: [],
   social: null,
@@ -170,7 +186,8 @@ let slowTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => setS
 
 function leaveRoomLocally(message?: string): void {
   writeStorage(SESSION_KEY, null);
-  setState({ room: null, resuming: false });
+  writeStorage(CS_SESSION_KEY, null);
+  setState({ room: null, csLobby: null, csStart: null, csForfeit: null, resuming: false });
   setUrl(null);
   if (message) notify(message, 'info');
 }
@@ -211,6 +228,16 @@ socket.on('room:closed', (reason) => {
 });
 
 socket.on('room:kicked', () => leaveRoomLocally('O anfitrião removeu você da sala.'));
+
+socket.on('cs:lobby', (csLobby) => {
+  setState({ csLobby, resuming: false, ...(csLobby.status === 'lobby' ? { csStart: null, csForfeit: null } : {}) });
+  setUrl(csLobby.code);
+});
+socket.on('cs:started', (csStart) => setState({ csStart, csForfeit: null }));
+socket.on('cs:forfeit', (csForfeit) => setState({ csForfeit }));
+socket.on('cs:closed', (reason) => {
+  leaveRoomLocally(reason === 'idle' ? 'A sala foi encerrada por inatividade.' : 'A sala foi encerrada porque todos saíram.');
+});
 
 /** A look older than this is ignored (the player stopped moving or left). */
 const LOOK_STALE_MS = 5000;
@@ -269,8 +296,23 @@ async function ensureProfile(): Promise<void> {
 }
 
 async function resumeSaved(): Promise<void> {
-  const saved = readJson<Session>(SESSION_KEY);
+  const savedCs = readJson<Session>(CS_SESSION_KEY);
   const urlCode = codeFromUrl();
+  if (savedCs && (!urlCode || urlCode === savedCs.code)) {
+    const result = await call<Session>('cs:resume', { code: savedCs.code, token: savedCs.token });
+    if (result.ok) return;
+    writeStorage(CS_SESSION_KEY, null);
+    // Sessão velha do CS não pode apagar a de uma sala comum que ainda vale.
+    if (!readJson<Session>(SESSION_KEY)) {
+      leaveRoomLocally(
+        result.error === 'ROOM_NOT_FOUND'
+          ? 'Essa sala não existe mais — o servidor pode ter dormido ou reiniciado. Crie uma nova sala e chame a galera de novo!'
+          : 'Não encontramos seu lugar nessa sala. Entre de novo pelo código.',
+      );
+      return;
+    }
+  }
+  const saved = readJson<Session>(SESSION_KEY);
   if (!saved || (urlCode && urlCode !== saved.code)) {
     setState({ resuming: false });
     return;
@@ -303,7 +345,13 @@ async function send<T = object>(event: keyof ClientToServerEvents, ...args: unkn
 }
 
 function remember(session: Session): void {
+  writeStorage(CS_SESSION_KEY, null);
   writeStorage(SESSION_KEY, JSON.stringify(session));
+}
+
+function rememberCs(session: Session): void {
+  writeStorage(SESSION_KEY, null);
+  writeStorage(CS_SESSION_KEY, JSON.stringify(session));
 }
 
 export const actions = {
@@ -333,7 +381,7 @@ export const actions = {
   /** Joins the table a friend called you to (leaving yours first if needed). */
   async acceptInvite(invite: FriendInvite): Promise<boolean> {
     actions.dismissInvite(invite.id);
-    if (state.room) await actions.leave();
+    if (state.room || state.csLobby) await actions.leave();
     return actions.joinRoom(invite.code);
   },
   /** The secret that opens this profile on another device. */
@@ -361,21 +409,46 @@ export const actions = {
     setState({ profile: r.profile });
     return true;
   },
-  async createRoom(opts: { gameType?: GameType; settings?: Record<string, unknown> } = {}): Promise<boolean> {
+  async createRoom(opts: { gameType?: GameType; settings?: Record<string, unknown>; arcade?: boolean } = {}): Promise<boolean> {
     const r = await send<Session>('room:create', { name: state.profile?.nickname, ...opts });
     if (r.ok) remember(r);
     return r.ok;
   },
+  /** Entra pelo código: tenta uma sala de Dane-se/poker e, se não existir, uma sala do CS. */
   async joinRoom(code: string): Promise<boolean> {
-    const r = await send<Session>('room:join', { code: normalizeRoomCode(code), name: state.profile?.nickname });
-    if (r.ok) remember(r);
+    const normalized = normalizeRoomCode(code);
+    const name = state.profile?.nickname;
+    const r = await call<Session>('room:join', { code: normalized, name });
+    if (r.ok) {
+      remember(r);
+      return true;
+    }
+    if (r.error === 'ROOM_NOT_FOUND') {
+      const cs = await send<Session>('cs:join', { code: normalized, name });
+      if (cs.ok) rememberCs(cs);
+      return cs.ok;
+    }
+    if (socket.connected) notify(ERROR_MESSAGES_PT[r.error] ?? 'Algo deu errado.');
+    return false;
+  },
+  async csCreate(): Promise<boolean> {
+    const r = await send<Session>('cs:create', { name: state.profile?.nickname });
+    if (r.ok) rememberCs(r);
     return r.ok;
   },
+  csTeam: (team: TeamId) => send('cs:team', { team }),
+  csDifficulty: (difficulty: Difficulty) => send('cs:difficulty', { difficulty }),
+  csCharacter: (character: CharacterId) => send('cs:character', { character }),
+  csKick: (playerId: string) => send('cs:kick', { playerId }),
+  csStartMatch: () => send('cs:start'),
+  csRematch: () => send('cs:rematch'),
   async leave(): Promise<void> {
-    await call('room:leave');
+    await call(state.csLobby ? 'cs:leave' : 'room:leave');
     leaveRoomLocally();
   },
   updateSettings: (patch: Partial<GameSettings> & Partial<PokerSettings>) => send('room:settings', patch),
+  setArcade: (arcade: boolean) => send('room:arcade', { arcade }),
+  setTalents: (talents: CommonTalentId[]) => send('room:talent', { talents }),
   start: () => send('room:start'),
   chat: (text: string) => send('chat:send', { text }),
   setCharacter: (character: CharacterId) => send('room:character', { character }),
@@ -388,6 +461,9 @@ export const actions = {
   action: (type: string, amount?: number) => send('game:action', { type, amount }),
   /** Between-hands rebuy; the amount defaults to the room buy-in on the server. */
   rebuy: (amount?: number) => send('game:action', { type: 'rebuy', amount }),
+  /** Fires an arcade ability. Targeted ones take `targetId`; Catimba takes `bet`. */
+  arcade: (ability: ArcadeAbilityId, targetId?: string, bet?: number) =>
+    send('game:action', { type: 'arcade', ability, targetId, bet }),
   play: (cardId?: string) => send('game:play', { cardId }),
   /** Fire and forget: a reaction that's too fast is simply dropped, no error toast. */
   react: (emoji: string) => call('room:react', { emoji }),
