@@ -23,6 +23,7 @@ export class AudioDirector {
   private lastPhase = '';
   private lastEnd = false;
   private lastEmptyAt = 0;
+  private lastSlide = false;
   private lastHeardAt = 0;
 
   onEvents(match: Match, events: WorldEvent[], meId: string): void {
@@ -90,6 +91,10 @@ export class AudioDirector {
         }
       }
     }
+
+    const sliding = me.alive && (me.body.slideMs ?? 0) > 0;
+    if (sliding && !this.lastSlide) csAudio.slide();
+    this.lastSlide = sliding;
 
     if (me.reloadLeftMs > 0 && this.lastReload === 0) csAudio.reload(WEAPONS[me.weapon].reloadMs);
     this.lastReload = me.reloadLeftMs;

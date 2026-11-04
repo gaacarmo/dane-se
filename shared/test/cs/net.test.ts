@@ -133,6 +133,18 @@ describe('buildSnapshot', () => {
     expect(enemy.kit).toBeUndefined();
   });
 
+  it('sends the slide of the owner, so prediction keeps gliding', () => {
+    let match = place(scattered(liveMatch()), 'h1', 10, 25);
+    match = {
+      ...match,
+      world: { ...match.world, players: match.world.players.map((p) => (p.id === 'h1' ? { ...p, body: { ...p.body, slideMs: 400, slideCd: 0 } } : p)) },
+    };
+    const self = snapFor(match, 'h1').players.find((p) => p.id === 'h1')!;
+    expect(self.slideMs).toBe(400);
+    const view = applySnapshot(null, snapFor(match, 'h1'), { roster: match.roster, map: CANTINA });
+    expect(view.world.players.find((p) => p.id === 'h1')!.body.slideMs).toBe(400);
+  });
+
   it('carries the round, score and ack of the viewer', () => {
     const snap = snapFor(scattered(liveMatch()), 'h1');
     expect(snap).toMatchObject({ tick: 7, ack: 3, phase: 'live', roundIndex: 0, winner: null });

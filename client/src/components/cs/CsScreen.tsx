@@ -476,7 +476,7 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
         >
           <span>{touch ? (flow.lockFailed ? 'Toque para voltar ao jogo' : 'Toque para jogar') : flow.lockFailed ? 'Clique para voltar ao jogo' : 'Clique para jogar'}</span>
           <span className="text-xs text-stone-400">
-            {touch ? 'Alavanca à esquerda anda · arraste à direita para olhar · botões para atirar, pular, abaixar, recarregar e usar; Auto anda sozinho' : `WASD move · Shift anda devagar · Espaço pula · C agacha · R recarrega · 1/2 troca de arma · E interage · T anda sozinho · Tab mapa e placar · Q ping · B mercado · Esc ${driver.solo ? 'pausa' : 'menu'}`}
+            {touch ? 'Alavanca à esquerda anda · arraste à direita para olhar · botões para atirar, pular, abaixar, recarregar e usar; Auto anda sozinho' : `WASD move · Shift anda devagar · Espaço pula · C agacha (correndo, desliza) · R recarrega · 1/2 troca de arma · E interage · T anda sozinho · Tab mapa e placar · Q ping · B mercado · Esc ${driver.solo ? 'pausa' : 'menu'}`}
           </span>
         </button>
       )}

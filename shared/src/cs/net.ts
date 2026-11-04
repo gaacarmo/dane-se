@@ -88,6 +88,9 @@ export interface CsPlayerSnap {
   onGround: boolean;
   alive: boolean;
   weapon: WeaponId;
+  /** Deslize em andamento e espera do próximo; só o dono precisa deles para prever o corpo. */
+  slideMs?: number;
+  slideCd?: number;
   hp?: number;
   hasBomb?: boolean;
   money?: number;
@@ -193,6 +196,8 @@ function playerSnap(p: SimPlayer, self: boolean, mate: boolean): CsPlayerSnap {
     snap.kit = p.kit;
   }
   if (self) {
+    if (p.body.slideMs) snap.slideMs = p.body.slideMs;
+    if (p.body.slideCd) snap.slideCd = p.body.slideCd;
     snap.ammo = p.ammo;
     snap.reserve = p.reserve;
     snap.holstered = p.holstered ? { ...p.holstered } : null;
@@ -349,6 +354,8 @@ function toSimPlayer(entry: RosterEntry, snap: CsPlayerSnap | undefined, prev: S
       vel: { x: snap.vx, y: snap.vy, z: snap.vz },
       onGround: snap.onGround,
       crouch: snap.crouch,
+      ...(snap.slideMs ? { slideMs: snap.slideMs } : {}),
+      ...(snap.slideCd ? { slideCd: snap.slideCd } : {}),
     },
     yaw: snap.yaw,
     pitch: snap.pitch,

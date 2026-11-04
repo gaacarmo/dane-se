@@ -183,6 +183,15 @@ export const csAudio = {
     tone(a, bus(a, spot(null)), { freq: 900, dur: 0.03, gain: 0.12, type: 'square' });
   },
 
+  /** Deslize: chiado de tecido e atrito no chão que some junto com o impulso. */
+  slide(): void {
+    const a = audio();
+    if (!a) return;
+    const out = bus(a, spot(null));
+    burst(a, out, { dur: 0.55, from: 1800, to: 260, gain: 0.28, type: 'bandpass', q: 0.8 });
+    burst(a, out, { at: 0.02, dur: 0.4, from: 500, to: 120, gain: 0.2 });
+  },
+
   switchWeapon(): void {
     const a = audio();
     if (!a) return;

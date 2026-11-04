@@ -17,11 +17,21 @@ export const AIR_ACCEL = 8;
 
 const EPS = 1e-4;
 
+/** Deslize (como no Warzone): agachar correndo dá um impulso que vai perdendo força; pular cancela e guarda a velocidade. */
+export const SLIDE_MS = 900;
+export const SLIDE_COOLDOWN_MS = 700;
+export const SLIDE_MIN_SPEED = 4.5;
+export const SLIDE_BOOST = 7.4;
+const SLIDE_DECEL = 6;
+
 export interface Body {
   pos: Vec3;
   vel: Vec3;
   onGround: boolean;
   crouch: boolean;
+  /** Tempo que falta do deslize e da espera até o próximo; ausentes quando zero. */
+  slideMs?: number;
+  slideCd?: number;
 }
 
 export function bodyHeight(body: Pick<Body, 'crouch'>): number {
@@ -62,16 +72,49 @@ export function moveBody(
   const rate = body.onGround ? (hasInput ? GROUND_ACCEL : GROUND_FRICTION) : hasInput ? AIR_ACCEL : 0;
   let vx = body.vel.x;
   let vz = body.vel.z;
-  const dvx = wish.x * scale * speed - vx;
-  const dvz = wish.z * scale * speed - vz;
-  const gap = Math.hypot(dvx, dvz);
-  const maxDelta = rate * dt;
-  if (gap <= maxDelta) {
-    vx += dvx;
-    vz += dvz;
-  } else {
-    vx += (dvx / gap) * maxDelta;
-    vz += (dvz / gap) * maxDelta;
+  const dtMs = dt * 1000;
+
+  let slideMs = body.slideMs ?? 0;
+  let slideCd = Math.max(0, (body.slideCd ?? 0) - dtMs);
+  const pace = Math.hypot(vx, vz);
+  let sliding = slideMs > 0;
+  let jumpedOut = false;
+  if (sliding) {
+    slideMs -= dtMs;
+    const left = Math.max(CROUCH_SPEED, pace - SLIDE_DECEL * dt);
+    if (jump && body.onGround) {
+      // Pular tira do deslize sem perder a velocidade.
+      jumpedOut = true;
+      sliding = false;
+    } else if (!crouch || !body.onGround || slideMs <= 0 || pace < 1e-3 || left <= CROUCH_SPEED + 0.05) {
+      sliding = false;
+    } else {
+      vx = (vx / pace) * left;
+      vz = (vz / pace) * left;
+    }
+    if (!sliding) {
+      slideMs = 0;
+      slideCd = SLIDE_COOLDOWN_MS;
+    }
+  } else if (crouch && !body.crouch && body.onGround && !jump && !walk && slideCd <= 0 && pace >= SLIDE_MIN_SPEED) {
+    sliding = true;
+    slideMs = SLIDE_MS;
+    vx = (vx / pace) * SLIDE_BOOST;
+    vz = (vz / pace) * SLIDE_BOOST;
+  }
+
+  if (!sliding && !jumpedOut) {
+    const dvx = wish.x * scale * speed - vx;
+    const dvz = wish.z * scale * speed - vz;
+    const gap = Math.hypot(dvx, dvz);
+    const maxDelta = rate * dt;
+    if (gap <= maxDelta) {
+      vx += dvx;
+      vz += dvz;
+    } else {
+      vx += (dvx / gap) * maxDelta;
+      vz += (dvz / gap) * maxDelta;
+    }
   }
 
   let vy = body.vel.y;
@@ -118,7 +161,14 @@ export function moveBody(
   }
   pos.y = Math.min(pos.y, b.max.y - height);
 
-  return { pos, vel: { x: vx, y: vy, z: vz }, onGround, crouch };
+  return {
+    pos,
+    vel: { x: vx, y: vy, z: vz },
+    onGround,
+    crouch,
+    ...(slideMs > 0 ? { slideMs } : {}),
+    ...(slideCd > 0 ? { slideCd } : {}),
+  };
 }
 
 export interface RayHit {

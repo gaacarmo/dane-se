@@ -16,21 +16,21 @@ const pillar = (x: number, z: number): Box => box(x - 0.4, 0, z - 0.4, x + 0.4, 
 
 const NODES = {
   // praça de acesso dos atacantes
-  ysp: at(5, 25), yn: at(8, 13), ys: at(8, 37), yc: at(19, 25), yne: at(18, 6), yse: at(18, 44),
+  ysp: at(7.5, 35), yn: at(12, 18), ys: at(12, 52), yc: at(33.5, 35), yne: at(27, 8.5), yse: at(27, 61.5),
   // antes da fachada
-  p0n: at(25.5, 4), p1: at(25.5, 16.5), p2: at(25.5, 33.5), p0s: at(25.5, 46),
+  p0n: at(38.5, 5.5), p1: at(38.5, 23), p2: at(38.5, 47), p0s: at(38.5, 64.5),
   // portas da fachada e saguão
-  f0n: at(28.5, 4), f1: at(28.5, 16.5), f2: at(28.5, 33.5), f0s: at(28.5, 46),
-  h0n: at(32, 4), h1: at(32, 16.5), h2: at(32, 33.5), h0s: at(32, 46),
+  f0n: at(43, 5.5), f1: at(43, 23), f2: at(43, 47), f0s: at(43, 64.5),
+  h0n: at(48, 5.5), h1: at(48, 23), h2: at(48, 47), h0s: at(48, 64.5),
   // plataforma norte (ponto A) e corredor norte entre o tubo e o bloco administrativo
-  pa1: at(40, 5), pa2: at(48, 5), pa3: at(57, 5), ln1: at(40, 16), ln2: at(48, 16), ln3: at(58, 16),
+  pa1: at(60, 7), pa2: at(72, 7), pa3: at(85.5, 7), ln1: at(60, 22.5), ln2: at(72, 22.5), ln3: at(87, 22.5),
   // plataforma sul (ponto B) e corredor sul
-  pb1: at(40, 45), pb2: at(48, 45), pb3: at(57, 45), ls1: at(40, 34), ls2: at(48, 34), ls3: at(58, 34),
+  pb1: at(60, 63), pb2: at(72, 63), pb3: at(85.5, 63), ls1: at(60, 47.5), ls2: at(72, 47.5), ls3: at(87, 47.5),
   // corredor leste, portão dos fundos e garagem da defesa
-  ce: at(59, 25), dw: at(62.5, 25), g1: at(66, 25), gs: at(70.5, 25),
+  ce: at(88.5, 35), dw: at(93.8, 35), g1: at(99, 35), gs: at(106, 35),
   // fundos norte e sul, com porta para a garagem
-  rn1: at(62.5, 5), rn2: at(71, 5), rn3: at(76, 6), rn4: at(76, 15), rdn: at(76, 18.5), gdn: at(76, 22),
-  rs1: at(62.5, 45), rs2: at(71, 45), rs3: at(76, 44), rs4: at(76, 35), rds: at(76, 31.5), gds: at(76, 28),
+  rn1: at(93.8, 7), rn2: at(106.5, 7), rn3: at(114, 8.5), rn4: at(114, 21), rdn: at(114, 26), gdn: at(114, 30.8),
+  rs1: at(93.8, 63), rs2: at(106.5, 63), rs3: at(114, 61.5), rs4: at(114, 49), rds: at(114, 44), gds: at(114, 39.2),
 } as const;
 
 type NodeName = keyof typeof NODES;
@@ -50,68 +50,68 @@ const LINKS: [NodeName, NodeName][] = [
 ];
 
 /**
- * Terminal Boqueirão 80 × 50 m: praça de acesso a oeste, fachada com bloqueios, saguão, duas plataformas longas com
+ * Terminal Boqueirão 120 × 70 m: praça de acesso a oeste, fachada com bloqueios, saguão, duas plataformas longas com
  * tubos de embarque (norte e sul), o prédio administrativo no meio e a garagem da defesa a leste. Ponto A na
  * plataforma norte, ponto B na sul; os tubos têm porta no meio e as plataformas abrem para os fundos.
  */
 export const TERMINAL_BOQUEIRAO: MapDef = {
   id: 'terminal_boqueirao',
   name: 'Terminal Boqueirão',
-  bounds: box(0, 0, 0, 80, 6, 50),
+  bounds: box(0, 0, 0, 120, 6, 70),
   solids: [
     // limites
-    box(0, 0, 0, 80, 4, 0.5),
-    box(0, 0, 49.5, 80, 4, 50),
-    box(0, 0, 0, 0.5, 4, 50),
-    box(79.5, 0, 0, 80, 4, 50),
-    // fachada, com portas em z 2-6, 14-19, 31-36 e 44-48
-    box(28, 0, 0.5, 29, 4, 2),
-    box(28, 0, 6, 29, 4, 14),
-    box(28, 0, 19, 29, 4, 31),
-    box(28, 0, 36, 29, 4, 44),
-    box(28, 0, 48, 29, 4, 49.5),
+    box(0, 0, 0, 120, 4, 0.5),
+    box(0, 0, 69.5, 120, 4, 70),
+    box(0, 0, 0, 0.5, 4, 70),
+    box(119.5, 0, 0, 120, 4, 70),
+    // fachada, com portas em z 2,5-8,5, 19,5-26,5, 43,5-50,5 e 61,5-67,5
+    box(42.5, 0, 0.5, 43.5, 4, 2.5),
+    box(42.5, 0, 8.5, 43.5, 4, 19.5),
+    box(42.5, 0, 26.5, 43.5, 4, 43.5),
+    box(42.5, 0, 50.5, 43.5, 4, 61.5),
+    box(42.5, 0, 67.5, 43.5, 4, 69.5),
     // prédio administrativo
-    box(40, 0, 20, 56, 4, 30),
-    // tubos de embarque, com porta em x 46-50
-    box(36, 0, 8, 46, 3.2, 11.5),
-    box(50, 0, 8, 60, 3.2, 11.5),
-    box(36, 0, 38.5, 46, 3.2, 42),
-    box(50, 0, 38.5, 60, 3.2, 42),
-    // muro dos fundos, com passagens em z 2-8, 21-29 e 42-48
-    box(62, 0, 0.5, 63, 4, 2),
-    box(62, 0, 8, 63, 4, 21),
-    box(62, 0, 29, 63, 4, 42),
-    box(62, 0, 48, 63, 4, 49.5),
-    // garagem da defesa: paredes norte e sul com porta em x 74-78
-    box(63, 0, 18, 74, 4, 19),
-    box(78, 0, 18, 79.5, 4, 19),
-    box(63, 0, 31, 74, 4, 32),
-    box(78, 0, 31, 79.5, 4, 32),
+    box(60, 0, 28, 84, 4, 42),
+    // tubos de embarque, com porta em x 69-75
+    box(54, 0, 11, 69, 3.2, 16),
+    box(75, 0, 11, 90, 3.2, 16),
+    box(54, 0, 54, 69, 3.2, 59),
+    box(75, 0, 54, 90, 3.2, 59),
+    // muro dos fundos, com passagens em z 2,5-11, 29,5-40,5 e 59-67,5
+    box(93.5, 0, 0.5, 94.5, 4, 2.5),
+    box(93.5, 0, 11, 94.5, 4, 29.5),
+    box(93.5, 0, 40.5, 94.5, 4, 59),
+    box(93.5, 0, 67.5, 94.5, 4, 69.5),
+    // garagem da defesa: paredes norte e sul com porta em x 111-117,5
+    box(94.5, 0, 25.5, 111, 4, 26.5),
+    box(117.5, 0, 25.5, 119.5, 4, 26.5),
+    box(94.5, 0, 43.5, 111, 4, 44.5),
+    box(117.5, 0, 43.5, 119.5, 4, 44.5),
     // pilares das plataformas
-    pillar(38, 6.8), pillar(54, 6.8), pillar(38, 43.2), pillar(54, 43.2),
+    pillar(57, 9.5), pillar(81, 9.5), pillar(57, 60.5), pillar(81, 60.5),
     // bancos
-    bench(41, 2.2), bench(52, 2.2), bench(41, 47.1), bench(52, 47.1),
-    bench(42, 13), bench(52, 13), bench(42, 36.3), bench(52, 36.3),
+    bench(61.5, 3), bench(71, 2.5), bench(79, 3), bench(61.5, 66.3), bench(71, 66.8), bench(79, 66.3),
+    bench(63, 18.5), bench(78, 18.5), bench(63, 51), bench(78, 51),
     // bloqueios do saguão e dos corredores
-    gate(33.2, 11), gate(33.2, 21.5), gate(33.2, 27.5), gate(33.2, 37.8),
-    gate(44, 18.2), gate(46.5, 18.2), gate(49, 18.2), gate(44, 30.6), gate(46.5, 30.6), gate(49, 30.6),
+    gate(50, 15.5), gate(50, 30.5), gate(50, 38.5), gate(50, 53),
+    gate(66.5, 25.5), gate(70, 25.5), gate(74, 25.5), gate(66.5, 43), gate(70, 43), gate(74, 43),
     // ônibus parados nos fundos e caixas da garagem
-    box(64, 0, 9.5, 73, 3, 12.1),
-    box(64, 0, 37.9, 73, 3, 40.5),
-    box(65, 0, 28.5, 67, 1.2, 30.5),
-    box(77, 0, 21.5, 79, 1.2, 24),
-    box(77, 0, 26, 79, 1.2, 28.5),
+    box(96, 0, 14, 109.5, 3, 16.5),
+    box(96, 0, 53, 109.5, 3, 56.5),
+    box(98, 0, 40.5, 100, 1.2, 42.5),
+    box(116, 0, 30.5, 118, 1.2, 33),
+    box(116, 0, 37, 118, 1.2, 39.5),
   ],
   sites: {
-    A: box(44, 0, 2, 56, 3, 8),
-    B: box(44, 0, 42, 56, 3, 48),
+    A: box(64, 0, 2, 82, 3, 10),
+    B: box(64, 0, 60, 82, 3, 68),
   },
   spawns: {
-    attack: [at(4, 23), at(6, 24), at(4, 27), at(6, 27)],
-    defense: [at(68.5, 24), at(70.5, 22.8), at(72.5, 25), at(70, 27.2)],
+    attack: [at(6.5, 33), at(9, 34), at(6.5, 37), at(9, 36.5)],
+    defense: [at(104, 33), at(107, 32.5), at(108, 36.5), at(105, 37.5)],
   },
-  barrier: box(22, 0, 0.5, 23, 4, 49.5),
-  stage: at(19, 26),
+  barrier: box(35, 0, 0.5, 36, 4, 69.5),
+  stage: at(33, 36.5),
   waypoints: NAMES.map((name) => NODES[name]),
   links: LINKS.map(([a, b]) => [NAMES.indexOf(a), NAMES.indexOf(b)]),
 };

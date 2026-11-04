@@ -3,6 +3,8 @@ import type { MapDef } from '../../src/cs/map.js';
 import {
   AIR_ACCEL,
   CROUCH_SPEED,
+  SLIDE_BOOST,
+  SLIDE_MS,
   WALK_SPEED,
   PLAYER_RADIUS,
   RUN_SPEED,
@@ -42,6 +44,64 @@ function run(b: Body, wish: { x: number; z: number }, seconds: number, jump = fa
   for (let t = 0; t < seconds; t += 1 / 60) cur = moveBody(arena, cur, wish, jump, crouch, 1, 1 / 60);
   return cur;
 }
+
+const horizontal = (b: Body) => Math.hypot(b.vel.x, b.vel.z);
+
+/** Corpo correndo para +z no espaço aberto da arena (a parede fica em x = 10). */
+const runner = (): Body => run(body(2, 0, 1), { x: 0, z: 1 }, 1);
+const ahead = { x: 0, z: 1 };
+
+describe('slide', () => {
+  const step = (b: Body, wish: { x: number; z: number }, crouch: boolean, jump = false) => moveBody(arena, b, wish, jump, crouch, 1, 1 / 60);
+
+  it('starts when crouching at run speed and bursts past the run speed', () => {
+    const slid = step(runner(), ahead, true);
+    expect(slid.slideMs).toBeGreaterThan(0);
+    expect(horizontal(slid)).toBeCloseTo(SLIDE_BOOST, 1);
+    expect(horizontal(slid)).toBeGreaterThan(RUN_SPEED);
+  });
+
+  it('keeps gliding while crouched and slows to the crouch speed by the end', () => {
+    let b = step(runner(), ahead, true);
+    for (let t = 0; t < 0.3; t += 1 / 60) b = step(b, ahead, true);
+    expect(horizontal(b)).toBeGreaterThan(CROUCH_SPEED + 1);
+    for (let t = 0; t < SLIDE_MS / 1000 + 0.2; t += 1 / 60) b = step(b, ahead, true);
+    expect(b.slideMs ?? 0).toBe(0);
+    expect(horizontal(b)).toBeCloseTo(CROUCH_SPEED, 1);
+  });
+
+  it('does not start when walking slowly or standing, or while in the air', () => {
+    const slow = { ...body(2, 0, 3), vel: { x: 2, y: 0, z: 0 } };
+    expect(step(slow, ahead, true).slideMs ?? 0).toBe(0);
+    const air = { ...runner(), onGround: false, pos: { x: 3, y: 1, z: 3 } };
+    expect(step(air, ahead, true).slideMs ?? 0).toBe(0);
+  });
+
+  it('ends when the crouch is released and then needs a short wait before the next slide', () => {
+    let b = step(runner(), ahead, true);
+    b = step(b, ahead, false);
+    expect(b.slideMs ?? 0).toBe(0);
+    b = { ...b, vel: { x: RUN_SPEED, y: 0, z: 0 }, onGround: true };
+    expect(step(b, ahead, true).slideMs ?? 0).toBe(0);
+  });
+
+  it('keeps the momentum when jumping out of a slide', () => {
+    let b = step(runner(), ahead, true);
+    for (let t = 0; t < 0.15; t += 1 / 60) b = step(b, ahead, true);
+    expect(b.slideMs).toBeGreaterThan(0);
+    const jumped = step(b, ahead, true, true);
+    expect(jumped.vel.y).toBeGreaterThan(0);
+    expect(jumped.slideMs ?? 0).toBe(0);
+    expect(horizontal(jumped)).toBeGreaterThan(RUN_SPEED);
+  });
+
+  it('stops at a wall', () => {
+    let b = { ...body(8.5, 0, 3), vel: { x: RUN_SPEED, y: 0, z: 0 } };
+    for (let t = 0; t < 1; t += 1 / 60) b = step(b, { x: 1, z: 0 }, true);
+    expect(b.slideMs ?? 0).toBe(0);
+    expect(b.pos.x).toBeLessThanOrEqual(10 - PLAYER_RADIUS + 1e-6);
+  });
+});
 
 describe('moveBody', () => {
   it('does not cross a wall', () => {

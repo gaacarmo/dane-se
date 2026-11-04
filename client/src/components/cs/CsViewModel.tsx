@@ -47,6 +47,7 @@ interface RigState {
   flinchP: number;
   flinchY: number;
   shake: number;
+  slide: number;
 }
 
 /**
@@ -102,6 +103,7 @@ export function FirstPersonRig({
     flinchP: 0,
     flinchY: 0,
     shake: 0,
+    slide: 0,
   });
 
   useFrame((_, rawDt) => {
@@ -171,11 +173,12 @@ export function FirstPersonRig({
     );
     const rightX = Math.cos(yaw);
     const rightZ = -Math.sin(yaw);
+    s.slide = damp(s.slide, me.alive && (me.body.slideMs ?? 0) > 0 ? 1 : 0, 9, dt);
     s.roll = damp(s.roll, -(me.body.vel.x * rightX + me.body.vel.z * rightZ) * 0.0024, 10, dt);
 
     camera.position.set(eye.x + rightX * bobX, s.eyeY + bobY - s.dip, eye.z + rightZ * bobX);
     camera.rotation.order = 'YXZ';
-    camera.rotation.set(pitch, yaw, s.roll);
+    camera.rotation.set(pitch - s.slide * 0.05, yaw, s.roll + s.slide * 0.07);
 
     const r = root.current;
     const g = rig.current;
