@@ -22,6 +22,8 @@ export interface CsInput {
   debugOverride(patch: Partial<PlayerInput> | null): void;
   /** Controles de toque (celular): alimentam o mesmo `read()` do teclado e do mouse. */
   touch: TouchApi;
+  /** Andar automático: segue para a frente sem segurar W; S ou puxar a alavanca para trás cancela. */
+  autoRun: { toggle(): boolean; active(): boolean };
 }
 
 export interface TouchApi {
@@ -45,8 +47,7 @@ export function isTouchDevice(): boolean {
   }
 }
 
-/** Sensibilidade do dedo em relação à do mouse: um pixel de tela gira mais que um contador do mouse. */
-const TOUCH_LOOK_GAIN = 1.8;
+
 
 function typingInField(e: Event): boolean {
   const el = e.target;
@@ -69,6 +70,7 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
   const override = useRef<Partial<PlayerInput> | null>(null);
   const touchState = useRef({ x: 0, z: 0, fire: false, use: false, jump: false, crouch: false });
   const touchLocked = useRef(false);
+  const autoRun = useRef(false);
 
   const api = useMemo<CsInput>(() => {
     const touchMode = isTouchDevice();
@@ -93,7 +95,7 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
         const base: PlayerInput = {
           ...IDLE_INPUT,
           moveX: Math.max(-1, Math.min(1, (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0) + touchState.current.x)),
-          moveZ: Math.max(-1, Math.min(1, (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0) + touchState.current.z)),
+          moveZ: Math.max(-1, Math.min(1, (k.has('KeyW') || autoRun.current ? 1 : 0) - (k.has('KeyS') ? 1 : 0) + touchState.current.z)),
           yaw: lookRef.current.yaw,
           pitch: lookRef.current.pitch,
           jump: k.has('Space') || consumeJump(),
@@ -152,14 +154,22 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
       debugOverride(patch) {
         override.current = patch;
       },
+      autoRun: {
+        toggle() {
+          autoRun.current = !autoRun.current;
+          return autoRun.current;
+        },
+        active: () => autoRun.current,
+      },
       touch: {
         setMove(x, z) {
+          if (z < -0.3) autoRun.current = false;
           touchState.current.x = x;
           touchState.current.z = z;
         },
         addLook(dxPx, dyPx) {
           const look = lookRef.current;
-          const sensitivity = getPrefs().csSensitivity * TOUCH_LOOK_GAIN;
+          const sensitivity = getPrefs().csTouchSensitivity;
           look.yaw -= dxPx * sensitivity;
           look.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch - dyPx * sensitivity));
         },
@@ -193,11 +203,14 @@ export function useCsInput(target: RefObject<HTMLElement | null>, handlers: RefO
     const clear = () => {
       keys.current.clear();
       firing.current = false;
+      autoRun.current = false;
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.repeat || typingInField(e)) return;
       keys.current.add(e.code);
       if (!api.isLocked()) return;
+      if (e.code === 'KeyS') autoRun.current = false;
+      if (e.code === 'KeyT') autoRun.current = !autoRun.current;
       if (e.code === 'KeyR') reloadEdge.current = true;
       if (e.code === 'Digit1') slotEdge.current = 1;
       if (e.code === 'Digit2') slotEdge.current = 2;

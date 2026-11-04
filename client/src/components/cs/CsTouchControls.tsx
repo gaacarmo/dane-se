@@ -56,6 +56,7 @@ export function CsTouchControls({ input, hidden, onLookTap, onBuy, onMap, onPing
   const look = useRef<{ id: number; x: number; y: number; moved: number } | null>(null);
   const [knob, setKnob] = useState<{ x: number; y: number; dx: number; dy: number } | null>(null);
   const [crouching, setCrouching] = useState(false);
+  const [auto, setAuto] = useState(false);
 
   if (hidden) return null;
 
@@ -76,6 +77,7 @@ export function CsTouchControls({ input, hidden, onLookTap, onBuy, onMap, onPing
       dy = (dy / length) * STICK_RADIUS;
     }
     input.touch.setMove(dx / STICK_RADIUS, -dy / STICK_RADIUS);
+    if (auto && !input.autoRun.active()) setAuto(false);
     setKnob({ x: s.x, y: s.y, dx, dy });
   };
   const stickUp = (e: PointerEvent<HTMLDivElement>) => {
@@ -137,6 +139,14 @@ export function CsTouchControls({ input, hidden, onLookTap, onBuy, onMap, onPing
       <div className="pointer-events-none absolute top-3 right-3 flex gap-2">
         <Button label="Mercado" size={44} onDown={onBuy}>
           $
+        </Button>
+        <Button
+          label="Andar automático"
+          size={44}
+          className={auto ? 'border-gold-400/80 bg-gold-500/30' : ''}
+          onDown={() => setAuto(input.autoRun.toggle())}
+        >
+          Auto
         </Button>
         <Button label="Mapa e placar" size={44} onDown={onMap}>
           Mapa

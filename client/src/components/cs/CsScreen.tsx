@@ -476,7 +476,7 @@ export function CsPlay({ driver, onExit, skipDraw = false, forfeitVote = null, r
         >
           <span>{touch ? (flow.lockFailed ? 'Toque para voltar ao jogo' : 'Toque para jogar') : flow.lockFailed ? 'Clique para voltar ao jogo' : 'Clique para jogar'}</span>
           <span className="text-xs text-stone-400">
-            {touch ? 'Alavanca à esquerda anda · arraste à direita para olhar · botões para atirar, pular, abaixar, recarregar e usar' : `WASD move · Shift anda devagar · Espaço pula · C agacha · R recarrega · 1/2 troca de arma · E interage · Tab mapa e placar · Q ping · B mercado · Esc ${driver.solo ? 'pausa' : 'menu'}`}
+            {touch ? 'Alavanca à esquerda anda · arraste à direita para olhar · botões para atirar, pular, abaixar, recarregar e usar; Auto anda sozinho' : `WASD move · Shift anda devagar · Espaço pula · C agacha · R recarrega · 1/2 troca de arma · E interage · T anda sozinho · Tab mapa e placar · Q ping · B mercado · Esc ${driver.solo ? 'pausa' : 'menu'}`}
           </span>
         </button>
       )}
@@ -507,23 +507,34 @@ function PauseMenu({
   onGiveUp: () => void;
   onExit: () => void;
 }) {
-  const { csSensitivity, muted } = usePrefs();
+  const { csSensitivity, csTouchSensitivity, muted } = usePrefs();
+  const touch = isTouchDevice();
+  const sensitivity = touch ? csTouchSensitivity : csSensitivity;
   const [confirmExit, setConfirmExit] = useState(false);
   return (
     <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/75 font-mono text-stone-200">
       <p className="mb-2 text-sm tracking-[0.2em] uppercase">{solo ? 'Pausa' : 'Menu'}</p>
       {!solo && <p className="max-w-64 text-center text-[11px] text-stone-500">A partida continua rolando enquanto você está no menu.</p>}
       <label className="mb-2 flex w-64 flex-col gap-1 text-xs text-stone-400">
-        Sensibilidade do mouse
-        <input
-          type="range"
-          min={0.0006}
-          max={0.004}
-          step={0.0001}
-          value={csSensitivity}
-          onChange={(e) => setPref('csSensitivity', Number(e.target.value))}
-        />
-        <span className="text-stone-500">{(csSensitivity * 1000).toFixed(1)}</span>
+        {touch ? 'Sensibilidade do toque' : 'Sensibilidade do mouse'}
+        <span className="flex items-center gap-2">
+          <button type="button" aria-label="Diminuir a sensibilidade" className="grid size-8 place-items-center rounded border border-white/20" onClick={() => setPref(touch ? 'csTouchSensitivity' : 'csSensitivity', Math.max(touch ? 0.0008 : 0.0004, sensitivity - (touch ? 0.0004 : 0.0002)))}>
+            −
+          </button>
+          <input
+            type="range"
+            className="min-w-0 flex-1"
+            min={touch ? 0.0008 : 0.0004}
+            max={touch ? 0.008 : 0.006}
+            step={touch ? 0.0002 : 0.0001}
+            value={sensitivity}
+            onChange={(e) => setPref(touch ? 'csTouchSensitivity' : 'csSensitivity', Number(e.target.value))}
+          />
+          <button type="button" aria-label="Aumentar a sensibilidade" className="grid size-8 place-items-center rounded border border-white/20" onClick={() => setPref(touch ? 'csTouchSensitivity' : 'csSensitivity', Math.min(touch ? 0.008 : 0.006, sensitivity + (touch ? 0.0004 : 0.0002)))}>
+            +
+          </button>
+        </span>
+        <span className="text-stone-500">{(sensitivity * 1000).toFixed(1)}</span>
       </label>
       <Button onClick={onResume}>Continuar</Button>
       <Button variant="secondary" onClick={() => setPref('muted', !muted)}>

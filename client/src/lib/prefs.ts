@@ -14,6 +14,8 @@ export interface Prefs {
   arcadeIntroHidden: boolean;
   /** Sensibilidade do mouse no modo CS, em radianos por pixel. */
   csSensitivity: number;
+  /** Sensibilidade do dedo no modo CS, em radianos por pixel. */
+  csTouchSensitivity: number;
 }
 
 const KEY = 'dane-se:prefs';
@@ -28,7 +30,7 @@ export function recommendedView3d(): boolean {
   }
 }
 
-const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: recommendedView3d(), arcadeIntroHidden: false, csSensitivity: 0.0016 };
+const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: recommendedView3d(), arcadeIntroHidden: false, csSensitivity: 0.0016, csTouchSensitivity: 0.0029 };
 
 function load(): Prefs {
   try {
