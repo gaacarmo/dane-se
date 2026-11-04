@@ -51,8 +51,8 @@ const HALF_FOV_TAN = Math.tan((75 / 2) * (Math.PI / 180));
 
 export function unsupportedReason(): string | null {
   if (!webglSupported) return 'Este navegador não tem WebGL, necessário para o modo CS.';
-  if (!('requestPointerLock' in document.documentElement)) return 'Este navegador não permite travar o mouse.';
-  if (isTouchDevice() && !('ontouchstart' in window) && !navigator.maxTouchPoints) return 'Este aparelho não tem tela de toque.';
+  // No toque não há pointer lock: os controles de tela fazem o papel do mouse.
+  if (!isTouchDevice() && !('requestPointerLock' in document.documentElement)) return 'Este navegador não permite travar o mouse.';
   return null;
 }
 
