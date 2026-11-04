@@ -181,9 +181,9 @@ export function CsScene({
   const muzzle = useRef(new THREE.Vector3());
   const myTeam = match.roster.find((r) => r.id === meId)!.team;
   return (
-    <Canvas camera={{ fov: 75, near: 0.05, far: 200 }} dpr={[1, 1.5]} gl={{ antialias: true }}>
+    <Canvas camera={{ fov: 75, near: 0.05, far: 260 }} dpr={[1, 1.5]} gl={{ antialias: true }}>
       <color attach="background" args={['#0b0d10']} />
-      <fog attach="fog" args={["#0b0d10", 50, 130]} />
+      <fog attach="fog" args={["#0b0d10", 60, 170]} />
       <hemisphereLight args={['#c8d2dc', '#2a2d33', 1.4]} />
       <ambientLight intensity={0.9} />
       <directionalLight position={[15, 25, 10]} intensity={1.8} />
