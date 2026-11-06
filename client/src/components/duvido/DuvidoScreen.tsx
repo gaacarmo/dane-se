@@ -160,13 +160,22 @@ function DuvidoHud({ game, onMenu }: { game: DuvidoView; onMenu: () => void }) {
             {RANK_PLURAL_PT[game.value]}
           </motion.p>
         </div>
-        <div className="flex items-center gap-1.5 rounded-xl bg-white/8 px-2 py-1 ring-1 ring-white/10" title="A manilha vale como qualquer valor">
-          <span className="w-6">
-            <PlayingCard card={game.vira} />
+        {/* A carta mostrada é a vira; o curinga é o valor logo acima dela. */}
+        <div
+          className="flex items-center gap-1.5 rounded-xl bg-white/8 px-2 py-1 ring-1 ring-white/10"
+          title={`Vira ${game.vira.rank}: o curinga é o valor logo acima, ${game.manilha}. Curinga vale como qualquer valor.`}
+          aria-label={`Vira ${game.vira.rank}, curinga ${game.manilha}`}
+        >
+          <span className="flex flex-col items-center">
+            <span className="w-6">
+              <PlayingCard card={game.vira} />
+            </span>
+            <span className="text-[9px] leading-none text-stone-400">vira</span>
           </span>
+          <span aria-hidden className="text-sm text-stone-500">→</span>
           <span className="text-[11px] leading-tight text-stone-300">
             Curinga
-            <strong className="block text-base leading-none text-white">{game.manilha}</strong>
+            <strong className="block text-xl leading-none text-gold-300">{game.manilha}</strong>
           </span>
         </div>
         <div className="text-right">
@@ -326,7 +335,7 @@ function MyHand({ game }: { game: DuvidoView }) {
   return (
     <div className="safe-bottom relative z-30 px-3">
       {(legal.canPlay || legal.canDoubt) && (
-        <div className="mb-2 flex gap-2">
+        <div className="mx-auto mb-2 flex w-full max-w-md gap-2">
           {legal.canDoubt && (
             <motion.button
               type="button"
