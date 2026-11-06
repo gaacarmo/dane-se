@@ -69,8 +69,9 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
   const game = GAME_CATALOG.find((g) => g.id === room.gameType)!;
   const allReady = !room.arcade || room.members.every((m) => m.talentsReady);
   const truco = room.gameType === 'truco';
-  // Truco é 1x1 ou 2x2: com 3 na mesa falta (ou sobra) um.
-  const trucoOdd = truco && room.members.length === 3;
+  // Truco: as duas duplas precisam ter o mesmo tamanho (1x1 ou 2x2).
+  const teamA = room.members.filter((m) => m.team === 0).length;
+  const trucoOdd = truco && teamA * 2 !== room.members.length;
   const canStart = room.members.length >= game.minPlayers && allReady && !trucoOdd;
   const poker = isPokerRoom(room);
   const missing = Math.max(0, game.minPlayers - room.members.length);
@@ -100,7 +101,7 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
         ? 'Falta 1 jogador'
         : `Faltam ${missing} jogadores`
       : trucoOdd
-        ? 'Precisa de 2 ou 4 jogadores'
+        ? 'Duplas desiguais'
         : 'Esperando os kits';
 
   return (
@@ -158,76 +159,26 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
             </button>
           </section>
 
-          <section>
-            <SectionHeader>
-              Jogadores {room.members.length} de {game.maxPlayers}
-            </SectionHeader>
-            <ul className="glass overflow-hidden">
-              {room.members.map((m, i) => (
-                <motion.li
-                  key={m.id}
-                  layout
-                  className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-ios-separator' : ''}`}
-                >
-                  <span
-                    aria-hidden
-                    className={`relative grid size-10 shrink-0 place-items-center rounded-full text-[17px] font-semibold text-white ${m.connected ? '' : 'opacity-50'}`}
-                    style={{ background: avatarColor(m.id) }}
-                  >
-                    {initial(m.name)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[17px]">
-                      {m.name}
-                      {m.id === room.youId && <span className="text-ios-label-2"> (você)</span>}
-                    </span>
-                    <span className={`block text-[13px] ${m.connected ? 'text-ios-label-2' : 'text-ios-red'}`}>
-                      {memberStatus(m, room.arcade)}
-                    </span>
-                  </span>
-                  {truco && <Tag tone={i % 2 === 0 ? 'gold' : 'blue'}>Dupla {i % 2 === 0 ? 'A' : 'B'}</Tag>}
-                  {m.isHost && !truco && <Tag tone="neutral">Anfitrião</Tag>}
-                  {isHost && m.id !== room.youId && (
-                    <button
-                      type="button"
-                      onClick={() => actions.kick(m.id)}
-                      className="grid size-8 shrink-0 place-items-center rounded-full bg-ios-red text-white"
-                      aria-label={`Remover ${m.name}`}
-                    >
-                      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden>
-                        <path d="M6 12h12" />
-                      </svg>
-                    </button>
-                  )}
-                </motion.li>
-              ))}
-              {isHost && room.members.length < game.maxPlayers && (
-                <li className="border-t border-ios-separator">
-                  <button
-                    type="button"
-                    onClick={() => actions.addBot()}
-                    className="flex min-h-12 w-full items-center gap-3 px-4 text-left text-[17px] text-ios-blue transition-colors active:bg-ios-fill"
-                  >
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ios-blue/15">
-                      <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden>
-                        <path d="M12 6v12M6 12h12" />
-                      </svg>
-                    </span>
-                    Adicionar bot
-                  </button>
-                </li>
-              )}
-            </ul>
-            <Footnote>
-              {truco
-                ? trucoOdd
-                  ? 'Truco é 1 contra 1 ou 2 contra 2: chame mais um ou tire alguém pra começar.'
-                  : 'As duplas seguem a ordem dos lugares: 1º e 3º contra 2º e 4º, parceiros frente a frente.'
-                : missing > 0
+          {truco ? (
+            <TeamsSection room={room} isHost={isHost} maxPlayers={game.maxPlayers} />
+          ) : (
+            <section>
+              <SectionHeader>
+                Jogadores {room.members.length} de {game.maxPlayers}
+              </SectionHeader>
+              <ul className="glass overflow-hidden">
+                {room.members.map((m, i) => (
+                  <MemberRow key={m.id} room={room} member={m} isHost={isHost} first={i === 0} />
+                ))}
+                {isHost && room.members.length < game.maxPlayers && <AddBotRow />}
+              </ul>
+              <Footnote>
+                {missing > 0
                   ? `${missing === 1 ? 'Falta 1' : `Faltam ${missing}`} pra começar. Mande o código pra galera ou adicione um bot.`
                   : 'Com bot na mesa, a sala vira treino e ninguém paga entrada.'}
-            </Footnote>
-          </section>
+              </Footnote>
+            </section>
+          )}
 
           {poker ? <PokerMoneyPanel room={room} isHost={isHost} /> : <MoneyPanel room={room} isHost={isHost} />}
 
@@ -258,6 +209,154 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
       </div>
 
     </main>
+  );
+}
+
+function MemberRow({
+  room,
+  member: m,
+  isHost,
+  first,
+  onSwap,
+}: {
+  room: RoomView;
+  member: RoomMember;
+  isHost: boolean;
+  first: boolean;
+  /** Truco: o anfitrião troca um bot de dupla. */
+  onSwap?: () => void;
+}) {
+  return (
+    <motion.li layout className={`flex items-center gap-3 px-4 py-2.5 ${first ? '' : 'border-t border-ios-separator'}`}>
+      <span
+        aria-hidden
+        className={`relative grid size-10 shrink-0 place-items-center rounded-full text-[17px] font-semibold text-white ${m.connected ? '' : 'opacity-50'}`}
+        style={{ background: avatarColor(m.id) }}
+      >
+        {initial(m.name)}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[17px]">
+          {m.name}
+          {m.id === room.youId && <span className="text-ios-label-2"> (você)</span>}
+        </span>
+        <span className={`block text-[13px] ${m.connected ? 'text-ios-label-2' : 'text-ios-red'}`}>{memberStatus(m, room.arcade)}</span>
+      </span>
+      {m.isHost && room.gameType !== 'truco' && <Tag tone="neutral">Anfitrião</Tag>}
+      {onSwap && (
+        <button type="button" onClick={onSwap} className="min-h-9 shrink-0 px-1 text-[15px] text-ios-blue" aria-label={`Trocar ${m.name} de dupla`}>
+          Trocar
+        </button>
+      )}
+      {isHost && m.id !== room.youId && (
+        <button
+          type="button"
+          onClick={() => actions.kick(m.id)}
+          className="grid size-8 shrink-0 place-items-center rounded-full bg-ios-red text-white"
+          aria-label={`Remover ${m.name}`}
+        >
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden>
+            <path d="M6 12h12" />
+          </svg>
+        </button>
+      )}
+    </motion.li>
+  );
+}
+
+function AddBotRow({ first = false, label = 'Adicionar bot' }: { first?: boolean; label?: string }) {
+  return (
+    <li className={first ? '' : 'border-t border-ios-separator'}>
+      <button
+        type="button"
+        onClick={() => actions.addBot()}
+        className="flex min-h-12 w-full items-center gap-3 px-4 text-left text-[17px] text-ios-blue transition-colors active:bg-ios-fill"
+      >
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ios-blue/15">
+          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden>
+            <path d="M12 6v12M6 12h12" />
+          </svg>
+        </span>
+        {label}
+      </button>
+    </li>
+  );
+}
+
+const TEAM_NAMES = ['Dupla A', 'Dupla B'] as const;
+
+/** Truco: as duas duplas lado a lado; cada um escolhe a sua, e o anfitrião move os bots. */
+function TeamsSection({ room, isHost, maxPlayers }: { room: RoomView; isHost: boolean; maxPlayers: number }) {
+  const me = room.members.find((m) => m.id === room.youId);
+  const sizes = [0, 1].map((t) => room.members.filter((m) => m.team === t).length);
+  const even = sizes[0] === sizes[1];
+  const [busy, setBusy] = useState(false);
+
+  async function move(team: 0 | 1, playerId?: string) {
+    setBusy(true);
+    await actions.setTeam(team, playerId);
+    setBusy(false);
+  }
+
+  return (
+    <div className="space-y-5">
+      {([0, 1] as const).map((team) => {
+        const members = room.members.filter((m) => m.team === team);
+        const mine = me?.team === team;
+        return (
+          <section key={team} aria-label={TEAM_NAMES[team]}>
+            <h2 className="mb-2 flex items-center gap-2 px-4 text-[15px] font-semibold text-ios-label-2">
+              <span className={`size-2.5 rounded-full ${team === 0 ? 'bg-ios-orange' : 'bg-ios-blue'}`} aria-hidden />
+              {TEAM_NAMES[team]}
+              <span className="font-normal">{members.length === 1 ? '1 jogador' : `${members.length} jogadores`}</span>
+              {mine && <Tag tone={team === 0 ? 'gold' : 'blue'}>Sua dupla</Tag>}
+            </h2>
+            <ul className="glass overflow-hidden">
+              {members.map((m, i) => (
+                <MemberRow
+                  key={m.id}
+                  room={room}
+                  member={m}
+                  isHost={isHost}
+                  first={i === 0}
+                  onSwap={isHost && m.isBot ? () => void move(team === 0 ? 1 : 0, m.id) : undefined}
+                />
+              ))}
+              {!mine && me && (
+                <li className={members.length > 0 ? 'border-t border-ios-separator' : ''}>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void move(team)}
+                    className="flex min-h-12 w-full items-center gap-3 px-4 text-left text-[17px] font-semibold text-ios-blue transition-colors active:bg-ios-fill disabled:opacity-50"
+                  >
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ios-blue/15">
+                      <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M4 12h13M12 6l6 6-6 6" />
+                      </svg>
+                    </span>
+                    Entrar na {TEAM_NAMES[team]}
+                  </button>
+                </li>
+              )}
+              {members.length === 0 && !me && <li className="px-4 py-3 text-[15px] text-ios-label-2">Ninguém ainda</li>}
+            </ul>
+          </section>
+        );
+      })}
+      {isHost && room.members.length < maxPlayers && (
+        <ul className="glass overflow-hidden">
+          <AddBotRow first label="Adicionar bot na dupla menor" />
+        </ul>
+      )}
+      <Footnote>
+        {!even
+          ? `As duplas precisam ter o mesmo tamanho pra começar: agora está ${sizes[0]} contra ${sizes[1]}.`
+          : room.members.length < 2
+            ? 'Chame alguém pra outra dupla ou adicione um bot.'
+            : 'Parceiros sentam frente a frente. Dá pra jogar 1 contra 1 ou 2 contra 2.'}
+      </Footnote>
+    </div>
   );
 }
 

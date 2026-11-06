@@ -452,6 +452,8 @@ export const actions = {
   start: () => send('room:start'),
   chat: (text: string) => send('chat:send', { text }),
   setCharacter: (character: CharacterId) => send('room:character', { character }),
+  /** Team games: move yourself, or (host) a bot, to team 0 or 1. */
+  setTeam: (team: 0 | 1, playerId?: string) => send('room:team', { team, playerId }),
   kick: (playerId: string) => send('room:kick', { playerId }),
   addBot: () => send('room:addBot'),
   skipWaiting: () => send('room:skipWaiting'),

@@ -109,6 +109,7 @@ function registerHandlers(socket: GameSocket, rooms: RoomManager, cs: CsRoomMana
   socket.on('room:talent', handle<Body>((p) => rooms.setTalents(socket, p.talents)));
   socket.on('room:start', handle(() => rooms.start(socket)));
   socket.on('room:character', handle<Body>((p) => rooms.setCharacter(socket, p.character)));
+  socket.on('room:team', handle<Body>((p) => rooms.setTeam(socket, p.team, p.playerId)));
   socket.on('chat:send', handle<Body>((p) => rooms.chat(socket, p.text)));
   socket.on('room:kick', handle<Body>((p) => rooms.kick(socket, p.playerId)));
   socket.on('room:addBot', handle(() => rooms.addBot(socket)));

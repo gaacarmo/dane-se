@@ -116,6 +116,10 @@ export class BotClient {
   setCharacter(character: string) {
     return this.call('room:character', { character });
   }
+  /** Team games: move yourself (or, as host, a bot) to team 0 or 1. */
+  setTeam(team: 0 | 1, playerId?: string) {
+    return this.call('room:team', { team, playerId });
+  }
   setArcade(arcade: boolean) {
     return this.call('room:arcade', { arcade });
   }

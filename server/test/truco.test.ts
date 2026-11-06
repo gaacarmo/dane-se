@@ -86,11 +86,11 @@ describe('truco rooms', () => {
     });
   }, 30_000);
 
-  it('não começa com 3 jogadores e não cobra ninguém', async () => {
+  it('não começa com as duplas desiguais e não cobra ninguém', async () => {
     const url = await boot();
     const players = await trucoRoom(url, ['Ana', 'Bia', 'Caio']);
     const r = await players[0]!.start();
-    expect(r).toEqual({ ok: false, error: 'INVALID_PLAYER_COUNT' });
+    expect(r).toEqual({ ok: false, error: 'TEAMS_UNEVEN' });
     await sleep(20);
     for (const p of players) expect(p.profile!.balance).toBe(STARTING_BALANCE);
     expect(players[0]!.view!.status).toBe('lobby');
@@ -102,6 +102,53 @@ describe('truco rooms', () => {
     await players[0]!.start();
     await players[0]!.waitFor((v) => v.status === 'playing');
     expect(await players[0]!.action('fold')).toEqual({ ok: false, error: 'INVALID_PAYLOAD' });
+  });
+});
+
+describe('escolha de dupla no lobby', () => {
+  const teams = (view: RoomView | null | undefined) => Object.fromEntries(truco(view).members.map((m) => [m.name, m.team]));
+
+  it('quem entra vai pra dupla menor, e cada um pode trocar', async () => {
+    const url = await boot();
+    const [ana, bia, caio] = await trucoRoom(url, ['Ana', 'Bia', 'Caio']);
+    expect(teams(ana!.view)).toEqual({ Ana: 0, Bia: 1, Caio: 0 });
+
+    expect(await caio!.setTeam(1)).toEqual({ ok: true });
+    await ana!.waitFor((v) => v.members.find((m) => m.name === 'Caio')?.team === 1);
+    expect(teams(ana!.view)).toEqual({ Ana: 0, Bia: 1, Caio: 1 });
+    // Valor inválido.
+    expect(await bia!.setTeam(2 as 0)).toEqual({ ok: false, error: 'INVALID_PAYLOAD' });
+  });
+
+  it('o anfitrião move bots; os outros não', async () => {
+    const url = await boot();
+    const [ana, bia] = await trucoRoom(url, ['Ana', 'Bia']);
+    expect((await ana!.addBot()).ok).toBe(true);
+    const view = await ana!.waitFor((v) => v.members.length === 3);
+    const bot = view.members.find((m) => m.isBot)!;
+    expect(bot.team).toBe(0);
+    expect(await bia!.setTeam(1, bot.id)).toEqual({ ok: false, error: 'NOT_HOST' });
+    expect(await ana!.setTeam(1, bot.id)).toEqual({ ok: true });
+    await ana!.waitFor((v) => v.members.find((m) => m.isBot)?.team === 1);
+  });
+
+  it('as duplas escolhidas viram os lugares: parceiros frente a frente', async () => {
+    const url = await boot();
+    const players = await trucoRoom(url, ['Ana', 'Bia', 'Caio', 'Duda']);
+    // Ana e Bia juntas contra Caio e Duda.
+    expect(await players[2]!.setTeam(1)).toEqual({ ok: true });
+    await players[0]!.waitFor((v) => v.members.find((m) => m.name === 'Caio')?.team === 1);
+    expect(await players[1]!.setTeam(0)).toEqual({ ok: true });
+    await players[0]!.waitFor((v) => v.members.find((m) => m.name === 'Bia')?.team === 0);
+    expect((await players[0]!.start()).ok).toBe(true);
+    const view = truco(await players[0]!.waitFor((v) => v.status === 'playing' && !!v.game));
+    const seats = view.game!.seats.map((s) => [s.name, s.team]);
+    expect(seats).toEqual([
+      ['Ana', 0],
+      ['Caio', 1],
+      ['Bia', 0],
+      ['Duda', 1],
+    ]);
   });
 });
 

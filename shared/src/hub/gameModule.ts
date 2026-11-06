@@ -62,6 +62,12 @@ export interface GameModule<Settings, State, Action, View> {
   readonly defaultEntry: Money;
   /** Suggested buy-ins shown as buttons when creating a room. */
   readonly entryOptions: readonly Money[];
+  /**
+   * Two-team game: players pick a team (0 or 1) in the lobby, the teams must be
+   * the same size to start, and the seats alternate by team (0, 1, 0, 1…), so
+   * the engine can read a player's team from their seat.
+   */
+  readonly teams?: boolean;
 
   /** Validates untrusted client settings; null means "invalid". */
   validateSettings(raw: unknown): Settings | null;

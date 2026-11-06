@@ -122,6 +122,8 @@ interface Member {
   entry: number | null;
   /** Consecutive turns this player let the clock run out (poker). */
   timeouts: number;
+  /** Team games (truco): the team picked in the lobby. Null in other games. */
+  team: 0 | 1 | null;
   /** Left the game on purpose: a bot keeps the seat (and the money settles at the end), but they're free to play elsewhere. */
   left: boolean;
 }
@@ -352,6 +354,7 @@ export class RoomManager {
     if (!settings) return fail('INVALID_SETTINGS');
 
     const member = newMember(profile);
+    if (module.teams) member.team = 0;
     const room: Room = {
       id: randomUUID(),
       code: this.newCode(),
@@ -406,6 +409,7 @@ export class RoomManager {
     }
 
     const member = newMember(profile, room.members.map((m) => m.character));
+    if (module.teams) member.team = smallerTeam(room.members);
     room.members.push(member);
     this.refreshTalentTimer(room);
     this.attach(room, member, socket);
@@ -507,6 +511,33 @@ export class RoomManager {
     return OK;
   }
 
+  /**
+   * Team games, in the lobby: a player moves to team 0 or 1; the host may also
+   * move a bot (`playerId`). No cap per team, so two players can swap; the
+   * teams only have to be even when the game starts.
+   */
+  setTeam(socket: GameSocket, rawTeam: unknown, rawPlayerId: unknown): Ack {
+    const ctx = this.context(socket);
+    if (!ctx) return fail('NOT_IN_ROOM');
+    const { room, member } = ctx;
+    const module = gameModule(room.gameType);
+    if (!module?.teams) return fail('INVALID_PAYLOAD');
+    if (room.status !== 'lobby') return fail('GAME_IN_PROGRESS');
+    if (rawTeam !== 0 && rawTeam !== 1) return fail('INVALID_PAYLOAD');
+    let target = member;
+    if (rawPlayerId !== undefined && rawPlayerId !== member.id) {
+      const other = room.members.find((m) => m.id === rawPlayerId);
+      if (!other || !other.isBot) return fail('INVALID_PAYLOAD');
+      if (room.hostId !== member.id) return fail('NOT_HOST');
+      target = other;
+    }
+    if (target.team === rawTeam) return OK;
+    target.team = rawTeam;
+    this.touch(room);
+    this.broadcast(room);
+    return OK;
+  }
+
   /** Host: toggle arcade mode in the lobby. Turning it off clears everyone's picks. */
   setArcade(socket: GameSocket, raw: unknown): Ack {
     const ctx = this.hostContext(socket);
@@ -561,6 +592,7 @@ export class RoomManager {
     const name = BOT_NAMES.find((n) => !taken.has(n.toLowerCase())) ?? `Bot ${room.members.length + 1}`;
     const bot = { ...newMember({ id: '', token: '', nickname: name, createdAt: 0 }), autoPlay: true, isBot: true };
     if (room.arcade) bot.talents = autoTalents(bot.character);
+    if (module.teams) bot.team = smallerTeam(room.members);
     room.members.push(bot);
     this.refreshTalentTimer(room);
     this.touch(room);
@@ -596,6 +628,13 @@ export class RoomManager {
         if (m.isBot && parseLoadout(m.character, m.talents) === null) m.talents = autoTalents(m.character);
       }
       if (room.members.some((m) => parseLoadout(m.character, m.talents) === null)) return fail('TALENTS_REQUIRED');
+    }
+
+    if (module.teams) {
+      const a = room.members.filter((m) => m.team === 0).length;
+      if (a * 2 !== room.members.length) return fail('TEAMS_UNEVEN');
+      // Partners sit across the table: the engine reads the team from the seat.
+      room.members = interleaveTeams(room.members);
     }
 
     // Create first (pure, no side effects): an engine that rejects the table
@@ -1158,6 +1197,7 @@ export class RoomManager {
         isBot: m.isBot,
         character: m.character,
         talentsReady: room.arcade ? parseLoadout(m.character, m.talents) !== null : true,
+        team: m.team,
         entry: m.entry,
       })),
       money: { entry, pot: room.paidTotal, practice: room.practice, settled: room.settled },
@@ -1288,8 +1328,28 @@ function newMember(profile: ProfileRow, taken: CharacterId[] = []): Member {
     talents: [],
     entry: null,
     timeouts: 0,
+    team: null,
     left: false,
   };
+}
+
+/** Team games: the team with fewer members (ties go to team 0). */
+function smallerTeam(members: readonly Member[]): 0 | 1 {
+  const a = members.filter((m) => m.team === 0).length;
+  const b = members.filter((m) => m.team === 1).length;
+  return b < a ? 1 : 0;
+}
+
+/** Team games: seats alternate by team (0, 1, 0, 1…), keeping each team's order. */
+function interleaveTeams(members: readonly Member[]): Member[] {
+  const a = members.filter((m) => m.team === 0);
+  const b = members.filter((m) => m.team === 1);
+  const seats: Member[] = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i]) seats.push(a[i]!);
+    if (b[i]) seats.push(b[i]!);
+  }
+  return seats;
 }
 
 /** Bots don't pick in the lobby: give them the first N common talents. */
