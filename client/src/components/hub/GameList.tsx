@@ -182,7 +182,7 @@ function JoinField({ initialCode }: { initialCode: string }) {
       <button
         type="submit"
         disabled={!ready || busy}
-        className="min-h-11 rounded-full bg-ios-blue px-5 text-[15px] font-semibold text-white transition active:scale-95 disabled:bg-ios-fill-strong disabled:text-ios-label-3"
+        className="min-h-11 rounded-full tint-fill px-5 text-[15px] font-semibold transition active:scale-95"
       >
         {busy ? 'Entrando…' : 'Entrar'}
       </button>

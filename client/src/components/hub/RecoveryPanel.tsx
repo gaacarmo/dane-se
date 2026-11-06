@@ -67,7 +67,7 @@ export function RecoveryPanel() {
           <button
             type="submit"
             disabled={!code.trim() || busy || !!room}
-            className="min-h-9 rounded-full bg-ios-blue px-4 text-[15px] font-semibold text-white disabled:bg-ios-fill-strong disabled:text-ios-label-3"
+            className="min-h-9 rounded-full tint-fill px-4 text-[15px] font-semibold"
           >
             Entrar
           </button>

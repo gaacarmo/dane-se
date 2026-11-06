@@ -60,7 +60,7 @@ export function WalletHeader({ profile }: { profile: ProfileView }) {
         </div>
         <div className="shrink-0 text-right">
           <p className="text-[13px] text-ios-label-2">Saldo</p>
-          <p className="text-[28px] leading-tight font-bold tracking-tight tabular-nums">{formatMoney(profile.balance)}</p>
+          <p className="silver-text text-[28px] leading-tight font-bold tracking-tight tabular-nums">{formatMoney(profile.balance)}</p>
         </div>
       </div>
 

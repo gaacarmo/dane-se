@@ -131,7 +131,7 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
         <header className="mt-2 mb-6 flex items-center gap-4">
           <AppIcon id={game.id as GameType} size={64} />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[28px] leading-tight font-bold tracking-tight">{game.name}</h1>
+            <h1 className="silver-text truncate text-[28px] leading-tight font-bold tracking-tight">{game.name}</h1>
             <div className="mt-1 flex flex-wrap gap-1.5">
               <Tag tone="neutral">Sala de espera</Tag>
               {room.money.practice && <Tag tone="blue">Treino</Tag>}
@@ -144,7 +144,7 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
           {/* O código da sala, em destaque, com o botão de convidar. */}
           <section className="glass px-5 pt-4 pb-5 text-center" aria-label="Código da sala">
             <p className="text-[13px] text-ios-label-2">Código da sala</p>
-            <p className="mt-1 text-[3.25rem] leading-none font-bold tracking-[0.18em] tabular-nums" aria-live="polite">
+            <p className="silver-text mt-1 text-[3.25rem] leading-none font-bold tracking-[0.18em] tabular-nums" aria-live="polite">
               {room.code}
             </p>
             <button
@@ -558,7 +558,7 @@ function CharacterPicker({ room }: { room: RoomView }) {
               >
                 <img src={portraitUrl(id)} alt="" className="size-full object-cover object-top" />
                 {on && (
-                  <span className="absolute right-1.5 bottom-1.5 grid size-6 place-items-center rounded-full bg-ios-blue text-white ring-2 ring-white">
+                  <span className="absolute right-1.5 bottom-1.5 grid size-6 place-items-center rounded-full bg-ios-blue text-ios-on-tint ring-2 ring-white">
                     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <path d="m5 12.5 4.5 4.5L19 7.5" />
                     </svg>

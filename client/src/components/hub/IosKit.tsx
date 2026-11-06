@@ -114,7 +114,7 @@ export function PrimaryButton({ children, className = '', ...props }: React.Butt
   return (
     <button
       type="button"
-      className={`min-h-[50px] w-full rounded-full bg-ios-blue px-5 text-[17px] font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_8px_20px_-8px_rgb(10_132_255/0.7)] transition active:scale-[0.98] active:brightness-90 disabled:bg-ios-fill-strong disabled:text-ios-label-3 disabled:shadow-none ${className}`}
+      className={`tint-fill min-h-[50px] w-full rounded-full px-5 text-[17px] font-semibold transition active:scale-[0.98] active:brightness-90 ${className}`}
       {...props}
     >
       {children}

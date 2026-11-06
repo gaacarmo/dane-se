@@ -107,7 +107,7 @@ function NicknameGate() {
   return (
     <form onSubmit={submit} className="relative z-10 flex w-full max-w-sm flex-col items-center text-center">
       <img src="/brand/logo.png" alt="Dane-se" width={180} height={174} className="brand-logo h-auto w-44" />
-      <h1 className="mt-8 text-[34px] leading-tight font-bold tracking-tight">Boas-vindas</h1>
+      <h1 className="silver-text mt-8 text-[34px] leading-tight font-bold tracking-tight">Boas-vindas</h1>
       <p className="mt-2 text-[17px] leading-snug text-ios-label-2">
         Dane-se, truco e poker com a galera. Você começa com {formatMoney(10_000)} de mentirinha.
       </p>
@@ -188,7 +188,7 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
           </header>
         ) : (
           <header className="mb-5 flex items-end justify-between gap-3 pt-6">
-            <h1 className="text-[34px] leading-none font-bold tracking-tight">{current.title}</h1>
+            <h1 className="silver-text text-[34px] leading-none font-bold tracking-tight">{current.title}</h1>
             <CircleButton label="Regras" onClick={onHelp}>
               {Symbols.question}
             </CircleButton>
