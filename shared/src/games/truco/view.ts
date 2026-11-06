@@ -9,6 +9,7 @@ import {
   type TrucoSpecialHand,
   canAskTruco,
   canDecideOnze,
+  canSwapPalhacos,
   canRaiseTruco,
   hiddenCardId,
   trucoActorId,
@@ -22,6 +23,8 @@ export interface TrucoSeatView {
   /** Quantas cartas ainda tem na mão. */
   cardCount: number;
   isDealer: boolean;
+  /** Regra da casa: trocou os 3 palhaços nesta mão. */
+  swapped: boolean;
 }
 
 /** Uma carta na sua mão. Na mão de ferro ela vem virada (`card` null) e o id é a posição. */
@@ -38,6 +41,8 @@ export interface TrucoLegalView {
   canAccept: boolean;
   canRun: boolean;
   canRaise: boolean;
+  /** Regra da casa: tem 3 palhaços e ainda pode trocar. */
+  canSwap: boolean;
 }
 
 /** Tudo que um cliente pode saber sobre a mesa de truco. */
@@ -76,6 +81,7 @@ const NO_LEGAL: TrucoLegalView = {
   canAccept: false,
   canRun: false,
   canRaise: false,
+  canSwap: false,
 };
 
 export function getTrucoView(state: TrucoGameState, viewerId: string | null): TrucoView {
@@ -107,6 +113,7 @@ export function getTrucoView(state: TrucoGameState, viewerId: string | null): Tr
       canAccept: inTruco || inOnze,
       canRun: inTruco || inOnze,
       canRaise: canRaiseTruco(state, id),
+      canSwap: canSwapPalhacos(state, id),
     };
   }
 
@@ -124,6 +131,7 @@ export function getTrucoView(state: TrucoGameState, viewerId: string | null): Tr
       team: p.team,
       cardCount: state.hands[p.id]?.length ?? 0,
       isDealer: p.id === dealerId,
+      swapped: state.swapped.includes(p.id),
     })),
     vira: state.vira,
     manilha: state.manilha,

@@ -193,6 +193,11 @@ function TrucoRules() {
         lado leva 1). Ninguém pede truco nela. <strong>Mão de ferro:</strong> as duas duplas com 11 jogam com as cartas
         viradas, no escuro.
       </p>
+      <p className="glass px-4 py-3">
+        <strong>Regra da casa, 3 palhaços:</strong> se as suas 3 cartas forem figuras (Dama, Valete ou Rei, em qualquer
+        mistura), aparece o botão <strong>Trocar</strong> do lado da mão e você troca as 3 por cartas novas do baralho,
+        enquanto ainda não jogou nenhuma. Na mão de ferro não vale.
+      </p>
       <p className="glass px-4 py-3">Quem fizer 12 pontos primeiro vence. Valendo dinheiro, a dupla vencedora divide o pote.</p>
     </section>
   );

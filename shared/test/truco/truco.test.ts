@@ -4,6 +4,7 @@ import {
   type TrucoAction,
   type TrucoGameState,
   applyTrucoAction,
+  canSwapPalhacos,
   createTrucoGame,
   getTrucoView,
   trucoHandWinner,
@@ -226,6 +227,53 @@ describe('mão de onze e mão de ferro', () => {
     expect(view.hand.every((h) => h.card === null)).toBe(true);
     const after = apply(s, { type: 'play', playerId: s.turnPlayerId, cardId: 'X0' });
     expect(after.table).toHaveLength(1);
+  });
+});
+
+describe('regra da casa: 3 palhaços', () => {
+  it('com Q, J e K na mão dá pra trocar as 3 por cartas do baralho', () => {
+    let s = rigged({ a: ['QH', 'JC', 'KS'], b: ['4D', '5D', '6D'] });
+    s = { ...s, stock: ['3C', '2C', 'AC', '4H'].map(c) };
+    expect(getTrucoView(s, 'a').legal.canSwap).toBe(true);
+    // Mistura qualquer: dois Reis e uma Dama também vale.
+    expect(canSwapPalhacos({ ...s, hands: { ...s.hands, a: ['KH', 'KC', 'QS'].map(c) } }, 'a')).toBe(true);
+    s = apply(s, { type: 'swap', playerId: 'a' });
+    expect(s.hands.a!.map((x) => `${x.rank}${x.suit}`)).toEqual(['3C', '2C', 'AC']);
+    expect(s.stock).toHaveLength(1);
+    expect(s.swapped).toEqual(['a']);
+    expect(getTrucoView(s, 'b').seats.find((x) => x.id === 'a')!.swapped).toBe(true);
+    // A mão nova não é de palhaços: acabou a troca.
+    expect(applyTrucoAction(s, { type: 'swap', playerId: 'a' })).toEqual({ ok: false, error: 'INVALID_ACTION' });
+  });
+
+  it('não troca sem os 3 palhaços, depois de jogar, na mão de ferro nem sem baralho', () => {
+    const base = rigged({ a: ['QH', 'JC', 'AS'], b: ['QD', 'JD', 'KD'] });
+    expect(canSwapPalhacos(base, 'a')).toBe(false);
+    // b tem os 3, mesmo fora da vez.
+    expect(canSwapPalhacos(base, 'b')).toBe(true);
+    const played = rigged({ a: ['QH', 'JC', 'KS'], b: ['4D', '5D', '6D'] });
+    const afterPlay = apply(played, { type: 'play', playerId: 'a', cardId: 'QH' });
+    expect(canSwapPalhacos(afterPlay, 'a')).toBe(false);
+    expect(canSwapPalhacos({ ...played, special: 'ferro' }, 'a')).toBe(false);
+    expect(canSwapPalhacos({ ...played, stock: [c('4C'), c('5C')] }, 'a')).toBe(false);
+  });
+
+  it('o baralho que sobra não repete cartas da mão nem a vira', () => {
+    const s = start(players4, 5);
+    const used = [...Object.values(s.hands).flat(), s.vira].map((x) => `${x.rank}${x.suit}`);
+    const stock = s.stock.map((x) => `${x.rank}${x.suit}`);
+    expect(stock).toHaveLength(40 - used.length);
+    for (const id of stock) expect(used).not.toContain(id);
+  });
+
+  it('o bot troca 3 palhaços sem manilha', () => {
+    let s = rigged({ a: ['QH', 'JC', 'KS'], b: ['4D', '5D', '6D'] });
+    s = { ...s, manilha: '5' };
+    const step = trucoModule.botAction(s, 'a', 1)!;
+    expect(step.action).toEqual({ type: 'swap', playerId: 'a' });
+    // Com uma manilha (Q) no meio, guarda.
+    const keep = trucoModule.botAction({ ...s, manilha: 'Q' }, 'a', 1)!;
+    expect(keep.action.type).not.toBe('swap');
   });
 });
 

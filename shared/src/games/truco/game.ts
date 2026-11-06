@@ -76,6 +76,10 @@ export interface TrucoGameState {
   vira: Card;
   manilha: Rank;
   hands: Record<string, Card[]>;
+  /** O resto do baralho depois de dar as cartas e a vira (de onde saem as trocas). */
+  stock: Card[];
+  /** Regra da casa: quem trocou os 3 palhaços nesta mão. */
+  swapped: string[];
   /** Cartas da vaza em andamento, na ordem jogada. */
   table: TrucoPlayedCard[];
   /** Vazas já fechadas nesta mão. */
@@ -106,6 +110,8 @@ export type TrucoAction =
   | { type: 'accept'; playerId: string }
   /** Corre do pedido (ou, na mão de onze, entrega a mão). */
   | { type: 'run'; playerId: string }
+  /** Regra da casa: troca 3 palhaços (Q, J, K) por 3 cartas novas do baralho. */
+  | { type: 'swap'; playerId: string }
   | { type: 'collectRound' }
   | { type: 'nextHand' };
 
@@ -182,6 +188,8 @@ function deal(state: TrucoGameState, dealerIndex: number): TrucoGameState {
     vira,
     manilha: trucoManilha(vira),
     hands,
+    stock: deck.slice(n * 3 + 1),
+    swapped: [],
     table: [],
     rounds: [],
     roundLeaderId: leader,
@@ -211,6 +219,8 @@ export function createTrucoGame(
     vira: { rank: '4', suit: 'D' },
     manilha: '5',
     hands: {},
+    stock: [],
+    swapped: [],
     table: [],
     rounds: [],
     roundLeaderId: players[0]!.id,
@@ -362,6 +372,31 @@ function run(state: TrucoGameState, playerId: string): TrucoResult {
   return ok(endHand(state, { team: state.request.byTeam, points: state.value, reason: 'run', ranPlayerId: playerId }));
 }
 
+/** Palhaços: as figuras do baralho (Dama, Valete e Rei), seja qual for o naipe. */
+const PALHACOS: readonly Card['rank'][] = ['Q', 'J', 'K'];
+
+/**
+ * Regra da casa: com os 3 palhaços na mão (qualquer mistura de Q, J e K), dá
+ * pra trocar as 3 cartas por outras do baralho, enquanto ainda não jogou
+ * nenhuma nesta mão. Na mão de ferro não (ninguém vê as próprias cartas).
+ */
+export function canSwapPalhacos(state: TrucoGameState, playerId: string): boolean {
+  if (state.special === 'ferro') return false;
+  if (state.phase !== 'playing' && state.phase !== 'truco' && state.phase !== 'maoDeOnze') return false;
+  const hand = state.hands[playerId] ?? [];
+  return hand.length === 3 && hand.every((c) => PALHACOS.includes(c.rank)) && state.stock.length >= 3;
+}
+
+function swap(state: TrucoGameState, playerId: string): TrucoResult {
+  if (!canSwapPalhacos(state, playerId)) return fail('INVALID_ACTION');
+  return ok({
+    ...state,
+    hands: { ...state.hands, [playerId]: state.stock.slice(0, 3) },
+    stock: state.stock.slice(3),
+    swapped: state.swapped.includes(playerId) ? state.swapped : [...state.swapped, playerId],
+  });
+}
+
 function nextHand(state: TrucoGameState): TrucoResult {
   if (state.phase !== 'handEnd') return fail('WRONG_PHASE');
   return ok(deal(state, nextSeat(state, state.dealerIndex)));
@@ -379,6 +414,8 @@ export function applyTrucoAction(state: TrucoGameState, action: TrucoAction): Tr
       return accept(state, action.playerId);
     case 'run':
       return run(state, action.playerId);
+    case 'swap':
+      return swap(state, action.playerId);
     case 'collectRound':
       return collectRound(state);
     case 'nextHand':

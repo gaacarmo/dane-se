@@ -33,11 +33,11 @@ function betAction(): Built {
   return { ok: false, error: 'INVALID_ACTION' };
 }
 
-/** `{ type: 'truco' | 'accept' | 'run' }`. Vez e fase são checadas no `apply`. */
+/** `{ type: 'truco' | 'accept' | 'run' | 'swap' }`. Vez e fase são checadas no `apply`. */
 function commandAction(_state: TrucoGameState, playerId: string, raw: unknown): Built {
   if (typeof raw !== 'object' || raw === null) return { ok: false, error: 'INVALID_ACTION' };
   const type = (raw as { type?: unknown }).type;
-  if (type === 'truco' || type === 'accept' || type === 'run') return { ok: true, action: { type, playerId } };
+  if (type === 'truco' || type === 'accept' || type === 'run' || type === 'swap') return { ok: true, action: { type, playerId } };
   return { ok: false, error: 'INVALID_ACTION' };
 }
 
