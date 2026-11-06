@@ -56,7 +56,7 @@ export function FriendsPanel({ social }: { social: SocialView }) {
           <button
             type="submit"
             disabled={code.length !== FRIEND_CODE_LENGTH || busy}
-            className="min-h-9 rounded-full bg-ios-blue px-4 text-[15px] font-semibold text-white disabled:bg-ios-fill-strong disabled:text-ios-label-3"
+            className="min-h-9 rounded-full tint-fill px-4 text-[15px] font-semibold"
           >
             Adicionar
           </button>
@@ -80,7 +80,7 @@ export function FriendsPanel({ social }: { social: SocialView }) {
                 <button
                   type="button"
                   onClick={() => actions.respondFriend(r.id, true)}
-                  className="min-h-9 rounded-full bg-ios-blue px-4 text-[15px] font-semibold text-white"
+                  className="min-h-9 rounded-full tint-fill px-4 text-[15px] font-semibold"
                 >
                   Aceitar
                 </button>

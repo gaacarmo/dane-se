@@ -40,7 +40,7 @@ export function InviteFriends({ names, ios = false }: { names?: string[]; ios?: 
                   type="button"
                   disabled={called[f.id]}
                   onClick={() => void call(f.id)}
-                  className="min-h-9 rounded-full bg-ios-blue px-4 text-[15px] font-semibold text-white disabled:bg-ios-fill-strong disabled:text-ios-green"
+                  className="min-h-9 rounded-full tint-fill px-4 text-[15px] font-semibold"
                 >
                   {called[f.id] ? 'Chamado' : 'Chamar'}
                 </button>
