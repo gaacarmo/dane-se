@@ -40,6 +40,15 @@ const ROWS: Row[] = [
     players: '2–8',
   },
   {
+    id: 'duvido',
+    name: 'Duvido',
+    short: 'Duvido',
+    subtitle: 'Blefe e bala apimentada',
+    description:
+      'Jogue cartas viradas dizendo que são do valor da mesa. Duvidou e acertou? O mentiroso tira uma bala do pote. Uma é apimentada: quem pega, sai.',
+    players: '2–6',
+  },
+  {
     id: 'cs',
     name: 'Modo CS',
     short: 'Modo CS',
@@ -208,7 +217,7 @@ export function GameList({ balance, initialCode }: { balance: number; initialCod
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="truncate text-[17px] font-semibold">{r.short}</span>
-                      {r.id === 'truco' && (
+                      {r.id === 'duvido' && (
                         <span className="shrink-0 rounded-full bg-ios-blue/20 px-2 py-px text-[11px] font-bold text-ios-blue">Novo</span>
                       )}
                     </span>

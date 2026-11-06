@@ -6,6 +6,7 @@ import { Preview3D } from './components/table3d/Preview3D';
 import { GameScreen } from './components/table/GameScreen';
 import { PokerScreen } from './components/poker/PokerScreen';
 import { TrucoScreen } from './components/truco/TrucoScreen';
+import { DuvidoScreen } from './components/duvido/DuvidoScreen';
 import { ConnectionBanner, Toast } from './components/ui/Toast';
 import { VoiceButton } from './components/VoiceButton';
 import { InviteToast } from './components/InviteToast';
@@ -48,6 +49,8 @@ export function App() {
   );
   if (room?.gameType === 'poker' && room.game && room.status !== 'lobby') {
     screen = <PokerScreen room={room} onHelp={openHelp} />;
+  } else if (room?.gameType === 'duvido' && room.game && room.status !== 'lobby') {
+    screen = <DuvidoScreen room={room} onHelp={openHelp} />;
   } else if (room?.gameType === 'truco' && room.game && room.status !== 'lobby') {
     screen = <TrucoScreen room={room} onHelp={openHelp} />;
   } else if (room?.gameType === 'danese' && room.game && room.status !== 'lobby') {

@@ -14,6 +14,7 @@ export function HowToPlay({
   const showDanese = !gameType || gameType === 'danese';
   const showPoker = !gameType || gameType === 'poker';
   const showTruco = !gameType || gameType === 'truco';
+  const showDuvido = !gameType || gameType === 'duvido';
   const headings = !gameType;
   return (
     <Modal open={open} onClose={onClose} title="Como jogar">
@@ -21,6 +22,7 @@ export function HowToPlay({
         {showDanese && <DaneseRules heading={headings} />}
         {showPoker && <PokerRules heading={headings} />}
         {showTruco && <TrucoRules heading={headings} />}
+        {showDuvido && <DuvidoRules heading={headings} />}
       </div>
     </Modal>
   );
@@ -178,6 +180,33 @@ function TrucoRules({ heading }: { heading: boolean }) {
         viradas, no escuro.
       </p>
       <p>Quem fizer 12 pontos primeiro vence. Valendo dinheiro, a dupla vencedora divide o pote.</p>
+    </section>
+  );
+}
+
+function DuvidoRules({ heading }: { heading: boolean }) {
+  return (
+    <section className="space-y-3">
+      {heading && <GameHeading icon="🌶️" name="Duvido" />}
+      <p>
+        De 2 a 6 jogadores, cada um por si. A cada rodada todo mundo recebe 5 cartas, uma carta é virada (a{' '}
+        <strong>vira</strong>) e a mesa sorteia um <strong>valor</strong>, por exemplo &ldquo;Reis&rdquo;. A{' '}
+        <strong>manilha</strong> (o valor logo acima da vira) é curinga e vale como qualquer valor.
+      </p>
+      <p>
+        Na sua vez, jogue de 1 a 3 cartas <strong>viradas pra baixo</strong> dizendo que são do valor da mesa. Pode ser
+        verdade ou blefe. O próximo jogador escolhe: acredita e joga as dele, ou grita <strong>Duvido!</strong>. Quem
+        ficou sem cartas só pode duvidar.
+      </p>
+      <p>
+        No &ldquo;Duvido!&rdquo; as cartas são desviradas. Se tinha mentira, quem jogou leva o castigo; se era tudo
+        verdade, quem duvidou leva. A rodada acaba e começa outra com quem levou o castigo.
+      </p>
+      <p>
+        <strong>O castigo:</strong> cada um tem um pote com 6 balas, e uma delas é apimentada. Quem leva castigo tira
+        uma bala. Se for doce, come e segue (o pote fica menor, então o risco sobe: 1 em 6, 1 em 5…). Se for a
+        apimentada, está fora. O último que sobrar ganha.
+      </p>
     </section>
   );
 }

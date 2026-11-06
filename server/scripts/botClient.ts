@@ -150,6 +150,10 @@ export class BotClient {
   action(type: string, amount?: number) {
     return this.call('game:action', { type, amount });
   }
+  /** Duvido: play several cards face down at once. */
+  playCards(cardIds: string[]) {
+    return this.call('game:action', { type: 'playCards', cardIds });
+  }
   /** Fire an arcade ability (abilities don't require it to be your turn). */
   arcadeAbility(ability: string, targetId?: string, bet?: number) {
     return this.call('game:action', { type: 'arcade', ability, targetId, bet });

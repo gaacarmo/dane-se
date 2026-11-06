@@ -7,6 +7,8 @@ import type { PokerSettings } from './games/poker/rules.js';
 import type { PokerView } from './games/poker/view.js';
 import type { TrucoSettings } from './games/truco/rules.js';
 import type { TrucoView } from './games/truco/view.js';
+import type { DuvidoSettings } from './games/duvido/rules.js';
+import type { DuvidoView } from './games/duvido/view.js';
 import type { EngineError, GameType } from './hub/gameModule.js';
 import type { Money } from './hub/money.js';
 import type { Difficulty } from './cs/bot.js';
@@ -116,11 +118,18 @@ export interface TrucoRoomView extends RoomViewBase {
   game: TrucoView | null;
 }
 
+/** A room of Duvido: the game view is the `DuvidoView`. */
+export interface DuvidoRoomView extends RoomViewBase {
+  gameType: 'duvido';
+  settings: DuvidoSettings;
+  game: DuvidoView | null;
+}
+
 /**
  * The whole room state as one client sees it. `gameType` discriminates the
  * union so components can narrow `game`/`settings` safely.
  */
-export type RoomView = DaneseRoomView | PokerRoomView | TrucoRoomView;
+export type RoomView = DaneseRoomView | PokerRoomView | TrucoRoomView | DuvidoRoomView;
 
 export function isDaneseRoom(room: RoomView): room is DaneseRoomView {
   return room.gameType === 'danese';
@@ -132,6 +141,10 @@ export function isPokerRoom(room: RoomView): room is PokerRoomView {
 
 export function isTrucoRoom(room: RoomView): room is TrucoRoomView {
   return room.gameType === 'truco';
+}
+
+export function isDuvidoRoom(room: RoomView): room is DuvidoRoomView {
+  return room.gameType === 'duvido';
 }
 
 /** Everything the hub knows about a person. The client never sends amounts back. */
@@ -166,6 +179,8 @@ export interface RankingRow {
   pokerProfit: Money;
   trucoGames: number;
   trucoWins: number;
+  duvidoGames: number;
+  duvidoWins: number;
 }
 
 /** Your friend code, friends, pending requests and the ranking among friends. */
