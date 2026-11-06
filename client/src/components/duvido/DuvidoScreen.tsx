@@ -335,7 +335,7 @@ function MyHand({ game }: { game: DuvidoView }) {
   return (
     <div className="safe-bottom relative z-30 px-3">
       {(legal.canPlay || legal.canDoubt) && (
-        <div className="mb-2 flex gap-2">
+        <div className="mx-auto mb-2 flex w-full max-w-md gap-2">
           {legal.canDoubt && (
             <motion.button
               type="button"
