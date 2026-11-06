@@ -20,6 +20,18 @@
   --color-card-red: #c0242f;
   --color-card-black: #1b1b1f;
   --color-paper: #fffdf6;
+
+  /* Hub: the cantina's chalkboard menu and the paper bar tab (comanda). */
+  --font-chalk: 'Caveat Brush', 'Comic Sans MS', cursive;
+  --font-cond: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --font-barlow: 'Barlow', system-ui, sans-serif;
+  --color-lousa: #1e2b25;
+  --color-lousa-funda: #141c18;
+  --color-giz: #ece8dc;
+  --color-giz-amarelo: #f3d36b;
+  --color-giz-vermelho: #ee7b6b;
+  --color-comanda: #f4eedb;
+  --color-tinta: #2a2622;
 }
 
 :root {
@@ -241,3 +253,59 @@ body {
   50% { opacity: 0.4; }
 }
 .cs-pulse { animation: cs-pulse 0.8s ease-in-out infinite; }
+
+/*
+ * Hub chalkboard: slate with a wooden frame, a faint chalk-dust grain and the
+ * ghost of half-erased writing. Unlayered on purpose, like .hub-panel.
+ */
+.chalkboard {
+  position: relative;
+  border-radius: 14px;
+  border: 10px solid var(--color-wood-700);
+  border-image: linear-gradient(160deg, var(--color-wood-500), var(--color-wood-700) 45%, var(--color-wood-900)) 1;
+  background-color: var(--color-lousa);
+  background-image:
+    radial-gradient(60% 35% at 22% 18%, rgb(236 232 220 / 0.07), transparent 70%),
+    radial-gradient(45% 30% at 80% 72%, rgb(236 232 220 / 0.05), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93  0 0 0 0 0.91  0 0 0 0 0.86  0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  box-shadow:
+    0 24px 50px -24px rgb(0 0 0 / 0.95),
+    inset 0 0 40px rgb(0 0 0 / 0.45);
+  color: var(--color-giz);
+}
+
+/* Chalk strokes are never perfectly crisp. */
+.chalk {
+  font-family: var(--font-chalk);
+  text-shadow:
+    0 0 1px rgb(236 232 220 / 0.55),
+    0 0 6px rgb(236 232 220 / 0.12);
+}
+
+/* Dotted menu leader between a dish and its price. */
+.menu-leader {
+  flex: 1;
+  min-width: 1.5rem;
+  margin: 0 0.4rem 0.45rem;
+  border-bottom: 2px dotted rgb(236 232 220 / 0.35);
+}
+
+/* The bar tab: paper slip with a torn, zig-zag top edge. */
+.comanda {
+  position: relative;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 27px, rgb(42 38 34 / 0.08) 27px 28px),
+    var(--color-comanda);
+  color: var(--color-tinta);
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 14px 28px -16px rgb(0 0 0 / 0.9);
+  --tooth: 7px;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% 0 / calc(var(--tooth) * 2) var(--tooth) repeat-x,
+    linear-gradient(#000 0 0) 0 var(--tooth) / 100% calc(100% - var(--tooth)) no-repeat;
+}
+
+/* On the board the dashed chalk line turns yellow on focus; skip the global gold box. */
+.chalkboard input:focus-visible {
+  outline: none;
+}

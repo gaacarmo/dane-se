@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { MAX_NAME_LENGTH, REFILL_COOLDOWN_MS, formatMoney, type ProfileView } from '@dane-se/shared';
-import { avatarColor, initial } from '../../lib/avatar';
+import { MAX_NAME_LENGTH, REFILL_AMOUNT, REFILL_COOLDOWN_MS, formatMoney, type ProfileView } from '@dane-se/shared';
 import { actions } from '../../lib/store';
-import { Button } from '../ui/Button';
 
 /** Wallet card at the top of the hub: who you are, your balance, and refills. */
 export function WalletHeader({ profile }: { profile: ProfileView }) {
@@ -28,55 +26,44 @@ export function WalletHeader({ profile }: { profile: ProfileView }) {
   const minutes = Math.ceil(nextRefill / 60_000);
 
   return (
-    <section className="hub-panel relative overflow-hidden p-4">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-20 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full bg-gold-400/10 blur-3xl"
-      />
-
-      <div className="relative flex items-center gap-3">
-        <span
-          className="grid size-12 shrink-0 place-items-center rounded-2xl text-xl font-bold text-white ring-2 ring-gold-400/35"
-          style={{ background: avatarColor(profile.id) }}
-          aria-hidden
-        >
-          {initial(profile.nickname)}
-        </span>
-
+    <section className="comanda px-4 pt-5 pb-3" aria-label="Sua comanda">
+      <div className="flex items-end gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold tracking-[0.16em] text-stone-400 uppercase">Carteira</p>
+          <p className="font-cond text-sm font-medium text-tinta/60">Comanda de</p>
           {editing ? (
-            <form onSubmit={save} className="mt-1 flex gap-2">
+            <form onSubmit={save} className="mt-0.5 flex gap-2">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={MAX_NAME_LENGTH}
                 autoFocus
                 aria-label="Seu apelido"
-                className="min-h-10 min-w-0 flex-1 rounded-xl bg-black/40 px-3 text-white ring-1 ring-white/15 focus:ring-gold-400 focus:outline-none"
+                className="min-h-10 min-w-0 flex-1 rounded-sm border-b-2 border-tinta/40 bg-transparent px-1 font-chalk text-2xl text-tinta focus:border-tinta focus:outline-none"
               />
-              <Button type="submit" disabled={busy} className="px-3 py-1.5">
-                OK
-              </Button>
+              <button
+                type="submit"
+                disabled={busy}
+                className="min-h-10 rounded-sm bg-tinta px-3 font-cond text-base font-bold text-comanda disabled:opacity-60"
+              >
+                Salvar
+              </button>
             </form>
           ) : (
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="flex min-h-9 max-w-full items-center gap-1.5 text-left text-lg font-semibold text-white hover:text-gold-300"
+              className="flex min-h-10 max-w-full items-center gap-2 text-left"
               title="Trocar o apelido"
             >
-              <span className="truncate">{profile.nickname}</span>
-              <span className="shrink-0 text-sm text-stone-400" aria-hidden>
-                ✏️
-              </span>
+              <span className="truncate font-chalk text-3xl leading-none text-tinta">{profile.nickname}</span>
+              <span className="shrink-0 font-cond text-sm font-medium text-tinta/50 underline underline-offset-2">trocar</span>
             </button>
           )}
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="text-[11px] font-semibold tracking-[0.16em] text-stone-400 uppercase">Saldo</p>
-          <div className="font-display text-3xl leading-tight tabular-nums gold-text">{formatMoney(profile.balance)}</div>
+          <p className="font-cond text-sm font-medium text-tinta/60">Saldo</p>
+          <p className="font-cond text-[2.1rem] leading-none font-bold text-tinta tabular-nums">{formatMoney(profile.balance)}</p>
         </div>
       </div>
 
@@ -84,12 +71,12 @@ export function WalletHeader({ profile }: { profile: ProfileView }) {
         <button
           type="button"
           onClick={() => actions.refill()}
-          className="relative mt-3 w-full rounded-xl border border-dashed border-gold-500/40 bg-gold-500/5 py-2.5 text-sm font-semibold text-gold-200 transition hover:bg-gold-500/15"
+          className="mt-3 min-h-11 w-full rounded-sm border-2 border-dashed border-tinta/40 font-cond text-lg font-bold text-tinta transition hover:bg-tinta/5"
         >
-          🪙 Recarregar fichas
+          Recarregar o saldo até {formatMoney(REFILL_AMOUNT)}
         </button>
       ) : profile.balance < 100 ? (
-        <p className="relative mt-3 text-center text-xs text-stone-400">Nova recarga em {minutes} min</p>
+        <p className="mt-2 font-cond text-sm text-tinta/60">Dá pra recarregar daqui a {minutes} min.</p>
       ) : null}
     </section>
   );
