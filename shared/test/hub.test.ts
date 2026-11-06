@@ -10,8 +10,10 @@ import {
   formatMoney,
   groupThousands,
   payoutsForRanking,
+  catalogEntry,
   rankDanesePlayers,
   splitByWeights,
+  trucoModule,
 } from '../src/index.js';
 
 describe('money formatting', () => {
@@ -104,9 +106,16 @@ describe('daneseModule.validateSettings', () => {
 describe('GAME_CATALOG', () => {
   const poker = GAME_CATALOG.find((g) => g.id === 'poker')!;
 
-  it('lists both games and marks poker as live', () => {
-    expect(GAME_CATALOG.map((g) => g.id)).toEqual(['danese', 'poker']);
+  it('lists the three games and marks poker and truco as live', () => {
+    expect(GAME_CATALOG.map((g) => g.id)).toEqual(['danese', 'poker', 'truco']);
     expect(poker.available).toBe(true);
+    const truco = catalogEntry('truco');
+    expect(truco.available).toBe(true);
+    expect([truco.minPlayers, truco.maxPlayers, truco.minEntry]).toEqual([
+      trucoModule.minPlayers,
+      trucoModule.maxPlayers,
+      trucoModule.minEntry,
+    ]);
   });
 
   it('keeps every poker buy-in option inside the allowed range', () => {

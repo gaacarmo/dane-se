@@ -31,7 +31,10 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
   const link = roomLink(room.code);
   const game = GAME_CATALOG.find((g) => g.id === room.gameType)!;
   const allReady = !room.arcade || room.members.every((m) => m.talentsReady);
-  const canStart = room.members.length >= game.minPlayers && allReady;
+  const truco = room.gameType === 'truco';
+  // Truco é 1x1 ou 2x2: com 3 na mesa falta (ou sobra) um.
+  const trucoOdd = truco && room.members.length === 3;
+  const canStart = room.members.length >= game.minPlayers && allReady && !trucoOdd;
   const poker = isPokerRoom(room);
   const missing = Math.max(0, game.minPlayers - room.members.length);
 
@@ -116,6 +119,15 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
                   {m.name}
                   {m.id === room.youId && <span className="font-normal text-stone-400"> (você)</span>}
                 </span>
+                {truco && (
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      i % 2 === 0 ? 'bg-gold-500/20 text-gold-300' : 'bg-sky-500/20 text-sky-300'
+                    }`}
+                  >
+                    Dupla {i % 2 === 0 ? 'A' : 'B'}
+                  </span>
+                )}
                 {m.isHost && (
                   <span className="shrink-0 rounded-full bg-gold-500/20 px-2 py-0.5 text-[11px] font-semibold text-gold-300">
                     👑 anfitrião
@@ -145,6 +157,13 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
             ))}
           </ul>
           {missing > 0 && <p className="mt-3 text-center text-sm text-stone-400">Faltam {missing} para começar…</p>}
+          {truco && (
+            <p className="mt-3 text-center text-xs text-stone-400">
+              {trucoOdd
+                ? 'Truco é 1 contra 1 ou 2 contra 2: chame mais um (ou tire alguém) pra começar.'
+                : 'As duplas seguem a ordem dos lugares: 1º e 3º contra 2º e 4º, parceiros frente a frente.'}
+            </p>
+          )}
           {isHost && room.members.length < game.maxPlayers && (
             <Button variant="secondary" className="mt-3 w-full" onClick={() => actions.addBot()}>
               🤖 Adicionar bot
@@ -177,7 +196,9 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
                 ? '▶ Começar partida'
                 : missing > 0
                   ? `Faltam ${missing} jogador${missing === 1 ? '' : 'es'}`
-                  : 'Escolham os talentos'}
+                  : trucoOdd
+                    ? 'Precisa de 2 ou 4 jogadores'
+                    : 'Escolham os talentos'}
             </Button>
           ) : (
             <p className="py-2 text-center text-sm text-stone-300">
@@ -325,8 +346,9 @@ function MoneyPanel({ room, isHost }: { room: RoomView; isHost: boolean }) {
       </div>
 
       <p className="text-xs text-stone-400">
-        A entrada é paga na hora de começar a partida, direto do seu saldo. Quem ficar até o fim leva o pote; sair no
-        meio da partida perde a entrada.
+        A entrada é paga na hora de começar a partida, direto do seu saldo.{' '}
+        {room.gameType === 'truco' ? 'A dupla que fizer 12 pontos divide o pote' : 'Quem ficar até o fim leva o pote'}; sair
+        no meio da partida perde a entrada.
       </p>
     </section>
   );

@@ -4,6 +4,7 @@ A real-time multiplayer **game hub** with a shared server-side wallet, built aro
 
 - 🕹️ **Game Hub**: one home screen with your balance and the catalog — **Dane-se** and **Poker Texas Hold'em** are both live
 - 💰 **Shared wallet**: everyone starts with R$ 10.000 of play money on the server. Entry is charged when a money game starts, the pot is paid to the winner at the end, and nobody can touch your balance from the client
+- 🂡 **Truco Paulista**: 1v1 or 2v2 with vira and manilha, truco/six/nine/twelve calls, mão de onze and mão de ferro; the winning pair splits the pot
 - 🃏 **Dane-se**: 2 to 6 players, phone-first, also fine on desktop (portrait and landscape)
 - ♠️ **Poker Texas Hold'em**: 2 to 8 players, cash-game style — sit with a buy-in, play hand after hand, and rebuy between hands
 - Rooms with a short code and share link
@@ -47,6 +48,12 @@ A real-time multiplayer **game hub** with a shared server-side wallet, built aro
 **Voice and heads.** The 🎙️ button joins a voice call with the others in the room (mute and leave too; the audio goes straight between browsers). In the Desktop mode, where you look with the mouse is shared: the others see your character turn their head.
 
 **Talking.** The 💬 button opens the room chat (a speech bubble pops up over whoever writes). The 😀 button sends an emoji reaction that floats over your character: 😂 😱 😡 😭 😎 🙏 👏 🔥 🤡 💩 😏 🦐.
+
+## Playing Truco Paulista
+
+The hub's third game, for **2 or 4 players** (in a 2v2, seats alternate: 1st and 3rd against 2nd and 4th, partners across the table). Each hand deals 3 cards and turns over the **vira**; the **manilha** is the next rank up and beats everything, by suit (♦ < ♠ < ♥ < ♣ zap). Other cards of the same rank tie ("cangou").
+
+A hand has up to three tricks; two tricks win it (a tied first trick goes to whoever wins the next; winning the first and tying a later one still wins). On your turn you can call **TRUCO!** (the hand is worth 3): the other side accepts, runs (you take what the hand was worth) or raises to six, nine and twelve. At **11 points** a pair sees their partner's cards and decides whether to play (worth 3) or give the other side 1 point; when both pairs have 11, the hand is played blind (**mão de ferro**). First to 12 wins; in a money room the winning pair splits the pot. For now the truco table only has the Mobile (top-down) view.
 
 ## Playing Poker Texas Hold'em
 

@@ -1,21 +1,25 @@
 import { useState } from 'react';
 import { type SocialView, formatMoney } from '@dane-se/shared';
 
-type Tab = 'danese' | 'poker';
+type Tab = 'danese' | 'poker' | 'truco';
 
-/** You and your friends: Dane-se wins and poker profit, money games only. */
+const TAB_LABELS: Record<Tab, string> = { danese: 'Dane-se', poker: 'Poker', truco: 'Truco' };
+
+/** You and your friends: Dane-se and truco wins, poker profit; money games only. */
 export function RankingPanel({ social }: { social: SocialView }) {
   const [tab, setTab] = useState<Tab>('danese');
   const rows = [...social.ranking].sort((a, b) =>
     tab === 'danese'
       ? b.daneseWins - a.daneseWins || a.daneseGames - b.daneseGames
-      : b.pokerProfit - a.pokerProfit || b.pokerGames - a.pokerGames,
+      : tab === 'truco'
+        ? b.trucoWins - a.trucoWins || a.trucoGames - b.trucoGames
+        : b.pokerProfit - a.pokerProfit || b.pokerGames - a.pokerGames,
   );
 
   return (
     <section className="hub-panel space-y-3 p-4" aria-label="Ranking entre amigos">
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-black/30 p-1" role="tablist">
-        {(['danese', 'poker'] as const).map((t) => (
+      <div className="grid grid-cols-3 gap-1 rounded-xl bg-black/30 p-1" role="tablist">
+        {(['danese', 'poker', 'truco'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -24,7 +28,7 @@ export function RankingPanel({ social }: { social: SocialView }) {
             onClick={() => setTab(t)}
             className={`min-h-10 rounded-lg text-sm font-semibold transition ${tab === t ? 'bg-felt-700 text-gold-300 shadow' : 'text-stone-400'}`}
           >
-            {t === 'danese' ? 'Dane-se' : 'Poker'}
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
@@ -41,14 +45,8 @@ export function RankingPanel({ social }: { social: SocialView }) {
             <span className="min-w-0 flex-1 truncate font-semibold">
               {r.isYou ? `${r.nickname} (você)` : r.nickname}
             </span>
-            {tab === 'danese' ? (
-              <span className="text-right whitespace-nowrap">
-                <strong className="text-gold-300">{r.daneseWins}</strong>
-                <span className="text-xs text-stone-400">
-                  {' '}
-                  {r.daneseWins === 1 ? 'vitória' : 'vitórias'} · {r.daneseGames} jogos
-                </span>
-              </span>
+            {tab !== 'poker' ? (
+              <Wins wins={tab === 'truco' ? r.trucoWins : r.daneseWins} games={tab === 'truco' ? r.trucoGames : r.daneseGames} />
             ) : (
               <span className="text-right whitespace-nowrap">
                 <strong
@@ -70,5 +68,17 @@ export function RankingPanel({ social }: { social: SocialView }) {
         Só contam partidas valendo dinheiro (treino com bots não conta).
       </p>
     </section>
+  );
+}
+
+function Wins({ wins, games }: { wins: number; games: number }) {
+  return (
+    <span className="text-right whitespace-nowrap">
+      <strong className="text-gold-300">{wins}</strong>
+      <span className="text-xs text-stone-400">
+        {' '}
+        {wins === 1 ? 'vitória' : 'vitórias'} · {games} jogos
+      </span>
+    </span>
   );
 }

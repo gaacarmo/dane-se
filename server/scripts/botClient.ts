@@ -191,8 +191,8 @@ export class BotClient {
   private maybeAct(): void {
     if (!this.autoPlay || this.acting || this.arcadeActing || !this.myTurn()) return;
     const room = this.view!;
-    // Poker moves are driven explicitly by the caller (raise amounts differ).
-    if (room.gameType === 'poker') return;
+    // Only Dane-se is driven here; poker moves come from the caller (raise amounts differ).
+    if (room.gameType !== 'danese') return;
     const game = room.game!;
     this.acting = true;
     const action = game.phase === 'betting' ? this.bet(chooseBotBet(game)) : this.play(chooseBotCard(game) ?? undefined);

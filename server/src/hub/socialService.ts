@@ -133,6 +133,9 @@ export class SocialService {
       if (o.gameType === 'danese') {
         stats.daneseGames += 1;
         if (o.won) stats.daneseWins += 1;
+      } else if (o.gameType === 'truco') {
+        stats.trucoGames += 1;
+        if (o.won) stats.trucoWins += 1;
       } else {
         stats.pokerGames += 1;
         stats.pokerProfit += o.profit;

@@ -1,12 +1,11 @@
-import { motion } from 'framer-motion';
-import { Fragment, type FormEvent, type ReactNode, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { type FormEvent, type ReactNode, useState } from 'react';
 import {
   GAME_CATALOG,
   MAX_NAME_LENGTH,
   ROOM_CODE_LENGTH,
   formatMoney,
   type GameCatalogEntry,
-  type GameType,
 } from '@dane-se/shared';
 import { setPref, usePrefs } from '../../lib/prefs';
 import { csMode } from '../../lib/csMode';
@@ -14,8 +13,8 @@ import { actions, codeFromUrl, useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
 import { CardFan } from '../cards/CardFan';
 import { Button } from '../ui/Button';
-import { CsCard } from './CsCard';
-import { GameCard } from './GameCard';
+import { CsPanel } from './CsCard';
+import { GameIcon, GameTile, type HubGameId } from './GameCard';
 import { FriendsPanel } from './FriendsPanel';
 import { RankingPanel } from './RankingPanel';
 import { RecoveryPanel } from './RecoveryPanel';
@@ -100,7 +99,7 @@ function ViewModePicker() {
           accelerated&rdquo;.
         </p>
       )}
-      <p className="text-xs text-stone-500">Vale para as mesas do Dane-se e do Poker.</p>
+      <p className="text-xs text-stone-500">Vale para as mesas do Dane-se e do Poker. O Truco, por enquanto, é só na mesa vista de cima.</p>
     </div>
   );
 }
@@ -148,8 +147,44 @@ function NicknameGate() {
   );
 }
 
-/** Inline create form for the chosen game, rendered right under its card. */
-function CreatePanel({
+/** iOS-style on/off switch. */
+function Switch({ on }: { on: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`relative h-7 w-12 shrink-0 rounded-full p-0.5 transition-colors duration-200 ${on ? 'bg-emerald-500' : 'bg-white/15'}`}
+    >
+      <motion.span
+        layout
+        transition={{ type: 'spring', stiffness: 600, damping: 34 }}
+        className={`block size-6 rounded-full bg-white shadow-[0_2px_6px_rgb(0_0_0/0.35)] ${on ? 'ml-auto' : ''}`}
+      />
+    </span>
+  );
+}
+
+/** App Store-style info strip: three facts split by hairlines. */
+function InfoStrip({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <dl className="grid grid-cols-3 divide-x divide-white/10 rounded-2xl bg-black/25 py-2.5 text-center">
+      {items.map((it) => (
+        <div key={it.label} className="min-w-0 px-1.5">
+          <dt className="truncate text-[10px] font-semibold tracking-[0.08em] text-stone-500 uppercase">{it.label}</dt>
+          <dd className="mt-0.5 truncate text-sm font-bold text-stone-100 tabular-nums">{it.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+const GAME_NOTES: Record<GameCatalogEntry['id'], string> = {
+  danese: 'Você escolhe a entrada; todo mundo paga a mesma para entrar no pote.',
+  poker: 'Você define a banca inicial; as apostas cegas saem dela. No lobby dá pra ajustar a banca mínima.',
+  truco: '1 contra 1 ou 2 contra 2. A dupla que fizer 12 pontos divide o pote.',
+};
+
+/** Details of the chosen game, App Store style: icon, facts, entry and one big button. */
+function GameDetail({
   game,
   entry,
   setEntry,
@@ -169,45 +204,49 @@ function CreatePanel({
   onCreate: () => void;
 }) {
   const poker = game.id === 'poker';
+  const players = game.id === 'truco' ? '2 ou 4' : `${game.minPlayers}–${game.maxPlayers}`;
   return (
-    <motion.section
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: 'circOut' }}
-      className="hub-panel space-y-3 p-4"
-    >
-      <div>
-        <h2 className="text-sm font-semibold text-white">Abrir mesa de {game.name}</h2>
-        <p className="mt-0.5 text-sm text-stone-400">
-          {poker
-            ? 'Você define a banca inicial; as apostas cegas saem dela. No lobby dá pra ajustar a banca mínima.'
-            : 'Você escolhe a entrada; todo mundo paga a mesma para entrar no pote.'}
-        </p>
-      </div>
+    <div className="space-y-4">
+      <InfoStrip
+        items={[
+          { label: 'Jogadores', value: players },
+          { label: poker ? 'Buy-in mín.' : 'Entrada mín.', value: formatMoney(game.minEntry) },
+          { label: 'Bots', value: 'Sim' },
+        ]}
+      />
+      <p className="text-sm leading-snug text-stone-300">{GAME_NOTES[game.id]}</p>
 
       <div>
         <p className="mb-1.5 text-xs font-medium text-stone-400">{poker ? 'Banca inicial (buy-in)' : 'Entrada'}</p>
-        <div className="grid grid-cols-4 gap-1.5">
-          {game.entryOptions.map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={entry === v}
-              onClick={() => setEntry(v)}
-              className={`min-h-11 rounded-xl text-sm font-bold ring-1 transition ${
-                entry === v ? 'bg-gold-400 text-wood-900 ring-gold-300' : 'bg-black/30 text-stone-300 ring-white/10 hover:ring-white/25'
-              }`}
-            >
-              {formatMoney(v)}
-            </button>
-          ))}
+        {/* iOS segmented control. */}
+        <div className="relative grid grid-cols-4 rounded-2xl bg-black/35 p-1 ring-1 ring-white/5" role="radiogroup" aria-label="Entrada">
+          {game.entryOptions.map((v) => {
+            const on = entry === v;
+            return (
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setEntry(v)}
+                className={`relative min-h-10 rounded-xl text-[13px] font-bold transition-colors ${on ? 'text-wood-900' : 'text-stone-300 hover:text-white'}`}
+              >
+                {on && (
+                  <motion.span
+                    layoutId="entry-thumb"
+                    transition={{ type: 'spring', stiffness: 500, damping: 36 }}
+                    className="absolute inset-0 rounded-xl bg-gradient-to-b from-gold-300 to-gold-400 shadow-[0_3px_10px_-2px_rgb(0_0_0/0.5)]"
+                  />
+                )}
+                <span className="relative">{formatMoney(v)}</span>
+              </button>
+            );
+          })}
         </div>
+        <p className="mt-1.5 text-xs text-stone-500">
+          Saldo <span className="font-semibold text-stone-300 tabular-nums">{formatMoney(balance)}</span>
+        </p>
       </div>
-
-      <p className="text-xs text-stone-400">
-        Saldo: <span className="font-semibold text-stone-200 tabular-nums">{formatMoney(balance)}</span> · precisa de pelo menos{' '}
-        {formatMoney(game.minEntry)}.
-      </p>
 
       {game.id === 'danese' && (
         <button
@@ -215,33 +254,23 @@ function CreatePanel({
           role="switch"
           aria-checked={arcade}
           onClick={() => setArcade(!arcade)}
-          className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left ring-1 transition ${
-            arcade ? 'bg-fuchsia-500/15 ring-fuchsia-400/50' : 'bg-black/25 ring-white/10 hover:ring-white/25'
-          }`}
+          className="flex w-full items-center gap-3 rounded-2xl bg-black/25 p-3 text-left ring-1 ring-white/5 transition hover:ring-white/15"
         >
-          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-xl bg-black/30 text-lg">
+          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-xl bg-fuchsia-500/20 text-lg">
             ⚡
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold text-white">Modo arcade</span>
-            <span className="block text-xs text-stone-300">
-              Kit por personagem + um talento comum. Cada um monta o seu no lobby.
-            </span>
+            <span className="block text-sm font-semibold text-white">Modo arcade</span>
+            <span className="block text-xs text-stone-400">Kit por personagem + um talento comum.</span>
           </span>
-          <span
-            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
-              arcade ? 'bg-fuchsia-500/25 text-fuchsia-200' : 'bg-white/10 text-stone-400'
-            }`}
-          >
-            {arcade ? 'ligado' : 'desligado'}
-          </span>
+          <Switch on={arcade} />
         </button>
       )}
 
-      <Button className="w-full" disabled={busy || balance < entry} onClick={onCreate}>
-        {busy ? 'Abrindo…' : `Criar sala de ${game.name}`}
+      <Button className="w-full rounded-2xl text-base" disabled={busy || balance < entry} onClick={onCreate}>
+        {busy ? 'Abrindo…' : balance < entry ? 'Saldo insuficiente' : `Criar sala de ${game.name}`}
       </Button>
-    </motion.section>
+    </div>
   );
 }
 
@@ -249,7 +278,7 @@ function CreatePanel({
 export function Hub({ onHelp }: { onHelp: () => void }) {
   const { connection, profile, social } = useClient();
   const linkCode = codeFromUrl();
-  const [selected, setSelected] = useState<GameType | null>(null);
+  const [selected, setSelected] = useState<HubGameId | null>(null);
   const [entry, setEntry] = useState(0);
   const [tab, setTab] = useState<HubTab>('play');
   const [code, setCode] = useState(linkCode ?? '');
@@ -263,7 +292,7 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
         <CardFan />
         <header className="max-w-xs text-center">
           <h1 className="font-display text-5xl font-bold tracking-wide gold-text drop-shadow sm:text-6xl">Dane-se</h1>
-          <p className="mt-2 text-stone-300">Uma carteira só para Dane-se e poker — jogue com a galera.</p>
+          <p className="mt-2 text-stone-300">Uma carteira só para Dane-se, poker e truco — jogue com a galera.</p>
         </header>
         <NicknameGate />
       </main>
@@ -285,6 +314,32 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
   }
 
   const canJoin = connection === 'connected' && code.trim().length === ROOM_CODE_LENGTH;
+
+  const tiles: { id: HubGameId; name: string; badge?: string; disabled?: boolean }[] = [
+    ...GAME_CATALOG.map((g) => ({
+      id: g.id,
+      name: g.name,
+      badge: !g.available ? 'em breve' : g.id === 'truco' ? 'novo' : undefined,
+      disabled: !g.available,
+    })),
+    { id: 'cs', name: 'Modo CS' },
+  ];
+  const selectedGame = GAME_CATALOG.find((g) => g.id === selected) ?? null;
+  const selectedName = selected === 'cs' ? 'Modo CS' : (selectedGame?.name ?? '');
+  const selectedDescription =
+    selected === 'cs'
+      ? 'Tiro em primeira pessoa, 3 contra 3. Plante e desarme a bomba, troque de lado e vença a partida.'
+      : (selectedGame?.description ?? '');
+
+  function pick(id: HubGameId) {
+    if (selected === id) {
+      setSelected(null);
+      return;
+    }
+    setSelected(id);
+    const game = GAME_CATALOG.find((g) => g.id === id);
+    if (game) setEntry(game.defaultEntry);
+  }
 
   return (
     <main className="room-bg flex min-h-full flex-col items-center px-4 py-7">
@@ -332,43 +387,69 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
           <div className={`space-y-6 ${tab === 'play' ? '' : 'hidden'} lg:block`}>
           <section className="space-y-3">
             <SectionLabel>Escolha o jogo</SectionLabel>
-            {GAME_CATALOG.map((game, i) => (
-              <Fragment key={game.id}>
+            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Jogos">
+              {tiles.map((t, i) => (
                 <motion.div
+                  key={t.id}
                   initial={{ opacity: 0, y: 14 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.04 * i, duration: 0.35, ease: 'circOut' }}
                 >
-                  <GameCard
-                    game={game}
-                    selected={selected === game.id}
-                    onSelect={() => {
-                      setSelected(selected === game.id ? null : game.id);
-                      setEntry(game.defaultEntry);
-                    }}
+                  <GameTile
+                    id={t.id}
+                    name={t.name}
+                    badge={t.badge}
+                    disabled={t.disabled}
+                    selected={selected === t.id}
+                    onSelect={() => pick(t.id)}
                   />
                 </motion.div>
-                {selected === game.id && (
-                  <CreatePanel
-                    game={game}
-                    entry={entry}
-                    setEntry={setEntry}
-                    arcade={arcade}
-                    setArcade={setArcade}
-                    balance={profile.balance}
-                    busy={busy}
-                    onCreate={() => void create(game)}
-                  />
-                )}
-              </Fragment>
-            ))}
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.04 * GAME_CATALOG.length, duration: 0.35, ease: 'circOut' }}
-            >
-              <CsCard onTrain={csMode.open} />
-            </motion.div>
+              ))}
+            </div>
+
+            <AnimatePresence mode="wait" initial={false}>
+              {selected && (
+                <motion.section
+                  key={selected}
+                  initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                  className="hub-panel space-y-4 p-4"
+                  aria-label={selectedName}
+                >
+                  <header className="flex items-center gap-3.5">
+                    <GameIcon id={selected} size="lg" />
+                    <div className="min-w-0 flex-1">
+                      <h2 className="truncate text-lg leading-tight font-bold text-white">{selectedName}</h2>
+                      <p className="mt-0.5 text-sm leading-snug text-stone-400">{selectedDescription}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelected(null)}
+                      aria-label="Fechar"
+                      className="grid size-8 shrink-0 place-items-center self-start rounded-full bg-white/10 text-sm text-stone-300 transition hover:bg-white/20 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </header>
+                  {selectedGame ? (
+                    <GameDetail
+                      game={selectedGame}
+                      entry={entry}
+                      setEntry={setEntry}
+                      arcade={arcade}
+                      setArcade={setArcade}
+                      balance={profile.balance}
+                      busy={busy}
+                      onCreate={() => void create(selectedGame)}
+                    />
+                  ) : (
+                    <CsPanel onTrain={csMode.open} />
+                  )}
+                </motion.section>
+              )}
+            </AnimatePresence>
           </section>
 
 

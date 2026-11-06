@@ -11,14 +11,16 @@ export function HowToPlay({
   /** When set, only that game's rules are shown. Left out on the hub. */
   gameType?: GameType;
 }) {
-  const showDanese = gameType !== 'poker';
-  const showPoker = gameType !== 'danese';
+  const showDanese = !gameType || gameType === 'danese';
+  const showPoker = !gameType || gameType === 'poker';
+  const showTruco = !gameType || gameType === 'truco';
   const headings = !gameType;
   return (
     <Modal open={open} onClose={onClose} title="Como jogar">
       <div className="space-y-6 text-sm leading-relaxed text-stone-200">
         {showDanese && <DaneseRules heading={headings} />}
         {showPoker && <PokerRules heading={headings} />}
+        {showTruco && <TrucoRules heading={headings} />}
       </div>
     </Modal>
   );
@@ -145,5 +147,37 @@ function PokerRules({ heading }: { heading: boolean }) {
         </p>
       </section>
     </div>
+  );
+}
+
+function TrucoRules({ heading }: { heading: boolean }) {
+  return (
+    <section className="space-y-3">
+      {heading && <GameHeading icon="🂡" name="Truco Paulista" />}
+      <p>
+        <strong>1 contra 1</strong> ou <strong>2 contra 2</strong> (parceiros sentados frente a frente). Cada um recebe 3
+        cartas e uma carta é virada na mesa: a <strong>vira</strong>. A <strong>manilha</strong> é o valor logo acima dela
+        e ganha de tudo, por naipe: ♦ pica-fumo &lt; ♠ espadilha &lt; ♥ copas &lt; ♣ zap.
+      </p>
+      <p>
+        Fora as manilhas, a ordem é 4 &lt; 5 &lt; 6 &lt; 7 &lt; Q &lt; J &lt; K &lt; A &lt; 2 &lt; 3. Cartas de mesmo valor{' '}
+        <strong>cangam</strong> (empatam).
+      </p>
+      <p>
+        A mão tem até 3 <strong>vazas</strong>; quem ganhar duas leva. Se a primeira cangar, quem ganhar a próxima leva. Se
+        você ganhou a primeira, um empate depois não tira a mão de você.
+      </p>
+      <p>
+        Na sua vez, grite <strong>TRUCO!</strong> pra mão valer 3. O outro lado aceita, corre (você leva o que valia) ou
+        aumenta pra <strong>seis</strong>, <strong>nove</strong> e <strong>doze</strong>. Quem pediu por último não pode
+        pedir de novo.
+      </p>
+      <p>
+        <strong>Mão de onze:</strong> a dupla com 11 vê as cartas do parceiro e decide se joga (vale 3) ou corre (o outro
+        lado leva 1). Ninguém pede truco nela. <strong>Mão de ferro:</strong> as duas duplas com 11 jogam com as cartas
+        viradas, no escuro.
+      </p>
+      <p>Quem fizer 12 pontos primeiro vence. Valendo dinheiro, a dupla vencedora divide o pote.</p>
+    </section>
   );
 }

@@ -37,9 +37,11 @@ export interface StatsRow {
   pokerGames: number;
   /** Sum over poker games of (cash out − money put in). Can be negative. */
   pokerProfit: number;
+  trucoGames: number;
+  trucoWins: number;
 }
 
-export const EMPTY_STATS: StatsRow = { daneseGames: 0, daneseWins: 0, pokerGames: 0, pokerProfit: 0 };
+export const EMPTY_STATS: StatsRow = { daneseGames: 0, daneseWins: 0, pokerGames: 0, pokerProfit: 0, trucoGames: 0, trucoWins: 0 };
 
 export interface LedgerEntry {
   seq: number;

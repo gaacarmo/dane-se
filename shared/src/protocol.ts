@@ -5,6 +5,8 @@ import type { GameSettings } from './games/danese/rules.js';
 import type { PlayerView } from './games/danese/view.js';
 import type { PokerSettings } from './games/poker/rules.js';
 import type { PokerView } from './games/poker/view.js';
+import type { TrucoSettings } from './games/truco/rules.js';
+import type { TrucoView } from './games/truco/view.js';
 import type { EngineError, GameType } from './hub/gameModule.js';
 import type { Money } from './hub/money.js';
 import type { Difficulty } from './cs/bot.js';
@@ -105,11 +107,18 @@ export interface PokerRoomView extends RoomViewBase {
   game: PokerView | null;
 }
 
+/** A room of Truco Paulista: the game view is the `TrucoView`. */
+export interface TrucoRoomView extends RoomViewBase {
+  gameType: 'truco';
+  settings: TrucoSettings;
+  game: TrucoView | null;
+}
+
 /**
  * The whole room state as one client sees it. `gameType` discriminates the
  * union so components can narrow `game`/`settings` safely.
  */
-export type RoomView = DaneseRoomView | PokerRoomView;
+export type RoomView = DaneseRoomView | PokerRoomView | TrucoRoomView;
 
 export function isDaneseRoom(room: RoomView): room is DaneseRoomView {
   return room.gameType === 'danese';
@@ -117,6 +126,10 @@ export function isDaneseRoom(room: RoomView): room is DaneseRoomView {
 
 export function isPokerRoom(room: RoomView): room is PokerRoomView {
   return room.gameType === 'poker';
+}
+
+export function isTrucoRoom(room: RoomView): room is TrucoRoomView {
+  return room.gameType === 'truco';
 }
 
 /** Everything the hub knows about a person. The client never sends amounts back. */
@@ -149,6 +162,8 @@ export interface RankingRow {
   pokerGames: number;
   /** Total won minus total put in at poker tables. */
   pokerProfit: Money;
+  trucoGames: number;
+  trucoWins: number;
 }
 
 /** Your friend code, friends, pending requests and the ranking among friends. */
@@ -373,7 +388,7 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   ILLEGAL_RAISE: 'Esse aumento não é permitido.',
   CARD_NOT_IN_HAND: 'Essa carta não está na sua mão.',
   UNKNOWN_PLAYER: 'Você não está jogando esta rodada.',
-  INVALID_PLAYER_COUNT: 'A partida precisa de 2 a 6 jogadores.',
+  INVALID_PLAYER_COUNT: 'Esse jogo não aceita essa quantidade de jogadores.',
   INVALID_ACTION: 'Jogada inválida.',
   NOT_ENOUGH_CHIPS: 'Fichas insuficientes para essa jogada.',
   ABILITY_UNAVAILABLE: 'Essa habilidade não está disponível agora.',
