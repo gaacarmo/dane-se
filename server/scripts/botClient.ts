@@ -240,6 +240,12 @@ export class BotClient {
     void this.arcadeAbility(ability, targetId, ability === 'nuossa' ? bet : undefined).then((r) => {
       this.arcadeActing = false;
       if (r.ok) this.arcadeFired.add(ability);
+      // The server broadcasts the new state before it acks, so the "your turn"
+      // state may have arrived (and been skipped by maybeAct) while this ability
+      // was in flight; a refused ability broadcasts nothing at all. Either way no
+      // further state is coming: look again now, or the game stalls on this bot.
+      this.maybeAct();
+      this.maybeArcade();
     });
   }
 
