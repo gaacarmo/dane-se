@@ -6,7 +6,7 @@ import { useGameEffects } from '../../lib/useGameEffects';
 import { Shrimp } from '../cards/Shrimp';
 import { ChatPanel } from '../ChatPanel';
 import { Button } from '../ui/Button';
-import { Modal } from '../ui/Modal';
+import { LeaveDialog } from '../ui/LeaveDialog';
 import { BetBar } from './BetBar';
 import { ArcadeBar } from './ArcadeBar';
 import { arcadeOpponents, arcadeSlots, type ArcadeAbilityUi } from './arcadeUi';
@@ -286,21 +286,9 @@ export function GameScreen({ room, onHelp }: { room: DaneseRoomView; onHelp: () 
         overlay={view3d}
       />
 
-      <Modal open={confirmLeave} onClose={() => setConfirmLeave(false)} title="Sair da partida?">
-        <p className="text-stone-300">
-          {me && !me.eliminated && room.status === 'playing'
+      <LeaveDialog open={confirmLeave} onClose={() => setConfirmLeave(false)} message={me && !me.eliminated && room.status === 'playing'
             ? 'Um bot vai jogar no seu lugar. Você pode voltar pelo mesmo link enquanto a partida durar.'
-            : 'Você vai sair desta sala.'}
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => setConfirmLeave(false)}>
-            Ficar
-          </Button>
-          <Button variant="danger" onClick={() => actions.leave()}>
-            Sair
-          </Button>
-        </div>
-      </Modal>
+            : 'Você vai sair desta sala.'} />
     </div>
   );
 }

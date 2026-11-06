@@ -261,7 +261,8 @@ body {
  * Hub appearance (iOS dark / light). Dark is the default; light follows the
  * device unless the player forced one in Ajustes (html[data-appearance]).
  */
-:root {
+:root,
+.ios-force-dark {
   --ios-scheme: dark;
   --ios-blue: #0a84ff;
   --ios-green: #30d158;
@@ -478,4 +479,23 @@ body {
 }
 :root[data-appearance='light'] .brand-logo {
   filter: invert(1) drop-shadow(0 6px 14px rgb(255 255 255 / 0.6));
+}
+
+/*
+ * Tailwind resolves its --color-ios-* tokens once, at :root. Inside a forced-dark
+ * sheet (the game tables) re-point them here so they pick up the dark values above.
+ */
+.ios-force-dark {
+  --color-ios-blue: var(--ios-blue);
+  --color-ios-green: var(--ios-green);
+  --color-ios-red: var(--ios-red);
+  --color-ios-yellow: var(--ios-yellow);
+  --color-ios-orange: var(--ios-orange);
+  --color-ios-label: var(--ios-label);
+  --color-ios-label-2: var(--ios-label-2);
+  --color-ios-label-3: var(--ios-label-3);
+  --color-ios-separator: var(--ios-separator);
+  --color-ios-fill: var(--ios-fill);
+  --color-ios-fill-strong: var(--ios-fill-strong);
+  --color-ios-elevated: var(--ios-elevated);
 }

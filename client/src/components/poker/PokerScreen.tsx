@@ -11,8 +11,7 @@ import { WaitingBanner } from '../table/Overlays';
 import { ReactionBubbles, ReactionPicker } from '../table/Reactions';
 import { TableMenu } from '../table/TableMenu';
 import { type Point, useElementSize } from '../table/geometry';
-import { Button } from '../ui/Button';
-import { Modal } from '../ui/Modal';
+import { LeaveDialog } from '../ui/LeaveDialog';
 import { CardFace } from './CardFace';
 import { PokerControlBar } from './PokerActions';
 import { PokerHud } from './PokerHud';
@@ -212,21 +211,9 @@ export function PokerScreen({ room, onHelp }: { room: PokerRoomView; onHelp: () 
 
       <PokerControlBar game={game} youId={youId} turnSecondsLeft={turnSecondsLeft} />
 
-      <Modal open={confirmLeave} onClose={() => setConfirmLeave(false)} title="Sair da partida?">
-        <p className="text-stone-300">
-          {mySeat && room.status === 'playing'
+      <LeaveDialog open={confirmLeave} onClose={() => setConfirmLeave(false)} message={mySeat && room.status === 'playing'
             ? 'Um bot vai jogar no seu lugar. Sua banca continua na mesa — e você pode voltar pelo mesmo link enquanto a partida durar.'
-            : 'Você vai sair desta sala.'}
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => setConfirmLeave(false)}>
-            Ficar
-          </Button>
-          <Button variant="danger" onClick={() => actions.leave()}>
-            Sair
-          </Button>
-        </div>
-      </Modal>
+            : 'Você vai sair desta sala.'} />
     </div>
   );
 }
