@@ -6,7 +6,7 @@ import { actions, codeFromUrl, useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
 import { FriendsPanel } from './FriendsPanel';
 import { GameList } from './GameList';
-import { AppIcon, CircleButton, PrimaryButton, SectionHeader, Segmented, Symbols, TabBar } from './IosKit';
+import { CircleButton, PrimaryButton, SectionHeader, Segmented, Symbols, TabBar } from './IosKit';
 import { RankingPanel } from './RankingPanel';
 import { RecoveryPanel } from './RecoveryPanel';
 import { WalletHeader } from './WalletHeader';
@@ -107,18 +107,8 @@ function NicknameGate() {
 
   return (
     <form onSubmit={submit} className="relative z-10 flex w-full max-w-sm flex-col items-center text-center">
-      <div className="flex -space-x-3">
-        <span className="-rotate-12">
-          <AppIcon id="truco" size={64} />
-        </span>
-        <span className="z-10 -translate-y-2">
-          <AppIcon id="danese" size={80} />
-        </span>
-        <span className="rotate-12">
-          <AppIcon id="poker" size={64} />
-        </span>
-      </div>
-      <h1 className="mt-6 text-[34px] leading-tight font-bold tracking-tight">Boas-vindas ao Dane-se</h1>
+      <img src="/brand/logo.png" alt="Dane-se" width={180} height={174} className="brand-logo h-auto w-44" />
+      <h1 className="mt-8 text-[34px] leading-tight font-bold tracking-tight">Boas-vindas</h1>
       <p className="mt-2 text-[17px] leading-snug text-ios-label-2">
         Dane-se, truco e poker com a galera. Você começa com {formatMoney(10_000)} de mentirinha.
       </p>
@@ -187,12 +177,24 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
 
       {/* Celular: uma aba por vez, com título grande. */}
       <div className="relative z-10 mx-auto w-full max-w-md px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-32 lg:hidden">
-        <header className="mb-5 flex items-end justify-between gap-3 pt-6">
-          <h1 className="text-[34px] leading-none font-bold tracking-tight">{current.title}</h1>
-          <CircleButton label="Regras" onClick={onHelp}>
-            {Symbols.question}
-          </CircleButton>
-        </header>
+        {tab === 'play' ? (
+          // A aba inicial abre com a marca no lugar do título grande.
+          <header className="relative mb-6 flex justify-center pt-4">
+            <img src="/brand/logo.png" alt="Dane-se" width={180} height={174} className="brand-logo h-auto w-32" />
+            <span className="absolute top-4 right-0">
+              <CircleButton label="Regras" onClick={onHelp}>
+                {Symbols.question}
+              </CircleButton>
+            </span>
+          </header>
+        ) : (
+          <header className="mb-5 flex items-end justify-between gap-3 pt-6">
+            <h1 className="text-[34px] leading-none font-bold tracking-tight">{current.title}</h1>
+            <CircleButton label="Regras" onClick={onHelp}>
+              {Symbols.question}
+            </CircleButton>
+          </header>
+        )}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={tab}
@@ -214,11 +216,13 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
       <div className="relative z-10 mx-auto hidden max-w-6xl grid-cols-[18rem_minmax(0,1fr)_20rem] items-start gap-8 px-8 py-10 lg:grid">
         <aside className="space-y-7">{ranking}</aside>
         <div>
-          <header className="mb-5 flex items-end justify-between gap-3">
-            <h1 className="text-[34px] leading-none font-bold tracking-tight">Jogar</h1>
-            <CircleButton label="Regras" onClick={onHelp}>
-              {Symbols.question}
-            </CircleButton>
+          <header className="relative mb-6 flex justify-center">
+            <img src="/brand/logo.png" alt="Dane-se" width={180} height={174} className="brand-logo h-auto w-36" />
+            <span className="absolute top-0 right-0">
+              <CircleButton label="Regras" onClick={onHelp}>
+                {Symbols.question}
+              </CircleButton>
+            </span>
           </header>
           {play}
         </div>

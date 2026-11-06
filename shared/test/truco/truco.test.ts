@@ -178,6 +178,45 @@ describe('mão de onze e mão de ferro', () => {
     expect(applyTrucoAction(played, { type: 'truco', playerId: played.turnPlayerId }).ok).toBe(false);
   });
 
+  it('na mão de onze os dois parceiros podem decidir; a outra dupla não', () => {
+    let t = start(players4);
+    t = { ...t, scores: [11, 5], phase: 'handEnd' };
+    t = apply(t, { type: 'nextHand' });
+    expect(t.phase).toBe('maoDeOnze');
+    const team0 = t.players.filter((p) => p.team === 0).map((p) => p.id);
+    const team1 = t.players.filter((p) => p.team === 1).map((p) => p.id);
+    const partner = team0.find((id) => id !== t.onzeDeciderId)!;
+    // O parceiro (que não é quem a mesa espera) também pode responder e vê as cartas do outro.
+    expect(getTrucoView(t, partner).legal.canAccept).toBe(true);
+    expect(getTrucoView(t, partner).partnerHand?.playerId).toBe(t.onzeDeciderId);
+    const ran = apply(t, { type: 'run', playerId: partner });
+    expect(ran.scores).toEqual([11, 6]);
+    expect(ran.lastHand).toMatchObject({ team: 1, points: 1, reason: 'onzeRun', ranPlayerId: partner });
+    // A outra dupla não decide nem vê nada.
+    for (const id of team1) {
+      expect(applyTrucoAction(t, { type: 'accept', playerId: id })).toEqual({ ok: false, error: 'NOT_YOUR_TURN' });
+      expect(getTrucoView(t, id).partnerHand).toBeNull();
+      expect(getTrucoView(t, id).legal.canAccept).toBe(false);
+    }
+  });
+
+  it('na mão de onze a mesa espera um humano da dupla, não o bot', () => {
+    const withBot = [
+      { id: 'a', name: 'Ana', isBot: true },
+      { id: 'b', name: 'Beto' },
+      { id: 'c', name: 'Caio' },
+      { id: 'd', name: 'Duda' },
+    ];
+    for (let seed = 1; seed <= 8; seed++) {
+      const r = createTrucoGame(withBot, seed, { entry: 100 });
+      if (!r.ok) throw new Error(r.error);
+      let t: TrucoGameState = { ...r.state, scores: [11, 3], phase: 'handEnd' };
+      t = apply(t, { type: 'nextHand' });
+      // Dupla 0 = Ana (bot) e Caio: quem decide é sempre o Caio.
+      expect(t.onzeDeciderId).toBe('c');
+    }
+  });
+
   it('na mão de ferro ninguém vê as próprias cartas', () => {
     let s = start(players2);
     s = { ...s, scores: [11, 11], phase: 'handEnd' };

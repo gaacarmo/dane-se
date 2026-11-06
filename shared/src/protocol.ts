@@ -31,6 +31,8 @@ export interface RoomMember {
   character: CharacterId;
   /** Arcade rooms only: true once this member has picked a full set of common talents. */
   talentsReady: boolean;
+  /** Team games (truco): 0 = Dupla A, 1 = Dupla B. Null in other games. */
+  team: 0 | 1 | null;
   /** What this member put in the pot (buy-in), or null in practice rooms / before paying. */
   entry: Money | null;
 }
@@ -225,6 +227,7 @@ export type ErrorCode =
   | 'FRIEND_OFFLINE'
   | 'REFILL_NOT_ELIGIBLE'
   | 'TEAM_FULL'
+  | 'TEAMS_UNEVEN'
   | 'NOT_IN_MATCH';
 
 export type Ack<T = object> = ({ ok: true } & T) | { ok: false; error: ErrorCode };
@@ -265,6 +268,8 @@ export interface ClientToServerEvents {
   'room:talent': (payload: { talents: CommonTalentId[] }, ack: AckFn) => void;
   'room:start': (ack: AckFn) => void;
   'room:character': (payload: { character: CharacterId }, ack: AckFn) => void;
+  /** Team games: move yourself (or, as host, a bot) to team 0 or 1. */
+  'room:team': (payload: { team: 0 | 1; playerId?: string }, ack: AckFn) => void;
   'chat:send': (payload: { text: string }, ack: AckFn) => void;
   'room:kick': (payload: { playerId: string }, ack: AckFn) => void;
   /** Host: add a bot player to fill an empty seat (lobby only). Turns the room into "treino". */
@@ -420,6 +425,7 @@ export const ERROR_MESSAGES_PT: Record<ErrorCode, string> = {
   NOT_FRIENDS: 'Vocês não são amigos.',
   FRIEND_OFFLINE: 'Seu amigo não está online agora.',
   REFILL_NOT_ELIGIBLE: 'Você só pode recarregar quando o saldo estiver baixo, uma vez por hora.',
-  TEAM_FULL: 'Esse time já tem 3 jogadores.',
+  TEAM_FULL: 'Esse time já está cheio.',
+  TEAMS_UNEVEN: 'As duplas precisam ter o mesmo número de jogadores.',
   NOT_IN_MATCH: 'A partida não está rolando.',
 };

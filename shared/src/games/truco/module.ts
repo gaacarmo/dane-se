@@ -75,6 +75,7 @@ export const trucoModule: GameModule<TrucoSettings, TrucoGameState, TrucoAction,
   minEntry: TRUCO_MIN_ENTRY,
   defaultEntry: DEFAULT_TRUCO_SETTINGS.entry,
   entryOptions: [100, 250, 500, 1000],
+  teams: true,
 
   validateSettings: validateTrucoSettings,
   entryFor: (settings) => settings.entry,

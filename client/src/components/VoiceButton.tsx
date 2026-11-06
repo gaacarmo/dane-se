@@ -1,7 +1,7 @@
 import { joinVoice, leaveVoice, toggleMute, useLeaveVoiceWithRoom, useVoice } from '../lib/voice';
 
 /** Floating voice chat control: join, mute, leave, and how many are talking with you. */
-export function VoiceButton({ className = '' }: { className?: string }) {
+export function VoiceButton({ className = '', buttonClassName }: { className?: string; buttonClassName?: string }) {
   const voice = useVoice();
   useLeaveVoiceWithRoom();
 
@@ -13,7 +13,7 @@ export function VoiceButton({ className = '' }: { className?: string }) {
         disabled={voice.joining}
         title="Entrar no chat de voz"
         aria-label="Entrar no chat de voz"
-        className={`grid size-12 place-items-center rounded-full bg-black/60 text-xl shadow-lg ring-1 ring-white/20 backdrop-blur hover:bg-black/75 disabled:opacity-50 ${className}`}
+        className={`${buttonClassName ?? 'grid size-12 place-items-center rounded-full bg-black/60 text-xl shadow-lg ring-1 ring-white/20 backdrop-blur hover:bg-black/75'} disabled:opacity-50 ${className}`}
       >
         {voice.joining ? '…' : '🎙️'}
       </button>

@@ -20,6 +20,8 @@ export interface TrucoPlayer {
   id: string;
   name: string;
   team: TrucoTeam;
+  /** Bot posto pelo anfitrião: na mão de onze, quem decide é um humano da dupla, se houver. */
+  isBot?: boolean;
 }
 
 export interface TrucoPlayedCard {
@@ -86,7 +88,10 @@ export interface TrucoGameState {
   lastRaiseTeam: TrucoTeam | null;
   request: TrucoRequest | null;
   special: TrucoSpecialHand;
-  /** Mão de onze: quem decide jogar ou correr. */
+  /**
+   * Mão de onze: quem a mesa espera (um humano da dupla com 11, se houver). Os
+   * dois parceiros podem responder; este é só quem o relógio e os bots seguem.
+   */
   onzeDeciderId: string | null;
   phase: TrucoPhase;
   lastHand: TrucoHandResult | null;
@@ -164,14 +169,9 @@ function deal(state: TrucoGameState, dealerIndex: number): TrucoGameState {
   const special = at11.length === 2 ? 'ferro' : at11.length === 1 ? 'onze' : 'none';
   let onzeDeciderId: string | null = null;
   if (special === 'onze') {
-    // Decide o primeiro da dupla com 11 na ordem da mão.
-    for (let k = 0; k < n; k++) {
-      const p = state.players[(dealerIndex + 1 + k) % n]!;
-      if (p.team === at11[0]) {
-        onzeDeciderId = p.id;
-        break;
-      }
-    }
+    // A dupla com 11, na ordem da mão; a mesa espera o primeiro humano dela.
+    const team = Array.from({ length: n }, (_, k) => state.players[(dealerIndex + 1 + k) % n]!).filter((p) => p.team === at11[0]);
+    onzeDeciderId = (team.find((p) => !p.isBot) ?? team[0])!.id;
   }
 
   return {
@@ -196,14 +196,14 @@ function deal(state: TrucoGameState, dealerIndex: number): TrucoGameState {
 }
 
 export function createTrucoGame(
-  players: readonly { id: string; name: string }[],
+  players: readonly { id: string; name: string; isBot?: boolean }[],
   seed: number,
   settings: TrucoSettings,
 ): TrucoResult {
   if (!(TRUCO_PLAYER_COUNTS as readonly number[]).includes(players.length)) return fail('INVALID_PLAYER_COUNT');
   const base: TrucoGameState = {
     settings,
-    players: players.map((p, seat) => ({ id: p.id, name: p.name, team: teamOfSeat(seat) })),
+    players: players.map((p, seat) => ({ id: p.id, name: p.name, team: teamOfSeat(seat), ...(p.isBot ? { isBot: true } : {}) })),
     scores: [0, 0],
     rng: seed | 0,
     handNumber: 0,
@@ -333,9 +333,16 @@ function raise(state: TrucoGameState, playerId: string): TrucoResult {
   });
 }
 
+/** Mão de onze: qualquer um da dupla com 11 pode decidir (eles veem as cartas um do outro). */
+export function canDecideOnze(state: TrucoGameState, playerId: string): boolean {
+  if (state.phase !== 'maoDeOnze' || !state.onzeDeciderId) return false;
+  const me = state.players.find((p) => p.id === playerId);
+  return !!me && me.team === teamOf(state, state.onzeDeciderId);
+}
+
 function accept(state: TrucoGameState, playerId: string): TrucoResult {
   if (state.phase === 'maoDeOnze') {
-    if (state.onzeDeciderId !== playerId) return fail('NOT_YOUR_TURN');
+    if (!canDecideOnze(state, playerId)) return fail('NOT_YOUR_TURN');
     return ok({ ...state, phase: 'playing', turnPlayerId: state.roundLeaderId });
   }
   if (state.phase !== 'truco' || !state.request) return fail('WRONG_PHASE');
@@ -346,7 +353,7 @@ function accept(state: TrucoGameState, playerId: string): TrucoResult {
 
 function run(state: TrucoGameState, playerId: string): TrucoResult {
   if (state.phase === 'maoDeOnze') {
-    if (state.onzeDeciderId !== playerId) return fail('NOT_YOUR_TURN');
+    if (!canDecideOnze(state, playerId)) return fail('NOT_YOUR_TURN');
     return ok(endHand(state, { team: otherTeam(teamOf(state, playerId)), points: 1, reason: 'onzeRun', ranPlayerId: playerId }));
   }
   if (state.phase !== 'truco' || !state.request) return fail('WRONG_PHASE');

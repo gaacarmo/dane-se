@@ -4,6 +4,8 @@ import {
   type Card,
   type TrucoRoomView,
   type TrucoView,
+  TRUCO_ONZE,
+  TRUCO_TARGET,
   formatMoney,
   trucoCallName,
 } from '@dane-se/shared';
@@ -211,63 +213,127 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
   );
 }
 
-/** Placar das duplas, quanto a mão vale e as vazas já jogadas. */
+/** Placar das duplas, quanto a mão vale e as vazas já jogadas, numa cápsula só. */
 function TrucoHud({ game, onMenu }: { game: TrucoView; onMenu: () => void }) {
-  const us = game.scores[game.myTeam];
-  const them = game.scores[game.myTeam === 0 ? 1 : 0];
+  const themTeam = game.myTeam === 0 ? 1 : 0;
   return (
-    <header className="safe-top relative z-30 flex items-center gap-2 px-2 pb-1.5">
+    <header className="safe-top relative z-30 flex items-start gap-2 px-2 pb-1.5">
       <button
         type="button"
         onClick={onMenu}
         aria-label="Menu"
-        className="grid size-10 shrink-0 place-items-center rounded-xl bg-black/40 text-lg text-stone-200 ring-1 ring-white/10"
+        className="mt-1 grid size-10 shrink-0 place-items-center rounded-xl bg-black/40 text-lg text-stone-200 ring-1 ring-white/10"
       >
         ☰
       </button>
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
-        <div className="flex items-center gap-2 rounded-2xl bg-black/50 px-3 py-1.5 ring-1 ring-white/10 backdrop-blur">
-          <ScorePill label="Nós" value={us} className="text-gold-300" />
-          <span className="text-stone-500">×</span>
-          <ScorePill label="Eles" value={them} className="text-sky-300" />
-        </div>
-        <motion.span
-          key={game.value}
-          initial={{ scale: 1.6 }}
-          animate={{ scale: 1 }}
-          className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${
-            game.value > 1 ? 'bg-wine-700/80 text-white ring-red-300/40' : 'bg-black/40 text-stone-300 ring-white/10'
-          }`}
-        >
-          Vale {game.value}
-        </motion.span>
-        <RoundDots game={game} />
+      <div
+        className="mx-auto grid w-full max-w-[22rem] grid-cols-[1fr_auto_1fr] items-center rounded-[1.4rem] bg-black/45 px-3.5 py-2 shadow-[0_12px_30px_-14px_rgb(0_0_0/0.9),inset_0_1px_0_rgb(255_255_255/0.12)] ring-1 ring-white/10 backdrop-blur-xl"
+        role="group"
+        aria-label={`Placar: nós ${game.scores[game.myTeam]}, eles ${game.scores[themTeam]}, a mão vale ${game.value}`}
+      >
+        <TeamScore label="Nós" score={game.scores[game.myTeam]} other={game.scores[themTeam]} tone="us" />
+        <HandValue game={game} />
+        <TeamScore label="Eles" score={game.scores[themTeam]} other={game.scores[game.myTeam]} tone="them" />
       </div>
       <span className="w-10 shrink-0" />
     </header>
   );
 }
 
-function ScorePill({ label, value, className }: { label: string; value: number; className: string }) {
+const SCORE_TONE = {
+  us: { text: 'text-gold-300', bar: 'bg-gold-400', glow: 'shadow-[0_0_8px_rgb(232_198_106/0.7)]' },
+  them: { text: 'text-sky-300', bar: 'bg-sky-400', glow: 'shadow-[0_0_8px_rgb(56_189_248/0.7)]' },
+} as const;
+
+/** Uma dupla: nome, pontos e uma régua de 12 tracinhos até a vitória (espelhada pra eles). */
+function TeamScore({ label, score, other, tone }: { label: string; score: number; other: number; tone: 'us' | 'them' }) {
+  const style = SCORE_TONE[tone];
+  const mirrored = tone === 'them';
+  const leading = score > other;
   return (
-    <span className="flex items-baseline gap-1">
-      <span className="text-[10px] font-semibold tracking-wider text-stone-400 uppercase">{label}</span>
-      <motion.strong key={value} initial={{ y: -6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className={`text-xl tabular-nums ${className}`}>
-        {value}
-      </motion.strong>
-    </span>
+    <div className={`flex min-w-0 flex-col gap-1 ${mirrored ? 'items-end' : 'items-start'}`}>
+      <div className={`flex items-baseline gap-1.5 ${mirrored ? 'flex-row-reverse' : ''}`}>
+        <span className="text-[11px] font-semibold text-stone-400">{label}</span>
+        <motion.strong
+          key={score}
+          initial={{ scale: 1.5, opacity: 0.4 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 18 }}
+          className={`font-display text-[1.75rem] leading-none tabular-nums ${style.text} ${leading ? '' : 'opacity-85'}`}
+        >
+          {score}
+        </motion.strong>
+      </div>
+      <div className={`flex gap-[2px] ${mirrored ? 'flex-row-reverse' : ''}`} aria-hidden>
+        {Array.from({ length: TRUCO_TARGET }, (_, i) => {
+          const on = i < score;
+          const isLast = i === score - 1;
+          return (
+            <span
+              key={i}
+              className={`h-1.5 w-[5px] rounded-full transition-colors duration-300 ${on ? style.bar : 'bg-white/12'} ${
+                isLast ? style.glow : ''
+              } ${i === TRUCO_ONZE ? (mirrored ? 'mr-[3px]' : 'ml-[3px]') : ''}`}
+            />
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
-/** Três bolinhas: dourada (nós), azul (eles), cinza (cangou), vazia (falta jogar). */
+/** O meio do placar: quanto a mão vale (e o pedido que levou a isso) e as três vazas. */
+function HandValue({ game }: { game: TrucoView }) {
+  const raised = game.value > 1 && game.special === 'none';
+  const caption =
+    game.special === 'onze' ? 'Mão de onze' : game.special === 'ferro' ? 'Mão de ferro' : raised ? trucoCallName(game.value) : 'Vale';
+  return (
+    <div className="flex flex-col items-center gap-1 px-3">
+      <span
+        className={`text-[10px] leading-none font-bold whitespace-nowrap ${
+          raised ? 'text-red-300' : game.special !== 'none' ? 'text-amber-300' : 'text-stone-400'
+        }`}
+      >
+        {caption}
+      </span>
+      <motion.span
+        key={game.value}
+        initial={{ scale: 1.8, rotate: -8 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ type: 'spring', stiffness: 360, damping: 14 }}
+        className={`grid h-8 min-w-8 place-items-center rounded-full px-2 text-base font-black tabular-nums ${
+          raised
+            ? 'bg-gradient-to-b from-red-500 to-wine-700 text-white shadow-[0_4px_14px_-4px_rgb(220_40_40/0.9)] ring-1 ring-red-300/50'
+            : 'bg-white/10 text-stone-100 ring-1 ring-white/15'
+        }`}
+        aria-label={`A mão vale ${game.value}`}
+      >
+        {game.value}
+      </motion.span>
+      <RoundDots game={game} />
+    </div>
+  );
+}
+
+/** As três vazas: dourada (nós), azul (eles), cinza (cangou), vazada (falta jogar). */
 function RoundDots({ game }: { game: TrucoView }) {
+  const playing = game.rounds.length;
   return (
     <span className="flex gap-1" aria-label="Vazas desta mão">
       {[0, 1, 2].map((i) => {
         const r = game.rounds[i]?.result;
+        const label = r === undefined ? 'falta jogar' : r === 'tie' ? 'cangou' : r === game.myTeam ? 'nossa' : 'deles';
         const color =
-          r === undefined ? 'bg-white/10' : r === 'tie' ? 'bg-stone-400' : r === game.myTeam ? 'bg-gold-400' : 'bg-sky-400';
-        return <span key={i} className={`size-2.5 rounded-full ring-1 ring-black/40 ${color}`} />;
+          r === undefined
+            ? i === playing && game.phase !== 'handEnd'
+              ? 'bg-transparent ring-1 ring-white/50'
+              : 'bg-transparent ring-1 ring-white/15'
+            : r === 'tie'
+              ? 'bg-stone-400'
+              : r === game.myTeam
+                ? 'bg-gold-400'
+                : 'bg-sky-400';
+        return <span key={i} title={`${i + 1}ª vaza: ${label}`} className={`size-2 rounded-full ${color}`} />;
       })}
     </span>
   );
@@ -327,15 +393,37 @@ function TrucoActions({ game, youId }: { game: TrucoView; youId: string }) {
     setBusy(false);
   };
 
-  if (game.phase === 'maoDeOnze' && game.onzeDeciderId === youId) {
+  if (game.phase === 'maoDeOnze' && legal.canAccept) {
+    const partner = game.partnerHand ? game.seats.find((s) => s.id === game.partnerHand!.playerId)?.name : null;
     return (
-      <ActionPanel title="Mão de onze" text="Vocês estão com 11. Jogar vale 3 pontos; correr dá 1 ponto pra eles.">
+      <ActionPanel
+        title="Mão de onze"
+        text={`Vocês estão com 11${partner ? `: olhe as cartas de ${partner} e decidam juntos` : ''}. Jogar vale 3 pontos; correr dá 1 ponto pra eles. Nesta mão ninguém pede truco.`}
+      >
         <Button className="flex-1" disabled={busy} onClick={() => void send('accept')}>
           Jogar a mão
         </Button>
         <Button variant="secondary" className="flex-1" disabled={busy} onClick={() => void send('run')}>
           Correr
         </Button>
+      </ActionPanel>
+    );
+  }
+
+  if (game.phase === 'maoDeOnze' && !game.isSpectator) {
+    // A outra dupla espera a decisão da dupla com 11.
+    const deciders = game.seats.filter((s) => s.team !== game.myTeam).map((s) => s.name);
+    return (
+      <ActionPanel
+        title="Mão de onze"
+        text={`${deciders.join(' e ')} ${deciders.length > 1 ? 'estão' : 'está'} com 11 e ${
+          deciders.length > 1 ? 'decidem' : 'decide'
+        } se joga a mão. Se correr, vocês ganham 1 ponto; se jogar, vale 3.`}
+      >
+        <span className="flex min-h-11 flex-1 items-center justify-center gap-2 text-sm text-stone-300">
+          <span className="size-2 animate-pulse rounded-full bg-amber-300" aria-hidden />
+          Esperando a decisão
+        </span>
       </ActionPanel>
     );
   }

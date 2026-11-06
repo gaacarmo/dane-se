@@ -8,11 +8,14 @@ export function ChatPanel({
   room,
   className = '',
   opensDown = false,
+  buttonClassName,
 }: {
   room: RoomView;
   className?: string;
   /** The button sits at the top of the screen: open the panel below it instead of above. */
   opensDown?: boolean;
+  /** Replaces the round dark button's look (the iOS lobby uses a glass one). */
+  buttonClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -44,7 +47,7 @@ export function ChatPanel({
         onClick={() => setOpen((v) => !v)}
         aria-label="Chat"
         aria-expanded={open}
-        className="relative grid size-12 place-items-center rounded-full bg-black/60 text-xl shadow-lg ring-1 ring-white/20 backdrop-blur hover:bg-black/75"
+        className={`relative ${buttonClassName ?? 'grid size-12 place-items-center rounded-full bg-black/60 text-xl shadow-lg ring-1 ring-white/20 backdrop-blur hover:bg-black/75'}`}
       >
         💬
         {unread > 0 && !open && (
