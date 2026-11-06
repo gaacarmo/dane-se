@@ -64,7 +64,13 @@ export function App() {
       {screen}
       {/* In the lobby the voice button lives in the room's navigation bar. */}
       {room && room.status !== 'lobby' && <VoiceButton className="fixed top-[7.25rem] right-2 z-40" />}
-      <HowToPlay open={help} onClose={() => setHelp(false)} gameType={room?.gameType} />
+      <HowToPlay
+        open={help}
+        onClose={() => setHelp(false)}
+        gameType={room?.gameType}
+        // Hub and waiting room follow light/dark; the game tables are always dark.
+        followAppearance={!room || room.status === 'lobby'}
+      />
       <Toast />
       <InviteToast />
       <ConnectionBanner />
