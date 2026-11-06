@@ -11,6 +11,8 @@ export interface GamePlayer {
   name: string;
   /** Arcade loadout, when the room has arcade mode on. */
   arcade?: ArcadeLoadout;
+  /** A seat filled by a host-added bot (engines may prefer humans for team decisions). */
+  isBot?: boolean;
 }
 
 /** Errors an engine may return. A superset of the Dane-se errors. */

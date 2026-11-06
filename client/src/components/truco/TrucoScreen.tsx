@@ -393,15 +393,37 @@ function TrucoActions({ game, youId }: { game: TrucoView; youId: string }) {
     setBusy(false);
   };
 
-  if (game.phase === 'maoDeOnze' && game.onzeDeciderId === youId) {
+  if (game.phase === 'maoDeOnze' && legal.canAccept) {
+    const partner = game.partnerHand ? game.seats.find((s) => s.id === game.partnerHand!.playerId)?.name : null;
     return (
-      <ActionPanel title="Mão de onze" text="Vocês estão com 11. Jogar vale 3 pontos; correr dá 1 ponto pra eles.">
+      <ActionPanel
+        title="Mão de onze"
+        text={`Vocês estão com 11${partner ? `: olhe as cartas de ${partner} e decidam juntos` : ''}. Jogar vale 3 pontos; correr dá 1 ponto pra eles. Nesta mão ninguém pede truco.`}
+      >
         <Button className="flex-1" disabled={busy} onClick={() => void send('accept')}>
           Jogar a mão
         </Button>
         <Button variant="secondary" className="flex-1" disabled={busy} onClick={() => void send('run')}>
           Correr
         </Button>
+      </ActionPanel>
+    );
+  }
+
+  if (game.phase === 'maoDeOnze' && !game.isSpectator) {
+    // A outra dupla espera a decisão da dupla com 11.
+    const deciders = game.seats.filter((s) => s.team !== game.myTeam).map((s) => s.name);
+    return (
+      <ActionPanel
+        title="Mão de onze"
+        text={`${deciders.join(' e ')} ${deciders.length > 1 ? 'estão' : 'está'} com 11 e ${
+          deciders.length > 1 ? 'decidem' : 'decide'
+        } se joga a mão. Se correr, vocês ganham 1 ponto; se jogar, vale 3.`}
+      >
+        <span className="flex min-h-11 flex-1 items-center justify-center gap-2 text-sm text-stone-300">
+          <span className="size-2 animate-pulse rounded-full bg-amber-300" aria-hidden />
+          Esperando a decisão
+        </span>
       </ActionPanel>
     );
   }

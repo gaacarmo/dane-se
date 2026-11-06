@@ -8,6 +8,7 @@ import {
   type TrucoRoundRecord,
   type TrucoSpecialHand,
   canAskTruco,
+  canDecideOnze,
   canRaiseTruco,
   hiddenCardId,
   trucoActorId,
@@ -98,7 +99,7 @@ export function getTrucoView(state: TrucoGameState, viewerId: string | null): Tr
   if (me) {
     const id = me.id;
     const inTruco = state.phase === 'truco' && state.request?.responderId === id;
-    const inOnze = state.phase === 'maoDeOnze' && state.onzeDeciderId === id;
+    const inOnze = canDecideOnze(state, id);
     legal = {
       canPlay: state.phase === 'playing' && state.turnPlayerId === id,
       canAskTruco: canAskTruco(state, id),

@@ -643,6 +643,7 @@ export class RoomManager {
       room.members.map((m) => ({
         id: m.id,
         name: m.name,
+        isBot: m.isBot,
         arcade: room.arcade ? { character: m.character, talents: m.talents } : undefined,
       })),
       room.settings,
