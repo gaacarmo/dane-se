@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { actions, useClient } from '../lib/store';
 
 /** In the lobby: call online friends who aren't at this table yet. */
-export function InviteFriends({ names }: { names?: string[] } = {}) {
+export function InviteFriends({ names, ios = false }: { names?: string[]; ios?: boolean } = {}) {
   const { social, room } = useClient();
   const [called, setCalled] = useState<Record<string, boolean>>({});
   const members = names ?? room?.members.map((m) => m.name);
@@ -15,6 +15,41 @@ export function InviteFriends({ names }: { names?: string[] } = {}) {
     if (!r.ok) return;
     setCalled((c) => ({ ...c, [id]: true }));
     setTimeout(() => setCalled((c) => ({ ...c, [id]: false })), 5000);
+  }
+
+  if (ios) {
+    return (
+      <section aria-label="Chamar amigos">
+        <h2 className="mb-2 px-4 text-[15px] font-semibold text-ios-label-2">Chamar amigos</h2>
+        {social.friends.length === 0 || online.length === 0 ? (
+          <p className="glass px-4 py-3 text-[15px] text-ios-label-2">
+            {social.friends.length === 0
+              ? 'Adicione amigos pelo código na aba Amigos pra chamar eles daqui.'
+              : 'Nenhum amigo online agora.'}
+          </p>
+        ) : (
+          <ul className="glass overflow-hidden">
+            {online.map((f, i) => (
+              <li key={f.id} className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-ios-separator' : ''}`}>
+                <span className="size-2.5 shrink-0 rounded-full bg-ios-green" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[17px]">{f.nickname}</span>
+                  {f.inRoom && <span className="block text-[13px] text-ios-label-2">Numa mesa agora</span>}
+                </span>
+                <button
+                  type="button"
+                  disabled={called[f.id]}
+                  onClick={() => void call(f.id)}
+                  className="min-h-9 rounded-full bg-ios-blue px-4 text-[15px] font-semibold text-white disabled:bg-ios-fill-strong disabled:text-ios-green"
+                >
+                  {called[f.id] ? 'Chamado' : 'Chamar'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    );
   }
 
   return (

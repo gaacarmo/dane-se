@@ -59,7 +59,8 @@ export function App() {
   return (
     <>
       {screen}
-      {room && <VoiceButton className="fixed top-[7.25rem] right-2 z-40" />}
+      {/* In the lobby the voice button lives in the room's navigation bar. */}
+      {room && room.status !== 'lobby' && <VoiceButton className="fixed top-[7.25rem] right-2 z-40" />}
       <HowToPlay open={help} onClose={() => setHelp(false)} gameType={room?.gameType} />
       <Toast />
       <InviteToast />

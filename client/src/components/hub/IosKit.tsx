@@ -68,6 +68,7 @@ export function Segmented<T extends string | number>({
   label,
   format,
   layoutId,
+  disabled = false,
 }: {
   options: readonly T[];
   value: T;
@@ -75,9 +76,11 @@ export function Segmented<T extends string | number>({
   label: string;
   format: (v: T) => string;
   layoutId: string;
+  /** Read-only (e.g. a guest seeing the host's choice). */
+  disabled?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex rounded-[0.9rem] bg-ios-fill p-[3px]">
+    <div role="radiogroup" aria-label={label} aria-disabled={disabled} className="flex rounded-[0.9rem] bg-ios-fill p-[3px]">
       {options.map((o) => {
         const on = o === value;
         return (
@@ -86,8 +89,9 @@ export function Segmented<T extends string | number>({
             type="button"
             role="radio"
             aria-checked={on}
+            disabled={disabled}
             onClick={() => onChange(o)}
-            className={`relative min-h-9 flex-1 rounded-[0.75rem] px-1 text-[13px] font-semibold tabular-nums transition-colors ${on ? 'text-ios-label' : 'text-ios-label-2'}`}
+            className={`relative min-h-9 flex-1 disabled:cursor-default rounded-[0.75rem] px-1 text-[13px] font-semibold tabular-nums transition-colors ${on ? 'text-ios-label' : 'text-ios-label-2'}`}
           >
             {on && (
               <motion.span
