@@ -153,14 +153,14 @@ describe('persistence', () => {
       const store = await FileWalletStore.open(file);
       store.saveProfile({ id: 'a', token: 't1', nickname: 'Ana', createdAt: 1, friendCode: 'AAAAAA' });
       store.saveFriendship({ a: 'a', b: 'b', requestedBy: 'a', status: 'accepted', at: 2 });
-      store.setStats('a', { daneseGames: 3, daneseWins: 2, pokerGames: 1, pokerProfit: -50 });
+      store.setStats('a', { daneseGames: 3, daneseWins: 2, pokerGames: 1, pokerProfit: -50, trucoGames: 0, trucoWins: 0 });
       await store.close();
 
       const reopened = await FileWalletStore.open(file);
       expect(reopened.findProfileByFriendCode('AAAAAA')?.nickname).toBe('Ana');
       expect(reopened.friendships('b')).toEqual([{ a: 'a', b: 'b', requestedBy: 'a', status: 'accepted', at: 2 }]);
-      expect(reopened.getStats('a')).toEqual({ daneseGames: 3, daneseWins: 2, pokerGames: 1, pokerProfit: -50 });
-      expect(reopened.getStats('nobody')).toEqual({ daneseGames: 0, daneseWins: 0, pokerGames: 0, pokerProfit: 0 });
+      expect(reopened.getStats('a')).toEqual({ daneseGames: 3, daneseWins: 2, pokerGames: 1, pokerProfit: -50, trucoGames: 0, trucoWins: 0 });
+      expect(reopened.getStats('nobody')).toEqual({ daneseGames: 0, daneseWins: 0, pokerGames: 0, pokerProfit: 0, trucoGames: 0, trucoWins: 0 });
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

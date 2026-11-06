@@ -16,6 +16,8 @@ import {
   type PlayerView,
   type PokerSettings,
   type PokerView,
+  type TrucoSettings,
+  type TrucoView,
   type ProfileView,
   type RoomClosedReason,
   type RoomStatus,
@@ -596,10 +598,8 @@ export class RoomManager {
       if (room.members.some((m) => parseLoadout(m.character, m.talents) === null)) return fail('TALENTS_REQUIRED');
     }
 
-    const collected = this.collectEntries(room, module);
-    if (collected) return fail(collected);
-
-    room.gameSeq += 1;
+    // Create first (pure, no side effects): an engine that rejects the table
+    // (e.g. truco with 3 players) must not leave anyone charged.
     const created = module.create(
       room.members.map((m) => ({
         id: m.id,
@@ -610,6 +610,11 @@ export class RoomManager {
       randomInt(2 ** 31),
     );
     if (!created.ok) return fail(created.error);
+
+    const collected = this.collectEntries(room, module);
+    if (collected) return fail(collected);
+
+    room.gameSeq += 1;
     room.game = created.state;
     room.status = 'playing';
     room.settled = false;
@@ -1162,6 +1167,9 @@ export class RoomManager {
     };
     // The only game data that leaves the server: filtered per player.
     const game = room.game && module ? module.viewFor(room.game, memberId) : null;
+    if (room.gameType === 'truco') {
+      return { ...base, gameType: 'truco', settings: room.settings as unknown as TrucoSettings, game: game as TrucoView | null };
+    }
     if (room.gameType === 'poker') {
       return { ...base, gameType: 'poker', settings: room.settings as unknown as PokerSettings, game: game as PokerView | null };
     }

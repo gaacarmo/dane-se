@@ -1,6 +1,5 @@
 import { type FormEvent, useState } from 'react';
 import { actions, notify, useClient } from '../../lib/store';
-import { Button } from '../ui/Button';
 
 /** Moving your profile (wallet, friends, ranking) to another device. */
 export function RecoveryPanel() {
@@ -32,39 +31,46 @@ export function RecoveryPanel() {
   }
 
   return (
-    <details className="hub-panel group p-4">
-      <summary className="cursor-pointer list-none text-sm font-semibold text-stone-300 select-none">
-        🔑 Usar este perfil em outro aparelho
+    <details className="glass group overflow-hidden">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-3 px-4 select-none">
+        <span className="flex-1 text-[17px]">Usar este perfil em outro aparelho</span>
+        <svg viewBox="0 0 24 24" className="size-4 text-ios-label-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="m9 5 7 7-7 7" />
+        </svg>
       </summary>
-      <div className="mt-3 space-y-3 text-sm">
-        <p className="text-stone-400">
-          Seu código de recuperação abre esta carteira, seus amigos e seu ranking em qualquer aparelho. Ele funciona
-          como uma senha: não passe pra ninguém.
+      <div className="space-y-3 border-t border-ios-separator px-4 py-3">
+        <p className="text-[15px] leading-snug text-ios-label-2">
+          O código de recuperação abre sua carteira, seus amigos e seu ranking em qualquer aparelho. Ele funciona como uma
+          senha: não passe pra ninguém.
         </p>
         {mine && (
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-lg bg-black/40 px-2 py-2 font-mono text-xs text-stone-200">
+            <code className="min-w-0 flex-1 truncate rounded-xl bg-ios-fill px-3 py-2.5 text-[13px] text-ios-label">
               {show ? mine : '••••••••-••••-••••-••••-••••••••••••'}
             </code>
-            <Button variant="ghost" className="min-h-9 px-2 py-1 text-xs" onClick={() => setShow((v) => !v)}>
+            <button type="button" className="min-h-9 px-1 text-[15px] text-ios-blue" onClick={() => setShow((v) => !v)}>
               {show ? 'Esconder' : 'Mostrar'}
-            </Button>
-            <Button variant="secondary" className="min-h-9 px-3 py-1 text-xs" onClick={copy}>
+            </button>
+            <button type="button" className="min-h-9 px-1 text-[15px] font-semibold text-ios-blue" onClick={copy}>
               Copiar
-            </Button>
+            </button>
           </div>
         )}
-        <form onSubmit={recover} className="flex gap-2">
+        <form onSubmit={recover} className="flex items-center gap-2">
           <input
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Colar código de outro aparelho"
             aria-label="Código de recuperação"
-            className="min-h-10 min-w-0 flex-1 rounded-xl bg-black/40 px-3 text-sm text-white ring-1 ring-white/15 placeholder:text-stone-500 focus:ring-gold-400 focus:outline-none"
+            className="min-h-11 min-w-0 flex-1 rounded-xl bg-ios-fill px-3 text-[15px] text-ios-label placeholder:text-ios-label-3 focus:outline-none"
           />
-          <Button type="submit" variant="secondary" disabled={!code.trim() || busy || !!room} className="px-3 text-sm">
+          <button
+            type="submit"
+            disabled={!code.trim() || busy || !!room}
+            className="min-h-9 rounded-full bg-ios-blue px-4 text-[15px] font-semibold text-white disabled:bg-ios-fill-strong disabled:text-ios-label-3"
+          >
             Entrar
-          </Button>
+          </button>
         </form>
       </div>
     </details>

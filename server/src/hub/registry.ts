@@ -1,4 +1,4 @@
-import { daneseModule, pokerModule, type GameModule, type GameType } from '@dane-se/shared';
+import { daneseModule, pokerModule, trucoModule, type GameModule, type GameType } from '@dane-se/shared';
 
 /**
  * The engine contract as seen by the room layer. The concrete module keeps its
@@ -10,6 +10,7 @@ const modules = new Map<GameType, AnyGameModule>();
 
 modules.set('danese', daneseModule as unknown as AnyGameModule);
 modules.set('poker', pokerModule as unknown as AnyGameModule);
+modules.set('truco', trucoModule as unknown as AnyGameModule);
 
 export function gameModule(id: GameType): AnyGameModule | undefined {
   return modules.get(id);

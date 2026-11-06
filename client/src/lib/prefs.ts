@@ -4,6 +4,9 @@ import { webglSupported } from './webgl';
 /** Per-device preferences (not shared with the room). */
 export type TableTheme = 'green' | 'wine' | 'blue';
 
+/** Hub appearance: follow the device (auto) or force light/dark. */
+export type Appearance = 'auto' | 'light' | 'dark';
+
 export interface Prefs {
   muted: boolean;
   haptics: boolean;
@@ -16,6 +19,7 @@ export interface Prefs {
   csSensitivity: number;
   /** Sensibilidade do dedo no modo CS, em radianos por pixel. */
   csTouchSensitivity: number;
+  appearance: Appearance;
 }
 
 const KEY = 'dane-se:prefs';
@@ -30,7 +34,7 @@ export function recommendedView3d(): boolean {
   }
 }
 
-const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: recommendedView3d(), arcadeIntroHidden: false, csSensitivity: 0.0016, csTouchSensitivity: 0.0029 };
+const DEFAULTS: Prefs = { muted: false, haptics: true, theme: 'green', view3d: recommendedView3d(), arcadeIntroHidden: false, csSensitivity: 0.0016, csTouchSensitivity: 0.0029, appearance: 'auto' };
 
 function load(): Prefs {
   try {
@@ -43,6 +47,13 @@ function load(): Prefs {
 let prefs = load();
 const listeners = new Set<() => void>();
 applyTheme(prefs.theme);
+applyAppearance(prefs.appearance);
+
+/** `auto` leaves the attribute off so the CSS follows `prefers-color-scheme`. */
+function applyAppearance(appearance: Appearance): void {
+  if (appearance === 'auto') delete document.documentElement.dataset.appearance;
+  else document.documentElement.dataset.appearance = appearance;
+}
 
 function applyTheme(theme: TableTheme): void {
   document.documentElement.dataset.table = theme;
@@ -60,6 +71,7 @@ export function setPref<K extends keyof Prefs>(key: K, value: Prefs[K]): void {
     // Storage disabled: the preference lasts until the page is closed.
   }
   if (key === 'theme') applyTheme(value as TableTheme);
+  if (key === 'appearance') applyAppearance(value as Appearance);
   for (const l of listeners) l();
 }
 

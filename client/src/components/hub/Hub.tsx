@@ -1,69 +1,59 @@
-import { motion } from 'framer-motion';
-import { Fragment, type FormEvent, type ReactNode, useState } from 'react';
-import {
-  GAME_CATALOG,
-  MAX_NAME_LENGTH,
-  ROOM_CODE_LENGTH,
-  formatMoney,
-  type GameCatalogEntry,
-  type GameType,
-} from '@dane-se/shared';
-import { setPref, usePrefs } from '../../lib/prefs';
-import { csMode } from '../../lib/csMode';
+import { AnimatePresence, motion } from 'framer-motion';
+import { type FormEvent, useState } from 'react';
+import { MAX_NAME_LENGTH, formatMoney } from '@dane-se/shared';
+import { type Appearance, setPref, usePrefs } from '../../lib/prefs';
 import { actions, codeFromUrl, useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
-import { CardFan } from '../cards/CardFan';
-import { Button } from '../ui/Button';
-import { CsCard } from './CsCard';
-import { GameCard } from './GameCard';
 import { FriendsPanel } from './FriendsPanel';
+import { GameList } from './GameList';
+import { AppIcon, CircleButton, PrimaryButton, SectionHeader, Segmented, Symbols, TabBar } from './IosKit';
 import { RankingPanel } from './RankingPanel';
 import { RecoveryPanel } from './RecoveryPanel';
 import { WalletHeader } from './WalletHeader';
 
-const VIEW_MODES = [
-  {
-    realistic: false,
-    icon: '📱',
-    title: 'Mobile',
-    text: 'A mesa vista de cima. Leve e ideal pro celular, mas também dá pra jogar no computador.',
-  },
-  {
-    realistic: true,
-    icon: '🖥️',
-    title: 'Desktop',
-    text: 'Em primeira pessoa: você sentado à mesa com os outros jogadores.',
-  },
-] as const;
-
-/** Small all-caps section marker with a gold rule that fades out. */
 type HubTab = 'play' | 'friends' | 'ranking' | 'settings';
 
-const TABS: { id: HubTab; label: string }[] = [
-  { id: 'play', label: 'Jogar' },
-  { id: 'friends', label: 'Amigos' },
-  { id: 'ranking', label: 'Ranking' },
-  { id: 'settings', label: 'Ajustes' },
+const TABS: { id: HubTab; label: string; title: string; icon: React.ReactNode }[] = [
+  { id: 'play', label: 'Jogar', title: 'Jogar', icon: Symbols.play },
+  { id: 'friends', label: 'Amigos', title: 'Amigos', icon: Symbols.friends },
+  { id: 'ranking', label: 'Ranking', title: 'Ranking', icon: Symbols.trophy },
+  { id: 'settings', label: 'Ajustes', title: 'Ajustes', icon: Symbols.gear },
 ];
 
-function SectionLabel({ children }: { children: ReactNode }) {
+const VIEW_MODES = [
+  { realistic: false, title: 'Vista de cima', text: 'Leve, ideal pro celular.' },
+  { realistic: true, title: 'Primeira pessoa', text: 'Você sentado à mesa, em 3D.' },
+] as const;
+
+const APPEARANCES: Record<Appearance, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
+
+/** Claro, escuro ou seguindo o aparelho, como em Ajustes > Tela e Brilho. */
+function AppearancePicker() {
+  const { appearance } = usePrefs();
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-[11px] font-semibold tracking-[0.18em] text-stone-400 uppercase">{children}</span>
-      <span aria-hidden className="h-px flex-1 bg-gradient-to-r from-gold-500/30 to-transparent" />
-    </div>
+    <section>
+      <SectionHeader>Aparência</SectionHeader>
+      <Segmented
+        label="Aparência"
+        options={['auto', 'light', 'dark'] as const}
+        value={appearance}
+        onChange={(v) => setPref('appearance', v)}
+        format={(v) => APPEARANCES[v]}
+        layoutId="appearance"
+      />
+      <p className="mt-2 px-4 text-[13px] text-ios-label-2">No automático, o app segue o modo claro ou escuro do aparelho.</p>
+    </section>
   );
 }
 
-/** Chosen before creating or joining a room; remembered on this device. */
+/** Como ver a mesa: uma lista com marca de seleção, como no app Ajustes. */
 function ViewModePicker() {
-  const { view3d: wantsView3d } = usePrefs();
-  const view3d = wantsView3d;
+  const { view3d } = usePrefs();
   return (
-    <div className="hub-panel space-y-3 p-4">
-      <h2 className="text-[11px] font-semibold tracking-[0.16em] text-stone-400 uppercase">Modo de jogo</h2>
-      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Modo de jogo">
-        {VIEW_MODES.map((m) => {
+    <section>
+      <SectionHeader>Como ver a mesa</SectionHeader>
+      <div role="radiogroup" aria-label="Como ver a mesa" className="glass overflow-hidden">
+        {VIEW_MODES.map((m, i) => {
           const selected = view3d === m.realistic;
           return (
             <button
@@ -72,351 +62,169 @@ function ViewModePicker() {
               role="radio"
               aria-checked={selected}
               onClick={() => setPref('view3d', m.realistic)}
-              className={`flex flex-col items-start gap-1 rounded-2xl p-3 text-left ring-2 transition ${
-                selected ? 'bg-felt-700 ring-gold-400' : 'bg-black/30 ring-white/10 hover:ring-white/30'
+              className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-ios-fill ${
+                i > 0 ? 'border-t border-ios-separator' : ''
               }`}
             >
-              <span className="flex w-full items-center justify-between text-sm font-bold text-white">
-                <span>
-                  {m.icon} {m.title}
+              <span className="min-w-0 flex-1">
+                <span className="block text-[17px]">{m.title}</span>
+                <span className="block text-[13px] text-ios-label-2">
+                  {m.realistic && !webglSupported ? 'Seu navegador está sem 3D. Dá pra tentar; se falhar, volta pra vista de cima.' : m.text}
                 </span>
-                {selected && <span className="text-gold-300">✓</span>}
               </span>
-              <span className="text-xs leading-snug text-stone-300">
-                {m.realistic && !webglSupported
-                  ? 'Seu navegador diz que não tem gráficos 3D ativados. Dá pra tentar mesmo assim; se não abrir, o jogo volta pro Mobile.'
-                  : m.text}
-              </span>
+              {selected && (
+                <svg viewBox="0 0 24 24" className="size-5 shrink-0 text-ios-blue" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="m5 12.5 4.5 4.5L19 7.5" />
+                </svg>
+              )}
             </button>
           );
         })}
       </div>
-      {!webglSupported && (
-        <p className="rounded-lg bg-black/30 p-2 text-xs leading-snug text-stone-300">
-          Pra funcionar melhor no Chrome: abra <strong className="text-stone-100">chrome://settings/system</strong>,
-          ligue <strong className="text-stone-100">&ldquo;Usar aceleração gráfica quando disponível&rdquo;</strong>,
-          reinicie o Chrome e recarregue esta página. Pra conferir,{' '}
-          <strong className="text-stone-100">chrome://gpu</strong> deve mostrar &ldquo;WebGL2: Hardware
-          accelerated&rdquo;.
-        </p>
-      )}
-      <p className="text-xs text-stone-500">Vale para as mesas do Dane-se e do Poker.</p>
-    </div>
+      <p className="mt-2 px-4 text-[13px] text-ios-label-2">
+        Vale pro Dane-se e pro poker. O truco, por enquanto, só tem a vista de cima.
+        {!webglSupported && ' No Chrome, ligue "Usar aceleração gráfica" em chrome://settings/system e recarregue.'}
+      </p>
+    </section>
   );
 }
 
-/** Creates a new wallet: the very first thing a visitor sees. */
+/** Primeira visita: como uma tela de boas-vindas do iOS. */
 function NicknameGate() {
   const { connection } = useClient();
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const trimmed = name.trim();
+  const online = connection === 'connected';
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!trimmed || connection !== 'connected') return;
+    if (!trimmed || !online) return;
     setBusy(true);
     await actions.hello(trimmed);
     setBusy(false);
   }
 
   return (
-    <form onSubmit={submit} className="hub-panel w-full max-w-sm space-y-4 p-5">
-      <div className="text-center">
-        <p className="text-[11px] font-semibold tracking-[0.18em] text-stone-400 uppercase">Nova carteira</p>
-        <p className="mt-1 text-sm text-stone-300">Escolha um apelido pra começar a jogar.</p>
+    <form onSubmit={submit} className="relative z-10 flex w-full max-w-sm flex-col items-center text-center">
+      <div className="flex -space-x-3">
+        <span className="-rotate-12">
+          <AppIcon id="truco" size={64} />
+        </span>
+        <span className="z-10 -translate-y-2">
+          <AppIcon id="danese" size={80} />
+        </span>
+        <span className="rotate-12">
+          <AppIcon id="poker" size={64} />
+        </span>
       </div>
-      <label className="block">
-        <span className="mb-1 block text-sm text-stone-300">Seu apelido</span>
+      <h1 className="mt-6 text-[34px] leading-tight font-bold tracking-tight">Boas-vindas ao Dane-se</h1>
+      <p className="mt-2 text-[17px] leading-snug text-ios-label-2">
+        Dane-se, truco e poker com a galera. Você começa com {formatMoney(10_000)} de mentirinha.
+      </p>
+      <label className="glass mt-8 block w-full px-4 py-1 text-left">
+        <span className="sr-only">Seu apelido</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={MAX_NAME_LENGTH}
           autoComplete="nickname"
           autoFocus
-          placeholder="Ex.: Zé da Manilha"
-          className="min-h-12 w-full rounded-xl bg-black/40 px-4 text-lg text-white ring-1 ring-white/15 placeholder:text-stone-500 focus:ring-gold-400 focus:outline-none"
+          placeholder="Seu apelido"
+          className="min-h-12 w-full bg-transparent text-[17px] placeholder:text-ios-label-3 focus:outline-none"
         />
       </label>
-      <Button type="submit" disabled={busy || trimmed.length === 0 || connection !== 'connected'} className="w-full text-lg">
-        {connection !== 'connected' ? 'Conectando…' : busy ? 'Aguarde…' : 'Começar'}
-      </Button>
-      <p className="text-center text-xs text-stone-400">
-        Você começa com {formatMoney(10_000)} de saldo — tudo fictício, é só pra jogar.
-      </p>
+      <PrimaryButton type="submit" className="mt-4" disabled={busy || trimmed.length === 0 || !online}>
+        {!online ? 'Conectando…' : busy ? 'Entrando…' : 'Continuar'}
+      </PrimaryButton>
     </form>
   );
 }
 
-/** Inline create form for the chosen game, rendered right under its card. */
-function CreatePanel({
-  game,
-  entry,
-  setEntry,
-  arcade,
-  setArcade,
-  balance,
-  busy,
-  onCreate,
-}: {
-  game: GameCatalogEntry;
-  entry: number;
-  setEntry: (value: number) => void;
-  arcade: boolean;
-  setArcade: (value: boolean) => void;
-  balance: number;
-  busy: boolean;
-  onCreate: () => void;
-}) {
-  const poker = game.id === 'poker';
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: 'circOut' }}
-      className="hub-panel space-y-3 p-4"
-    >
-      <div>
-        <h2 className="text-sm font-semibold text-white">Abrir mesa de {game.name}</h2>
-        <p className="mt-0.5 text-sm text-stone-400">
-          {poker
-            ? 'Você define a banca inicial; as apostas cegas saem dela. No lobby dá pra ajustar a banca mínima.'
-            : 'Você escolhe a entrada; todo mundo paga a mesma para entrar no pote.'}
-        </p>
-      </div>
-
-      <div>
-        <p className="mb-1.5 text-xs font-medium text-stone-400">{poker ? 'Banca inicial (buy-in)' : 'Entrada'}</p>
-        <div className="grid grid-cols-4 gap-1.5">
-          {game.entryOptions.map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={entry === v}
-              onClick={() => setEntry(v)}
-              className={`min-h-11 rounded-xl text-sm font-bold ring-1 transition ${
-                entry === v ? 'bg-gold-400 text-wood-900 ring-gold-300' : 'bg-black/30 text-stone-300 ring-white/10 hover:ring-white/25'
-              }`}
-            >
-              {formatMoney(v)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <p className="text-xs text-stone-400">
-        Saldo: <span className="font-semibold text-stone-200 tabular-nums">{formatMoney(balance)}</span> · precisa de pelo menos{' '}
-        {formatMoney(game.minEntry)}.
-      </p>
-
-      {game.id === 'danese' && (
-        <button
-          type="button"
-          role="switch"
-          aria-checked={arcade}
-          onClick={() => setArcade(!arcade)}
-          className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left ring-1 transition ${
-            arcade ? 'bg-fuchsia-500/15 ring-fuchsia-400/50' : 'bg-black/25 ring-white/10 hover:ring-white/25'
-          }`}
-        >
-          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-xl bg-black/30 text-lg">
-            ⚡
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold text-white">Modo arcade</span>
-            <span className="block text-xs text-stone-300">
-              Kit por personagem + um talento comum. Cada um monta o seu no lobby.
-            </span>
-          </span>
-          <span
-            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
-              arcade ? 'bg-fuchsia-500/25 text-fuchsia-200' : 'bg-white/10 text-stone-400'
-            }`}
-          >
-            {arcade ? 'ligado' : 'desligado'}
-          </span>
-        </button>
-      )}
-
-      <Button className="w-full" disabled={busy || balance < entry} onClick={onCreate}>
-        {busy ? 'Abrindo…' : `Criar sala de ${game.name}`}
-      </Button>
-    </motion.section>
-  );
-}
-
-/** The game hub: wallet on top, catalog below, create or join a room. */
+/** O hub: título grande, conteúdo em vidro e a barra de abas flutuante. */
 export function Hub({ onHelp }: { onHelp: () => void }) {
-  const { connection, profile, social } = useClient();
+  const { profile, social } = useClient();
   const linkCode = codeFromUrl();
-  const [selected, setSelected] = useState<GameType | null>(null);
-  const [entry, setEntry] = useState(0);
   const [tab, setTab] = useState<HubTab>('play');
-  const [code, setCode] = useState(linkCode ?? '');
-  const [joinOpen, setJoinOpen] = useState(Boolean(linkCode));
-  const [busy, setBusy] = useState(false);
-  const [arcade, setArcade] = useState(false);
+  const current = TABS.find((t) => t.id === tab)!;
 
   if (!profile) {
     return (
-      <main className="room-bg flex min-h-full flex-col items-center justify-center gap-6 px-4 py-10">
-        <CardFan />
-        <header className="max-w-xs text-center">
-          <h1 className="font-display text-5xl font-bold tracking-wide gold-text drop-shadow sm:text-6xl">Dane-se</h1>
-          <p className="mt-2 text-stone-300">Uma carteira só para Dane-se e poker — jogue com a galera.</p>
-        </header>
+      <main className="ios-hub flex min-h-full items-center justify-center px-6 py-12">
+        <div className="ios-wallpaper" aria-hidden />
         <NicknameGate />
       </main>
     );
   }
 
-  async function create(game: GameCatalogEntry) {
-    setBusy(true);
-    await actions.createRoom({ gameType: game.id, settings: { entry }, arcade });
-    setBusy(false);
-  }
-
-  async function join(e: FormEvent) {
-    e.preventDefault();
-    if (code.trim().length !== ROOM_CODE_LENGTH || busy) return;
-    setBusy(true);
-    await actions.joinRoom(code);
-    setBusy(false);
-  }
-
-  const canJoin = connection === 'connected' && code.trim().length === ROOM_CODE_LENGTH;
+  const play = (
+    <div className="space-y-7">
+      <WalletHeader profile={profile} />
+      <GameList balance={profile.balance} initialCode={linkCode ?? ''} />
+    </div>
+  );
+  const ranking = social && (
+    <section>
+      <SectionHeader>Você e seus amigos</SectionHeader>
+      <RankingPanel social={social} />
+    </section>
+  );
+  const friends = social && <FriendsPanel social={social} />;
+  const settings = (
+    <div className="space-y-7">
+      <AppearancePicker />
+      <ViewModePicker />
+      <section>
+        <SectionHeader>Sua conta</SectionHeader>
+        <RecoveryPanel />
+      </section>
+    </div>
+  );
 
   return (
-    <main className="room-bg flex min-h-full flex-col items-center px-4 py-7">
-      <div className="w-full max-w-md lg:grid lg:max-w-6xl lg:grid-cols-[17rem_minmax(0,1fr)_21rem] lg:items-start lg:gap-6">
-        <div className="space-y-6 lg:order-2">
-          <header className="hub-panel relative overflow-hidden px-4 py-5">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -top-16 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full bg-gold-400/10 blur-3xl"
-            />
-            <Button
-              variant="ghost"
-              onClick={onHelp}
-              className="absolute top-3 right-3 z-10 shrink-0 px-3 py-2 text-sm"
-            >
-              📖 Regras
-            </Button>
-            <div className="relative flex flex-col items-center text-center">
-              <CardFan size="sm" />
-              <h1 className="mt-1 font-display text-4xl font-bold tracking-wide gold-text drop-shadow">Dane-se</h1>
-              <p className="mt-1 text-sm text-stone-300">Escolha uma mesa e boa sorte.</p>
-            </div>
+    <main className="ios-hub relative min-h-full">
+      <div className="ios-wallpaper" aria-hidden />
+
+      {/* Celular: uma aba por vez, com título grande. */}
+      <div className="relative z-10 mx-auto w-full max-w-md px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-32 lg:hidden">
+        <header className="mb-5 flex items-end justify-between gap-3 pt-6">
+          <h1 className="text-[34px] leading-none font-bold tracking-tight">{current.title}</h1>
+          <CircleButton label="Regras" onClick={onHelp}>
+            {Symbols.question}
+          </CircleButton>
+        </header>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            {tab === 'play' && play}
+            {tab === 'friends' && friends}
+            {tab === 'ranking' && ranking}
+            {tab === 'settings' && settings}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      <TabBar tabs={TABS} value={tab} onChange={setTab} />
+
+      {/* Computador: tudo à vista, como um app de iPad em paisagem. */}
+      <div className="relative z-10 mx-auto hidden max-w-6xl grid-cols-[18rem_minmax(0,1fr)_20rem] items-start gap-8 px-8 py-10 lg:grid">
+        <aside className="space-y-7">{ranking}</aside>
+        <div>
+          <header className="mb-5 flex items-end justify-between gap-3">
+            <h1 className="text-[34px] leading-none font-bold tracking-tight">Jogar</h1>
+            <CircleButton label="Regras" onClick={onHelp}>
+              {Symbols.question}
+            </CircleButton>
           </header>
-
-
-          <WalletHeader profile={profile} />
-
-          <div role="tablist" aria-label="Seções" className="flex gap-1 rounded-xl bg-black/30 p-1 lg:hidden">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === t.id}
-                onClick={() => setTab(t.id)}
-                className={`min-h-10 flex-1 rounded-lg px-2 text-sm font-semibold transition ${
-                  tab === t.id ? 'bg-gold-500/90 text-stone-950' : 'text-stone-300 hover:bg-white/10'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <div className={`space-y-6 ${tab === 'play' ? '' : 'hidden'} lg:block`}>
-          <section className="space-y-3">
-            <SectionLabel>Escolha o jogo</SectionLabel>
-            {GAME_CATALOG.map((game, i) => (
-              <Fragment key={game.id}>
-                <motion.div
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.04 * i, duration: 0.35, ease: 'circOut' }}
-                >
-                  <GameCard
-                    game={game}
-                    selected={selected === game.id}
-                    onSelect={() => {
-                      setSelected(selected === game.id ? null : game.id);
-                      setEntry(game.defaultEntry);
-                    }}
-                  />
-                </motion.div>
-                {selected === game.id && (
-                  <CreatePanel
-                    game={game}
-                    entry={entry}
-                    setEntry={setEntry}
-                    arcade={arcade}
-                    setArcade={setArcade}
-                    balance={profile.balance}
-                    busy={busy}
-                    onCreate={() => void create(game)}
-                  />
-                )}
-              </Fragment>
-            ))}
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.04 * GAME_CATALOG.length, duration: 0.35, ease: 'circOut' }}
-            >
-              <CsCard onTrain={csMode.open} />
-            </motion.div>
-          </section>
-
-
-          <form onSubmit={join} className="hub-panel space-y-2.5 p-4">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-sm font-semibold text-stone-200">Entrar com código</h2>
-              <span className="text-[11px] text-stone-500">4 letras</span>
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/[^a-z]/gi, '').toUpperCase())}
-                maxLength={ROOM_CODE_LENGTH}
-                autoCapitalize="characters"
-                autoComplete="off"
-                placeholder="ABCD"
-                aria-label="Código da sala"
-                className="min-h-12 min-w-0 flex-1 rounded-xl bg-black/40 px-3 text-center font-mono text-2xl tracking-[0.5em] text-white uppercase ring-1 ring-white/15 placeholder:text-stone-600 focus:ring-gold-400 focus:outline-none"
-              />
-              <Button type="submit" disabled={!canJoin || busy} className="px-4">
-                Entrar
-              </Button>
-            </div>
-            {!joinOpen && <p className="text-xs text-stone-500">Recebeu um código? Digite aqui (ex.: ABCD).</p>}
-          </form>
-
-
-          </div>
+          {play}
         </div>
-
-        {social && (
-          <aside className={`mt-6 space-y-3 ${tab === 'ranking' ? '' : 'hidden'} lg:order-1 lg:mt-0 lg:block`}>
-            <SectionLabel>Ranking entre amigos</SectionLabel>
-            <RankingPanel social={social} />
-          </aside>
-        )}
-
-        <aside className={`mt-6 space-y-6 ${tab === 'friends' || tab === 'settings' ? '' : 'hidden'} lg:order-3 lg:mt-0 lg:block`}>
-          {social && (
-            <section className={`space-y-3 ${tab === 'friends' ? '' : 'hidden'} lg:block`}>
-              <SectionLabel>Amigos</SectionLabel>
-              <FriendsPanel social={social} />
-            </section>
-          )}
-          <div className={`space-y-6 ${tab === 'settings' ? '' : 'hidden'} lg:block`}>
-            <ViewModePicker />
-            <RecoveryPanel />
-          </div>
+        <aside className="space-y-7">
+          {friends}
+          {settings}
         </aside>
       </div>
     </main>
