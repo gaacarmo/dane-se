@@ -73,6 +73,11 @@ export function chooseTrucoAction(view: TrucoView, playerId: string, rng: number
   const cards = view.hand.flatMap((h) => (h.card ? [h.card] : []));
   const partner = view.partnerHand?.cards ?? [];
 
+  // Regra da casa: 3 palhaços sem nenhuma manilha no meio é mão fraca; troca.
+  if (view.legal.canSwap && !cards.some((c) => c.rank === view.manilha)) {
+    return { action: { type: 'swap', playerId }, rng: roll.state };
+  }
+
   if (view.phase === 'maoDeOnze') {
     const team = Math.max(handScore(cards, view.manilha), handScore(partner, view.manilha));
     const play = team > 0.42 || luck < 0.15;

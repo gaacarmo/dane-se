@@ -186,14 +186,17 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
         (hidden ? (
           <HiddenHand game={game} />
         ) : (
-          <Hand
-            cards={handCards}
-            manilhaRank={game.manilha}
-            canPlay={game.legal.canPlay}
-            dimmed={!game.legal.canPlay}
-            onPlay={(id) => actions.play(id)}
-            dealDelays={[]}
-          />
+          <div className="relative">
+            <Hand
+              cards={handCards}
+              manilhaRank={game.manilha}
+              canPlay={game.legal.canPlay}
+              dimmed={!game.legal.canPlay}
+              onPlay={(id) => actions.play(id)}
+              dealDelays={[]}
+            />
+            {game.legal.canSwap && <SwapButton key={handCards.map((c) => `${c.rank}${c.suit}`).join(',')} />}
+          </div>
         ))}
 
       <LeaveDialog open={confirmLeave} onClose={() => setConfirmLeave(false)} message="Um bot vai jogar no seu lugar. Você pode voltar pelo mesmo link enquanto a partida durar." />
@@ -367,6 +370,11 @@ function TrucoSeat({
         {isYou ? 'Você' : seat.name}
         {seat.isDealer && <span className="ml-1 text-gold-300">· pé</span>}
       </span>
+      {seat.swapped && (
+        <span className="rounded-full bg-fuchsia-500/25 px-2 py-0.5 text-[10px] font-bold text-fuchsia-100 ring-1 ring-fuchsia-300/40">
+          🤡 trocou
+        </span>
+      )}
     </div>
   );
 }
@@ -624,3 +632,30 @@ function TrucoGameOver({ room }: { room: TrucoRoomView }) {
   );
 }
 
+
+/** Regra da casa: com 3 palhaços (Q, J, K) na mão, aparece do lado das cartas pra trocar as 3. */
+function SwapButton() {
+  const [busy, setBusy] = useState(false);
+  return (
+    <motion.button
+      type="button"
+      initial={{ scale: 0.6, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      whileTap={{ scale: 0.92 }}
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        await actions.action('swap');
+        setBusy(false);
+      }}
+      className="absolute top-1/2 right-[max(0.5rem,calc(50%-var(--card-w)*1.3-5.5rem))] z-30 flex -translate-y-1/2 flex-col items-center gap-0.5 rounded-2xl bg-gradient-to-b from-fuchsia-500 to-purple-700 px-3 py-2 text-white shadow-[0_10px_24px_-8px_rgb(168_85_247/0.9)] ring-2 ring-fuchsia-200/50 disabled:opacity-60"
+      aria-label="Trocar os 3 palhaços por cartas novas"
+    >
+      <span className="text-2xl leading-none">🤡</span>
+      <span className="text-[11px] leading-tight font-bold">
+        Trocar
+        <br />3 palhaços
+      </span>
+    </motion.button>
+  );
+}
