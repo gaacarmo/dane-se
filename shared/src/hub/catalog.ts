@@ -56,6 +56,18 @@ export const GAME_CATALOG: readonly GameCatalogEntry[] = [
     icon: '🂡',
     available: true,
   },
+  {
+    id: 'duvido',
+    name: 'Duvido',
+    description: 'Jogue cartas viradas dizendo que são do valor da mesa. Quem é pego mentindo tira uma bala do pote: uma é apimentada.',
+    minPlayers: 2,
+    maxPlayers: 6,
+    minEntry: 100,
+    defaultEntry: 100,
+    entryOptions: [100, 250, 500, 1000],
+    icon: '🌶️',
+    available: true,
+  },
 ];
 
 export function catalogEntry(id: GameType): GameCatalogEntry {

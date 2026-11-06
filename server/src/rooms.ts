@@ -18,6 +18,8 @@ import {
   type PokerView,
   type TrucoSettings,
   type TrucoView,
+  type DuvidoSettings,
+  type DuvidoView,
   type ProfileView,
   type RoomClosedReason,
   type RoomStatus,
@@ -1208,6 +1210,9 @@ export class RoomManager {
     };
     // The only game data that leaves the server: filtered per player.
     const game = room.game && module ? module.viewFor(room.game, memberId) : null;
+    if (room.gameType === 'duvido') {
+      return { ...base, gameType: 'duvido', settings: room.settings as unknown as DuvidoSettings, game: game as DuvidoView | null };
+    }
     if (room.gameType === 'truco') {
       return { ...base, gameType: 'truco', settings: room.settings as unknown as TrucoSettings, game: game as TrucoView | null };
     }

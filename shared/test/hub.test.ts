@@ -107,7 +107,7 @@ describe('GAME_CATALOG', () => {
   const poker = GAME_CATALOG.find((g) => g.id === 'poker')!;
 
   it('lists the three games and marks poker and truco as live', () => {
-    expect(GAME_CATALOG.map((g) => g.id)).toEqual(['danese', 'poker', 'truco']);
+    expect(GAME_CATALOG.map((g) => g.id)).toEqual(['danese', 'poker', 'truco', 'duvido']);
     expect(poker.available).toBe(true);
     const truco = catalogEntry('truco');
     expect(truco.available).toBe(true);

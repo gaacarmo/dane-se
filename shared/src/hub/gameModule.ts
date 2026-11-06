@@ -3,7 +3,7 @@ import type { Money } from './money.js';
 import type { Entry, Payout } from './payout.js';
 
 /** Registry id of a game. Rooms carry one of these. */
-export type GameType = 'danese' | 'poker' | 'truco';
+export type GameType = 'danese' | 'poker' | 'truco' | 'duvido';
 
 /** A seat as seen by the engine (no wallet, no socket). */
 export interface GamePlayer {

@@ -9,6 +9,7 @@ export type HubGameId = GameType | 'cs';
 const ICONS: Record<HubGameId, { glyph: string; bg: string }> = {
   danese: { glyph: '🃏', bg: 'linear-gradient(160deg, #34d399 0%, #15803d 55%, #064e3b 100%)' },
   truco: { glyph: '🂡', bg: 'linear-gradient(160deg, #ff8a7a 0%, #e11d48 50%, #7f1d1d 100%)' },
+  duvido: { glyph: '🌶️', bg: 'linear-gradient(160deg, #ffd27a 0%, #f97316 50%, #9a3412 100%)' },
   poker: { glyph: '♠️', bg: 'linear-gradient(160deg, #fafaf9 0%, #d6d3d1 55%, #a8a29e 100%)' },
   cs: { glyph: '🎯', bg: 'linear-gradient(160deg, #7dd3fc 0%, #2563eb 55%, #1e1b4b 100%)' },
 };
