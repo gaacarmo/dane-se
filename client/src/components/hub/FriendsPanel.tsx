@@ -56,7 +56,7 @@ export function FriendsPanel({ social }: { social: SocialView }) {
           <button
             type="submit"
             disabled={code.length !== FRIEND_CODE_LENGTH || busy}
-            className="min-h-9 rounded-full bg-ios-blue px-4 text-[15px] font-semibold text-white disabled:bg-white/12 disabled:text-ios-label-3"
+            className="min-h-9 rounded-full bg-ios-blue px-4 text-[15px] font-semibold text-white disabled:bg-ios-fill-strong disabled:text-ios-label-3"
           >
             Adicionar
           </button>
@@ -107,7 +107,7 @@ export function FriendsPanel({ social }: { social: SocialView }) {
                 >
                   {initial(f.nickname)}
                   <span
-                    className={`absolute -right-0.5 -bottom-0.5 size-3.5 rounded-full ring-[2.5px] ring-[#1c1c1e] ${f.online ? 'bg-ios-green' : 'bg-white/30'}`}
+                    className={`absolute -right-0.5 -bottom-0.5 size-3.5 rounded-full ring-[2.5px] ring-ios-elevated ${f.online ? 'bg-ios-green' : 'bg-ios-label-3'}`}
                     aria-label={f.online ? 'online' : 'offline'}
                   />
                 </span>

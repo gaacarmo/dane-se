@@ -45,7 +45,7 @@ export function RecoveryPanel() {
         </p>
         {mine && (
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-xl bg-white/8 px-3 py-2.5 text-[13px] text-white">
+            <code className="min-w-0 flex-1 truncate rounded-xl bg-ios-fill px-3 py-2.5 text-[13px] text-ios-label">
               {show ? mine : '••••••••-••••-••••-••••-••••••••••••'}
             </code>
             <button type="button" className="min-h-9 px-1 text-[15px] text-ios-blue" onClick={() => setShow((v) => !v)}>
@@ -62,12 +62,12 @@ export function RecoveryPanel() {
             onChange={(e) => setCode(e.target.value)}
             placeholder="Colar código de outro aparelho"
             aria-label="Código de recuperação"
-            className="min-h-11 min-w-0 flex-1 rounded-xl bg-white/8 px-3 text-[15px] text-white placeholder:text-ios-label-3 focus:outline-none"
+            className="min-h-11 min-w-0 flex-1 rounded-xl bg-ios-fill px-3 text-[15px] text-ios-label placeholder:text-ios-label-3 focus:outline-none"
           />
           <button
             type="submit"
             disabled={!code.trim() || busy || !!room}
-            className="min-h-9 rounded-full bg-ios-blue px-4 text-[15px] font-semibold text-white disabled:bg-white/12 disabled:text-ios-label-3"
+            className="min-h-9 rounded-full bg-ios-blue px-4 text-[15px] font-semibold text-white disabled:bg-ios-fill-strong disabled:text-ios-label-3"
           >
             Entrar
           </button>

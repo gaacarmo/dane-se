@@ -45,7 +45,7 @@ export function WalletHeader({ profile }: { profile: ProfileView }) {
                 maxLength={MAX_NAME_LENGTH}
                 autoFocus
                 aria-label="Seu apelido"
-                className="min-h-10 min-w-0 flex-1 rounded-xl bg-white/10 px-3 text-[17px] text-white focus:outline-none"
+                className="min-h-10 min-w-0 flex-1 rounded-xl bg-ios-fill px-3 text-[17px] text-ios-label focus:outline-none"
               />
               <button type="submit" disabled={busy} className="min-h-10 px-1 text-[17px] font-semibold text-ios-blue disabled:opacity-50">
                 OK

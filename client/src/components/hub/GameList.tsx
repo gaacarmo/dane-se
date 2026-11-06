@@ -111,12 +111,12 @@ function GameSheetBody({ row, game, balance, onClose }: { row: Row; game: GameCa
               layoutId={`entry-${game.id}`}
             />
             <p className="px-1 text-[13px] text-ios-label-2">
-              Você tem <span className="font-semibold text-white tabular-nums">{formatMoney(balance)}</span>
+              Você tem <span className="font-semibold text-ios-label tabular-nums">{formatMoney(balance)}</span>
             </p>
           </div>
 
           {game.id === 'danese' && (
-            <div className="flex items-center gap-3 rounded-2xl bg-white/8 px-4 py-3">
+            <div className="flex items-center gap-3 rounded-2xl bg-ios-fill px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="text-[17px]">Modo arcade</p>
                 <p className="text-[13px] text-ios-label-2">Cada personagem ganha um poder e um talento.</p>
@@ -173,7 +173,7 @@ function JoinField({ initialCode }: { initialCode: string }) {
       <button
         type="submit"
         disabled={!ready || busy}
-        className="min-h-11 rounded-full bg-ios-blue px-5 text-[15px] font-semibold text-white transition active:scale-95 disabled:bg-white/12 disabled:text-ios-label-3"
+        className="min-h-11 rounded-full bg-ios-blue px-5 text-[15px] font-semibold text-white transition active:scale-95 disabled:bg-ios-fill-strong disabled:text-ios-label-3"
       >
         {busy ? 'Entrando…' : 'Entrar'}
       </button>
@@ -202,14 +202,14 @@ export function GameList({ balance, initialCode }: { balance: number; initialCod
                 <button
                   type="button"
                   onClick={() => setOpen(r.id)}
-                  className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors active:bg-white/8"
+                  className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors active:bg-ios-fill"
                 >
                   <AppIcon id={r.id} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="truncate text-[17px] font-semibold">{r.short}</span>
                       {r.id === 'truco' && (
-                        <span className="shrink-0 rounded-full bg-ios-blue/25 px-2 py-px text-[11px] font-bold text-[#64b5ff]">Novo</span>
+                        <span className="shrink-0 rounded-full bg-ios-blue/20 px-2 py-px text-[11px] font-bold text-ios-blue">Novo</span>
                       )}
                     </span>
                     <span className="block truncate text-[15px] text-ios-label-2">{r.subtitle}</span>

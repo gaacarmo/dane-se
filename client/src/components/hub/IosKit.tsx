@@ -30,7 +30,7 @@ export function AppIcon({ id, size = 56 }: { id: HubGameId; size?: number }) {
       }}
     >
       <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent" />
-      <span className="relative drop-shadow-[0_2px_3px_rgb(0_0_0/0.35)]">{icon.glyph}</span>
+      <span className="relative text-white drop-shadow-[0_2px_3px_rgb(0_0_0/0.35)]">{icon.glyph}</span>
     </span>
   );
 }
@@ -49,7 +49,7 @@ export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boo
       aria-checked={on}
       aria-label={label}
       onClick={() => onChange(!on)}
-      className={`relative h-[31px] w-[51px] shrink-0 rounded-full p-[2px] transition-colors duration-200 ${on ? 'bg-ios-green' : 'bg-white/20'}`}
+      className={`relative h-[31px] w-[51px] shrink-0 rounded-full p-[2px] transition-colors duration-200 ${on ? 'bg-ios-green' : 'bg-ios-fill-strong'}`}
     >
       <motion.span
         layout
@@ -77,7 +77,7 @@ export function Segmented<T extends string | number>({
   layoutId: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex rounded-[0.9rem] bg-white/10 p-[3px]">
+    <div role="radiogroup" aria-label={label} className="flex rounded-[0.9rem] bg-ios-fill p-[3px]">
       {options.map((o) => {
         const on = o === value;
         return (
@@ -87,13 +87,13 @@ export function Segmented<T extends string | number>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o)}
-            className={`relative min-h-9 flex-1 rounded-[0.75rem] px-1 text-[13px] font-semibold tabular-nums transition-colors ${on ? 'text-white' : 'text-ios-label-2'}`}
+            className={`relative min-h-9 flex-1 rounded-[0.75rem] px-1 text-[13px] font-semibold tabular-nums transition-colors ${on ? 'text-ios-label' : 'text-ios-label-2'}`}
           >
             {on && (
               <motion.span
                 layoutId={layoutId}
                 transition={{ type: 'spring', stiffness: 500, damping: 38 }}
-                className="glass-control absolute inset-0 rounded-[0.75rem] bg-white/25!"
+                className="seg-thumb absolute inset-0 rounded-[0.75rem]"
               />
             )}
             <span className="relative">{format(o)}</span>
@@ -109,7 +109,7 @@ export function PrimaryButton({ children, className = '', ...props }: React.Butt
   return (
     <button
       type="button"
-      className={`min-h-[50px] w-full rounded-full bg-ios-blue px-5 text-[17px] font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_8px_20px_-8px_rgb(10_132_255/0.7)] transition active:scale-[0.98] active:brightness-90 disabled:bg-white/15 disabled:text-ios-label-3 disabled:shadow-none ${className}`}
+      className={`min-h-[50px] w-full rounded-full bg-ios-blue px-5 text-[17px] font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_8px_20px_-8px_rgb(10_132_255/0.7)] transition active:scale-[0.98] active:brightness-90 disabled:bg-ios-fill-strong disabled:text-ios-label-3 disabled:shadow-none ${className}`}
       {...props}
     >
       {children}
@@ -121,7 +121,7 @@ export function GlassButton({ children, className = '', ...props }: React.Button
   return (
     <button
       type="button"
-      className={`glass-control min-h-[50px] w-full rounded-full px-5 text-[17px] font-semibold text-white transition active:scale-[0.98] disabled:text-ios-label-3 ${className}`}
+      className={`glass-control min-h-[50px] w-full rounded-full px-5 text-[17px] font-semibold text-ios-label transition active:scale-[0.98] disabled:text-ios-label-3 ${className}`}
       {...props}
     >
       {children}
@@ -136,7 +136,7 @@ export function CircleButton({ label, children, onClick }: { label: string; chil
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="glass-control grid size-11 shrink-0 place-items-center rounded-full text-white transition active:scale-95"
+      className="glass-control grid size-11 shrink-0 place-items-center rounded-full text-ios-label transition active:scale-95"
     >
       {children}
     </button>
@@ -160,14 +160,13 @@ export function Sheet({ open, onClose, children, label }: { open: boolean; onClo
     <AnimatePresence>
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center text-white sm:items-center"
-          style={{ fontFamily: 'var(--font-ios)' }}
+          className="ios-sheet fixed inset-0 z-50 flex items-end justify-center sm:items-center"
           role="dialog"
           aria-modal="true"
           aria-label={label}
         >
           <motion.div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/30"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -186,7 +185,7 @@ export function Sheet({ open, onClose, children, label }: { open: boolean; onClo
               if (info.offset.y > 110 || info.velocity.y > 600) onClose();
             }}
           >
-            <div aria-hidden className="mx-auto mb-3 h-[5px] w-9 rounded-full bg-white/30" />
+            <div aria-hidden className="mx-auto mb-3 h-[5px] w-9 rounded-full bg-ios-label-3" />
             {children}
           </motion.div>
         </div>
@@ -272,14 +271,14 @@ export function TabBar<T extends string>({
               aria-selected={on}
               onClick={() => onChange(t.id)}
               className={`relative flex min-h-[54px] flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-semibold transition-colors ${
-                on ? 'text-ios-blue' : 'text-white/80'
+                on ? 'text-ios-blue' : 'text-ios-label/80'
               }`}
             >
               {on && (
                 <motion.span
                   layoutId="tab-drop"
                   transition={{ type: 'spring', stiffness: 520, damping: 40 }}
-                  className="absolute inset-0 rounded-full bg-white/14 shadow-[inset_0_1px_0_rgb(255_255_255/0.25)]"
+                  className="absolute inset-0 rounded-full bg-ios-fill-strong shadow-[inset_0_1px_0_var(--glass-rim)]"
                 />
               )}
               <span className="relative">{t.icon}</span>

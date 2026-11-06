@@ -1,12 +1,12 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { type FormEvent, useState } from 'react';
 import { MAX_NAME_LENGTH, formatMoney } from '@dane-se/shared';
-import { setPref, usePrefs } from '../../lib/prefs';
+import { type Appearance, setPref, usePrefs } from '../../lib/prefs';
 import { actions, codeFromUrl, useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
 import { FriendsPanel } from './FriendsPanel';
 import { GameList } from './GameList';
-import { AppIcon, CircleButton, PrimaryButton, SectionHeader, Symbols, TabBar } from './IosKit';
+import { AppIcon, CircleButton, PrimaryButton, SectionHeader, Segmented, Symbols, TabBar } from './IosKit';
 import { RankingPanel } from './RankingPanel';
 import { RecoveryPanel } from './RecoveryPanel';
 import { WalletHeader } from './WalletHeader';
@@ -25,6 +25,27 @@ const VIEW_MODES = [
   { realistic: true, title: 'Primeira pessoa', text: 'Você sentado à mesa, em 3D.' },
 ] as const;
 
+const APPEARANCES: Record<Appearance, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
+
+/** Claro, escuro ou seguindo o aparelho, como em Ajustes > Tela e Brilho. */
+function AppearancePicker() {
+  const { appearance } = usePrefs();
+  return (
+    <section>
+      <SectionHeader>Aparência</SectionHeader>
+      <Segmented
+        label="Aparência"
+        options={['auto', 'light', 'dark'] as const}
+        value={appearance}
+        onChange={(v) => setPref('appearance', v)}
+        format={(v) => APPEARANCES[v]}
+        layoutId="appearance"
+      />
+      <p className="mt-2 px-4 text-[13px] text-ios-label-2">No automático, o app segue o modo claro ou escuro do aparelho.</p>
+    </section>
+  );
+}
+
 /** Como ver a mesa: uma lista com marca de seleção, como no app Ajustes. */
 function ViewModePicker() {
   const { view3d } = usePrefs();
@@ -41,7 +62,7 @@ function ViewModePicker() {
               role="radio"
               aria-checked={selected}
               onClick={() => setPref('view3d', m.realistic)}
-              className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-white/8 ${
+              className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-ios-fill ${
                 i > 0 ? 'border-t border-ios-separator' : ''
               }`}
             >
@@ -151,6 +172,7 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
   const friends = social && <FriendsPanel social={social} />;
   const settings = (
     <div className="space-y-7">
+      <AppearancePicker />
       <ViewModePicker />
       <section>
         <SectionHeader>Sua conta</SectionHeader>

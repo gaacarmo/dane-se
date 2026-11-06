@@ -35,7 +35,7 @@ export function RankingPanel({ social }: { social: SocialView }) {
           const games = tab === 'truco' ? r.trucoGames : r.daneseGames;
           return (
             <li key={r.id} className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-ios-separator' : ''}`}>
-              <span className={`w-5 text-center text-[17px] font-bold tabular-nums ${i === 0 ? 'text-[#ffd60a]' : 'text-ios-label-2'}`}>
+              <span className={`w-5 text-center text-[17px] font-bold tabular-nums ${i === 0 ? 'text-ios-yellow' : 'text-ios-label-2'}`}>
                 {i + 1}
               </span>
               <span
