@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { type SocialView, formatMoney } from '@dane-se/shared';
+import { avatarColor, initial } from '../../lib/avatar';
+import { Segmented } from './IosKit';
 
-type Tab = 'danese' | 'poker' | 'truco';
+type Tab = 'danese' | 'truco' | 'poker';
 
-const TAB_LABELS: Record<Tab, string> = { danese: 'Dane-se', poker: 'Poker', truco: 'Truco' };
+const TAB_LABELS: Record<Tab, string> = { danese: 'Dane-se', truco: 'Truco', poker: 'Poker' };
 
 /** You and your friends: Dane-se and truco wins, poker profit; money games only. */
 export function RankingPanel({ social }: { social: SocialView }) {
@@ -17,68 +19,61 @@ export function RankingPanel({ social }: { social: SocialView }) {
   );
 
   return (
-    <section className="hub-panel space-y-3 p-4" aria-label="Ranking entre amigos">
-      <div className="grid grid-cols-3 gap-1 rounded-xl bg-black/30 p-1" role="tablist">
-        {(['danese', 'poker', 'truco'] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={`min-h-10 rounded-lg text-sm font-semibold transition ${tab === t ? 'bg-felt-700 text-gold-300 shadow' : 'text-stone-400'}`}
-          >
-            {TAB_LABELS[t]}
-          </button>
-        ))}
-      </div>
+    <div className="space-y-3" aria-label="Ranking entre amigos">
+      <Segmented
+        label="Jogo do ranking"
+        options={['danese', 'truco', 'poker'] as const}
+        value={tab}
+        onChange={setTab}
+        format={(t) => TAB_LABELS[t]}
+        layoutId="ranking-tab"
+      />
 
-      <ol className="space-y-1">
-        {rows.map((r, i) => (
-          <li
-            key={r.id}
-            className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm ${r.isYou ? 'bg-gold-500/15 ring-1 ring-gold-500/40' : 'bg-black/25'}`}
-          >
-            <span className={`w-6 text-center font-black ${i === 0 ? 'text-gold-300' : 'text-stone-500'}`}>
-              {i + 1}º
-            </span>
-            <span className="min-w-0 flex-1 truncate font-semibold">
-              {r.isYou ? `${r.nickname} (você)` : r.nickname}
-            </span>
-            {tab !== 'poker' ? (
-              <Wins wins={tab === 'truco' ? r.trucoWins : r.daneseWins} games={tab === 'truco' ? r.trucoGames : r.daneseGames} />
-            ) : (
-              <span className="text-right whitespace-nowrap">
-                <strong
-                  className={
-                    r.pokerProfit > 0 ? 'text-emerald-300' : r.pokerProfit < 0 ? 'text-red-300' : 'text-stone-300'
-                  }
+      <ol className="glass overflow-hidden">
+        {rows.map((r, i) => {
+          const wins = tab === 'truco' ? r.trucoWins : r.daneseWins;
+          const games = tab === 'truco' ? r.trucoGames : r.daneseGames;
+          return (
+            <li key={r.id} className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-ios-separator' : ''}`}>
+              <span className={`w-5 text-center text-[17px] font-bold tabular-nums ${i === 0 ? 'text-[#ffd60a]' : 'text-ios-label-2'}`}>
+                {i + 1}
+              </span>
+              <span
+                aria-hidden
+                className="grid size-9 shrink-0 place-items-center rounded-full text-[15px] font-semibold text-white"
+                style={{ background: avatarColor(r.id) }}
+              >
+                {initial(r.nickname)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[17px]">{r.isYou ? `${r.nickname} (você)` : r.nickname}</span>
+                <span className="block text-[13px] text-ios-label-2">
+                  {tab === 'poker' ? `${r.pokerGames} ${r.pokerGames === 1 ? 'mesa' : 'mesas'}` : `${games} ${games === 1 ? 'partida' : 'partidas'}`}
+                </span>
+              </span>
+              {tab === 'poker' ? (
+                <span
+                  className={`text-[17px] font-semibold tabular-nums ${
+                    r.pokerProfit > 0 ? 'text-ios-green' : r.pokerProfit < 0 ? 'text-ios-red' : 'text-ios-label-2'
+                  }`}
                 >
                   {r.pokerProfit > 0 ? '+' : r.pokerProfit < 0 ? '−' : ''}
                   {formatMoney(Math.abs(r.pokerProfit))}
-                </strong>
-                <span className="text-xs text-stone-400"> · {r.pokerGames} mesas</span>
-              </span>
-            )}
-          </li>
-        ))}
+                </span>
+              ) : (
+                <span className="text-right">
+                  <span className="block text-[17px] font-semibold tabular-nums">{wins}</span>
+                  <span className="block text-[11px] text-ios-label-2">{wins === 1 ? 'vitória' : 'vitórias'}</span>
+                </span>
+              )}
+            </li>
+          );
+        })}
       </ol>
-      <p className="text-xs text-stone-500">
+      <p className="px-4 text-[13px] text-ios-label-2">
         {social.ranking.length < 2 ? 'Adicione amigos pra disputar o ranking. ' : ''}
-        Só contam partidas valendo dinheiro (treino com bots não conta).
+        Só contam partidas valendo dinheiro; treino com bots fica de fora.
       </p>
-    </section>
-  );
-}
-
-function Wins({ wins, games }: { wins: number; games: number }) {
-  return (
-    <span className="text-right whitespace-nowrap">
-      <strong className="text-gold-300">{wins}</strong>
-      <span className="text-xs text-stone-400">
-        {' '}
-        {wins === 1 ? 'vitória' : 'vitórias'} · {games} jogos
-      </span>
-    </span>
+    </div>
   );
 }

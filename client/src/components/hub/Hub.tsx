@@ -1,62 +1,38 @@
-import { type FormEvent, type ReactNode, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { type FormEvent, useState } from 'react';
 import { MAX_NAME_LENGTH, formatMoney } from '@dane-se/shared';
 import { setPref, usePrefs } from '../../lib/prefs';
 import { actions, codeFromUrl, useClient } from '../../lib/store';
 import { webglSupported } from '../../lib/webgl';
-import { ChalkMenu } from './ChalkMenu';
 import { FriendsPanel } from './FriendsPanel';
+import { GameList } from './GameList';
+import { AppIcon, CircleButton, PrimaryButton, SectionHeader, Symbols, TabBar } from './IosKit';
 import { RankingPanel } from './RankingPanel';
 import { RecoveryPanel } from './RecoveryPanel';
 import { WalletHeader } from './WalletHeader';
 
-const VIEW_MODES = [
-  {
-    realistic: false,
-    icon: '📱',
-    title: 'Mobile',
-    text: 'A mesa vista de cima. Leve e ideal pro celular, mas também dá pra jogar no computador.',
-  },
-  {
-    realistic: true,
-    icon: '🖥️',
-    title: 'Desktop',
-    text: 'Em primeira pessoa: você sentado à mesa com os outros jogadores.',
-  },
-] as const;
-
 type HubTab = 'play' | 'friends' | 'ranking' | 'settings';
 
-const TABS: { id: HubTab; label: string }[] = [
-  { id: 'play', label: 'Jogar' },
-  { id: 'friends', label: 'Amigos' },
-  { id: 'ranking', label: 'Ranking' },
-  { id: 'settings', label: 'Ajustes' },
+const TABS: { id: HubTab; label: string; title: string; icon: React.ReactNode }[] = [
+  { id: 'play', label: 'Jogar', title: 'Jogar', icon: Symbols.play },
+  { id: 'friends', label: 'Amigos', title: 'Amigos', icon: Symbols.friends },
+  { id: 'ranking', label: 'Ranking', title: 'Ranking', icon: Symbols.trophy },
+  { id: 'settings', label: 'Ajustes', title: 'Ajustes', icon: Symbols.gear },
 ];
 
-/** Section heading for the side panels: plain sentence case, no eyebrow. */
-function SectionLabel({ children }: { children: ReactNode }) {
-  return <h2 className="font-cond text-xl font-bold text-stone-200">{children}</h2>;
-}
+const VIEW_MODES = [
+  { realistic: false, title: 'Vista de cima', text: 'Leve, ideal pro celular.' },
+  { realistic: true, title: 'Primeira pessoa', text: 'Você sentado à mesa, em 3D.' },
+] as const;
 
-/** The board's sign: the group's name, hand-lettered. */
-function BoardSign() {
-  return (
-    <div>
-      <h1 className="chalk text-[2.6rem] leading-[0.95] text-giz">Cantina do Dane-se</h1>
-      <p className="mt-1 font-barlow text-[15px] text-giz/60">O que vai ser hoje?</p>
-    </div>
-  );
-}
-
-/** Chosen before creating or joining a room; remembered on this device. */
+/** Como ver a mesa: uma lista com marca de seleção, como no app Ajustes. */
 function ViewModePicker() {
-  const { view3d: wantsView3d } = usePrefs();
-  const view3d = wantsView3d;
+  const { view3d } = usePrefs();
   return (
-    <div className="hub-panel space-y-3 p-4">
-      <h2 className="font-cond text-lg font-bold text-stone-200">Como ver a mesa</h2>
-      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Modo de jogo">
-        {VIEW_MODES.map((m) => {
+    <section>
+      <SectionHeader>Como ver a mesa</SectionHeader>
+      <div role="radiogroup" aria-label="Como ver a mesa" className="glass overflow-hidden">
+        {VIEW_MODES.map((m, i) => {
           const selected = view3d === m.realistic;
           return (
             <button
@@ -65,40 +41,34 @@ function ViewModePicker() {
               role="radio"
               aria-checked={selected}
               onClick={() => setPref('view3d', m.realistic)}
-              className={`flex flex-col items-start gap-1 rounded-2xl p-3 text-left ring-2 transition ${
-                selected ? 'bg-felt-700 ring-gold-400' : 'bg-black/30 ring-white/10 hover:ring-white/30'
+              className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-white/8 ${
+                i > 0 ? 'border-t border-ios-separator' : ''
               }`}
             >
-              <span className="flex w-full items-center justify-between text-sm font-bold text-white">
-                <span>
-                  {m.icon} {m.title}
+              <span className="min-w-0 flex-1">
+                <span className="block text-[17px]">{m.title}</span>
+                <span className="block text-[13px] text-ios-label-2">
+                  {m.realistic && !webglSupported ? 'Seu navegador está sem 3D. Dá pra tentar; se falhar, volta pra vista de cima.' : m.text}
                 </span>
-                {selected && <span className="text-gold-300">✓</span>}
               </span>
-              <span className="text-xs leading-snug text-stone-300">
-                {m.realistic && !webglSupported
-                  ? 'Seu navegador diz que não tem gráficos 3D ativados. Dá pra tentar mesmo assim; se não abrir, o jogo volta pro Mobile.'
-                  : m.text}
-              </span>
+              {selected && (
+                <svg viewBox="0 0 24 24" className="size-5 shrink-0 text-ios-blue" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="m5 12.5 4.5 4.5L19 7.5" />
+                </svg>
+              )}
             </button>
           );
         })}
       </div>
-      {!webglSupported && (
-        <p className="rounded-lg bg-black/30 p-2 text-xs leading-snug text-stone-300">
-          Pra funcionar melhor no Chrome: abra <strong className="text-stone-100">chrome://settings/system</strong>,
-          ligue <strong className="text-stone-100">&ldquo;Usar aceleração gráfica quando disponível&rdquo;</strong>,
-          reinicie o Chrome e recarregue esta página. Pra conferir,{' '}
-          <strong className="text-stone-100">chrome://gpu</strong> deve mostrar &ldquo;WebGL2: Hardware
-          accelerated&rdquo;.
-        </p>
-      )}
-      <p className="text-xs text-stone-500">Vale para as mesas do Dane-se e do Poker. O Truco, por enquanto, é só na mesa vista de cima.</p>
-    </div>
+      <p className="mt-2 px-4 text-[13px] text-ios-label-2">
+        Vale pro Dane-se e pro poker. O truco, por enquanto, só tem a vista de cima.
+        {!webglSupported && ' No Chrome, ligue "Usar aceleração gráfica" em chrome://settings/system e recarregue.'}
+      </p>
+    </section>
   );
 }
 
-/** Creates a new wallet: the very first thing a visitor sees, on the same chalkboard. */
+/** Primeira visita: como uma tela de boas-vindas do iOS. */
 function NicknameGate() {
   const { connection } = useClient();
   const [name, setName] = useState('');
@@ -115,96 +85,124 @@ function NicknameGate() {
   }
 
   return (
-    <form onSubmit={submit} className="chalkboard w-full max-w-md space-y-5 px-6 pt-6 pb-7">
-      <div>
-        <h1 className="chalk text-[3.75rem] leading-[0.9] text-giz">Dane-se</h1>
-        <p className="mt-2 max-w-[32ch] font-barlow text-base leading-snug text-giz/70">
-          Dane-se, truco e poker com a galera, valendo dinheiro de mentira. Você começa com {formatMoney(10_000)}.
-        </p>
+    <form onSubmit={submit} className="relative z-10 flex w-full max-w-sm flex-col items-center text-center">
+      <div className="flex -space-x-3">
+        <span className="-rotate-12">
+          <AppIcon id="truco" size={64} />
+        </span>
+        <span className="z-10 -translate-y-2">
+          <AppIcon id="danese" size={80} />
+        </span>
+        <span className="rotate-12">
+          <AppIcon id="poker" size={64} />
+        </span>
       </div>
-      <label className="block">
-        <span className="chalk mb-1 block text-2xl text-giz">Como a galera te chama?</span>
+      <h1 className="mt-6 text-[34px] leading-tight font-bold tracking-tight">Boas-vindas ao Dane-se</h1>
+      <p className="mt-2 text-[17px] leading-snug text-ios-label-2">
+        Dane-se, truco e poker com a galera. Você começa com {formatMoney(10_000)} de mentirinha.
+      </p>
+      <label className="glass mt-8 block w-full px-4 py-1 text-left">
+        <span className="sr-only">Seu apelido</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={MAX_NAME_LENGTH}
           autoComplete="nickname"
           autoFocus
-          placeholder="Zé da Manilha"
-          className="chalk min-h-12 w-full border-b-2 border-dashed border-giz/50 bg-transparent px-1 text-3xl text-giz-amarelo placeholder:text-giz/20 focus:border-giz-amarelo focus:outline-none"
+          placeholder="Seu apelido"
+          className="min-h-12 w-full bg-transparent text-[17px] placeholder:text-ios-label-3 focus:outline-none"
         />
       </label>
-      <button
-        type="submit"
-        disabled={busy || trimmed.length === 0 || !online}
-        className="min-h-12 w-full rounded-md bg-giz font-cond text-xl font-bold text-lousa-funda shadow-[0_3px_0_rgb(0_0_0/0.45)] transition active:translate-y-[2px] active:shadow-none disabled:bg-giz/30 disabled:shadow-none"
-      >
-        {!online ? 'Conectando…' : busy ? 'Abrindo sua comanda…' : 'Sentar na mesa'}
-      </button>
+      <PrimaryButton type="submit" className="mt-4" disabled={busy || trimmed.length === 0 || !online}>
+        {!online ? 'Conectando…' : busy ? 'Entrando…' : 'Continuar'}
+      </PrimaryButton>
     </form>
   );
 }
 
-/** The game hub: the bar tab on top, the chalkboard menu below, friends and ranking alongside. */
+/** O hub: título grande, conteúdo em vidro e a barra de abas flutuante. */
 export function Hub({ onHelp }: { onHelp: () => void }) {
   const { profile, social } = useClient();
   const linkCode = codeFromUrl();
   const [tab, setTab] = useState<HubTab>('play');
+  const current = TABS.find((t) => t.id === tab)!;
 
   if (!profile) {
     return (
-      <main className="room-bg flex min-h-full flex-col items-center justify-center px-4 py-10">
+      <main className="ios-hub flex min-h-full items-center justify-center px-6 py-12">
+        <div className="ios-wallpaper" aria-hidden />
         <NicknameGate />
       </main>
     );
   }
 
+  const play = (
+    <div className="space-y-7">
+      <WalletHeader profile={profile} />
+      <GameList balance={profile.balance} initialCode={linkCode ?? ''} />
+    </div>
+  );
+  const ranking = social && (
+    <section>
+      <SectionHeader>Você e seus amigos</SectionHeader>
+      <RankingPanel social={social} />
+    </section>
+  );
+  const friends = social && <FriendsPanel social={social} />;
+  const settings = (
+    <div className="space-y-7">
+      <ViewModePicker />
+      <section>
+        <SectionHeader>Sua conta</SectionHeader>
+        <RecoveryPanel />
+      </section>
+    </div>
+  );
+
   return (
-    <main className="room-bg flex min-h-full flex-col items-center px-4 pt-5 pb-10">
-      <div className="w-full max-w-md lg:grid lg:max-w-6xl lg:grid-cols-[17rem_minmax(0,1fr)_21rem] lg:items-start lg:gap-8">
-        <div className="space-y-5 lg:order-2">
-          <WalletHeader profile={profile} />
+    <main className="ios-hub relative min-h-full">
+      <div className="ios-wallpaper" aria-hidden />
 
-          <div role="tablist" aria-label="Seções" className="flex gap-1 rounded-lg bg-black/30 p-1 lg:hidden">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === t.id}
-                onClick={() => setTab(t.id)}
-                className={`min-h-10 flex-1 rounded-md px-2 font-cond text-[17px] font-bold transition ${
-                  tab === t.id ? 'bg-giz text-lousa-funda' : 'text-stone-300 hover:bg-white/10'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+      {/* Celular: uma aba por vez, com título grande. */}
+      <div className="relative z-10 mx-auto w-full max-w-md px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-32 lg:hidden">
+        <header className="mb-5 flex items-end justify-between gap-3 pt-6">
+          <h1 className="text-[34px] leading-none font-bold tracking-tight">{current.title}</h1>
+          <CircleButton label="Regras" onClick={onHelp}>
+            {Symbols.question}
+          </CircleButton>
+        </header>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            {tab === 'play' && play}
+            {tab === 'friends' && friends}
+            {tab === 'ranking' && ranking}
+            {tab === 'settings' && settings}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      <TabBar tabs={TABS} value={tab} onChange={setTab} />
 
-          <div className={`${tab === 'play' ? '' : 'hidden'} lg:block`}>
-            <ChalkMenu balance={profile.balance} initialCode={linkCode ?? ''} onRules={onHelp} header={<BoardSign />} />
-          </div>
+      {/* Computador: tudo à vista, como um app de iPad em paisagem. */}
+      <div className="relative z-10 mx-auto hidden max-w-6xl grid-cols-[18rem_minmax(0,1fr)_20rem] items-start gap-8 px-8 py-10 lg:grid">
+        <aside className="space-y-7">{ranking}</aside>
+        <div>
+          <header className="mb-5 flex items-end justify-between gap-3">
+            <h1 className="text-[34px] leading-none font-bold tracking-tight">Jogar</h1>
+            <CircleButton label="Regras" onClick={onHelp}>
+              {Symbols.question}
+            </CircleButton>
+          </header>
+          {play}
         </div>
-
-        {social && (
-          <aside className={`mt-6 space-y-3 ${tab === 'ranking' ? '' : 'hidden'} lg:order-1 lg:mt-0 lg:block`}>
-            <SectionLabel>Ranking entre amigos</SectionLabel>
-            <RankingPanel social={social} />
-          </aside>
-        )}
-
-        <aside className={`mt-6 space-y-6 ${tab === 'friends' || tab === 'settings' ? '' : 'hidden'} lg:order-3 lg:mt-0 lg:block`}>
-          {social && (
-            <section className={`space-y-3 ${tab === 'friends' ? '' : 'hidden'} lg:block`}>
-              <SectionLabel>Amigos</SectionLabel>
-              <FriendsPanel social={social} />
-            </section>
-          )}
-          <div className={`space-y-6 ${tab === 'settings' ? '' : 'hidden'} lg:block`}>
-            <ViewModePicker />
-            <RecoveryPanel />
-          </div>
+        <aside className="space-y-7">
+          {friends}
+          {settings}
         </aside>
       </div>
     </main>
