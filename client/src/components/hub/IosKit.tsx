@@ -178,9 +178,10 @@ export function Sheet({ open, onClose, children, label }: { open: boolean; onClo
           />
           <motion.div
             className="glass glass-thick relative m-2 w-full max-w-md rounded-[2.4rem]! px-5 pt-2 pb-[max(env(safe-area-inset-bottom),1.25rem)]"
-            initial={{ y: '100%', opacity: 0.6 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0 }}
+            // Slide only, no fade: Safari can leave glass inside a fading parent unpainted.
+            initial={{ y: '110%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '110%' }}
             transition={{ type: 'spring', stiffness: 380, damping: 36 }}
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}

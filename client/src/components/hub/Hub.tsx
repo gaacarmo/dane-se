@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from 'framer-motion';
 import { type FormEvent, useState } from 'react';
 import { MAX_NAME_LENGTH, formatMoney } from '@dane-se/shared';
 import { type Appearance, setPref, usePrefs } from '../../lib/prefs';
@@ -195,20 +194,17 @@ export function Hub({ onHelp }: { onHelp: () => void }) {
             </CircleButton>
           </header>
         )}
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            {tab === 'play' && play}
-            {tab === 'friends' && friends}
-            {tab === 'ranking' && ranking}
-            {tab === 'settings' && settings}
-          </motion.div>
-        </AnimatePresence>
+        {/*
+          Tabs switch instantly, like iOS. No opacity fade here on purpose: in
+          Safari, glass (backdrop-filter) inside a parent animating opacity can
+          stay unpainted, which left the tab blank after changing the appearance.
+        */}
+        <div key={tab}>
+          {tab === 'play' && play}
+          {tab === 'friends' && friends}
+          {tab === 'ranking' && ranking}
+          {tab === 'settings' && settings}
+        </div>
       </div>
       <TabBar tabs={TABS} value={tab} onChange={setTab} />
 
