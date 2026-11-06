@@ -463,3 +463,19 @@ body {
   outline: 2px solid var(--ios-blue);
   outline-offset: 0;
 }
+
+/*
+ * The brand logo is silver on transparent (made for dark backgrounds); on the
+ * light appearance it is inverted to graphite so it keeps its contrast.
+ */
+.brand-logo {
+  filter: drop-shadow(0 8px 22px rgb(0 0 0 / 0.55));
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-appearance='dark']) .brand-logo {
+    filter: invert(1) drop-shadow(0 6px 14px rgb(255 255 255 / 0.6));
+  }
+}
+:root[data-appearance='light'] .brand-logo {
+  filter: invert(1) drop-shadow(0 6px 14px rgb(255 255 255 / 0.6));
+}
