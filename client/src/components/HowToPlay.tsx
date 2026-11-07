@@ -7,6 +7,7 @@ const GAMES: { id: GameType; label: string; name: string }[] = [
   { id: 'danese', label: 'Dane-se', name: 'Dane-se' },
   { id: 'truco', label: 'Truco', name: 'Truco Paulista' },
   { id: 'duvido', label: 'Duvido', name: 'Duvido' },
+  { id: 'bingo', label: 'Bingo', name: 'Bingo' },
   { id: 'poker', label: 'Poker', name: "Poker Texas Hold'em" },
 ];
 
@@ -51,6 +52,7 @@ export function HowToPlay({
         {shown === 'poker' && <PokerRules />}
         {shown === 'truco' && <TrucoRules />}
         {shown === 'duvido' && <DuvidoRules />}
+        {shown === 'bingo' && <BingoRules />}
       </div>
     </Modal>
   );
@@ -224,6 +226,26 @@ function DuvidoRules() {
         <strong>O castigo:</strong> cada um tem um pote com 6 balas, e uma delas é apimentada. Quem leva castigo tira
         uma bala. Se for doce, come e segue (o pote fica menor, então o risco sobe: 1 em 6, 1 em 5…). Se for a
         apimentada, está fora. O último que sobrar ganha.
+      </p>
+    </section>
+  );
+}
+
+function BingoRules() {
+  return (
+    <section className="space-y-3">
+      <p className="glass px-4 py-3">
+        De 2 a 8 jogadores, cada um com uma cartela de 5×5: a coluna <strong>B</strong> tem números de 1 a 15, a{' '}
+        <strong>I</strong> de 16 a 30, a <strong>N</strong> de 31 a 45, a <strong>G</strong> de 46 a 60 e a{' '}
+        <strong>O</strong> de 61 a 75. O meio da cartela é livre e já vem marcado.
+      </p>
+      <p className="glass px-4 py-3">
+        A mesa sorteia uma bola de cada vez, e os números que saem são marcados sozinhos na sua cartela.
+      </p>
+      <p className="glass px-4 py-3">
+        Fechou uma <strong>linha</strong> (deitada, em pé ou na diagonal)? Aperte <strong>Linha!</strong> antes dos outros:
+        vale 30% do pote. Cartela inteira marcada? Aperte <strong>Bingo!</strong>: vale 70% e acaba o jogo. Só o primeiro que
+        cantar leva, e os bots só cantam uma bola depois de você.
       </p>
     </section>
   );

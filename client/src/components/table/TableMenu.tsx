@@ -71,6 +71,7 @@ export function TableMenu({
   onHelp,
   onLeave,
   onShowKit,
+  followAppearance = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -78,6 +79,8 @@ export function TableMenu({
   onLeave: () => void;
   /** Arcade: reopen the "your kit" briefing, when the viewer has a loadout. */
   onShowKit?: () => void;
+  /** Bingo (iOS table): follow light/dark instead of always dark. */
+  followAppearance?: boolean;
 }) {
   const prefs = usePrefs();
   const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
@@ -87,7 +90,7 @@ export function TableMenu({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Menu">
+    <Modal open={open} onClose={onClose} title="Menu" followAppearance={followAppearance}>
       <div className="space-y-6 pt-1">
         <Group>
           <Row

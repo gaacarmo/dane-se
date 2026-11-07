@@ -3,9 +3,9 @@ import { type SocialView, formatMoney } from '@dane-se/shared';
 import { avatarColor, initial } from '../../lib/avatar';
 import { Segmented } from './IosKit';
 
-type Tab = 'danese' | 'truco' | 'duvido' | 'poker';
+type Tab = 'danese' | 'truco' | 'duvido' | 'bingo' | 'poker';
 
-const TAB_LABELS: Record<Tab, string> = { danese: 'Dane-se', truco: 'Truco', duvido: 'Duvido', poker: 'Poker' };
+const TAB_LABELS: Record<Tab, string> = { danese: 'Dane-se', truco: 'Truco', duvido: 'Duvido', bingo: 'Bingo', poker: 'Poker' };
 
 /** You and your friends: Dane-se, truco and Duvido wins, poker profit; money games only. */
 export function RankingPanel({ social }: { social: SocialView }) {
@@ -17,14 +17,16 @@ export function RankingPanel({ social }: { social: SocialView }) {
         ? b.trucoWins - a.trucoWins || a.trucoGames - b.trucoGames
         : tab === 'duvido'
           ? b.duvidoWins - a.duvidoWins || a.duvidoGames - b.duvidoGames
-          : b.pokerProfit - a.pokerProfit || b.pokerGames - a.pokerGames,
+          : tab === 'bingo'
+            ? b.bingoWins - a.bingoWins || a.bingoGames - b.bingoGames
+            : b.pokerProfit - a.pokerProfit || b.pokerGames - a.pokerGames,
   );
 
   return (
     <div className="space-y-3" aria-label="Ranking entre amigos">
       <Segmented
         label="Jogo do ranking"
-        options={['danese', 'truco', 'duvido', 'poker'] as const}
+        options={['danese', 'truco', 'duvido', 'bingo', 'poker'] as const}
         value={tab}
         onChange={setTab}
         format={(t) => TAB_LABELS[t]}
@@ -33,8 +35,8 @@ export function RankingPanel({ social }: { social: SocialView }) {
 
       <ol className="glass overflow-hidden">
         {rows.map((r, i) => {
-          const wins = tab === 'truco' ? r.trucoWins : tab === 'duvido' ? r.duvidoWins : r.daneseWins;
-          const games = tab === 'truco' ? r.trucoGames : tab === 'duvido' ? r.duvidoGames : r.daneseGames;
+          const wins = tab === 'truco' ? r.trucoWins : tab === 'duvido' ? r.duvidoWins : tab === 'bingo' ? r.bingoWins : r.daneseWins;
+          const games = tab === 'truco' ? r.trucoGames : tab === 'duvido' ? r.duvidoGames : tab === 'bingo' ? r.bingoGames : r.daneseGames;
           return (
             <li key={r.id} className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-ios-separator' : ''}`}>
               <span className={`w-5 text-center text-[17px] font-bold tabular-nums ${i === 0 ? 'text-ios-yellow' : 'text-ios-label-2'}`}>

@@ -2,9 +2,19 @@ import { actions } from '../../lib/store';
 import { Modal } from './Modal';
 
 /** "Sair da partida?" as an iOS alert: what happens, the red action, and stay. */
-export function LeaveDialog({ open, onClose, message }: { open: boolean; onClose: () => void; message: string }) {
+export function LeaveDialog({
+  open,
+  onClose,
+  message,
+  followAppearance = false,
+}: {
+  open: boolean;
+  onClose: () => void;
+  message: string;
+  followAppearance?: boolean;
+}) {
   return (
-    <Modal open={open} onClose={onClose} title="Sair da partida?">
+    <Modal open={open} onClose={onClose} title="Sair da partida?" followAppearance={followAppearance}>
       <div className="space-y-5 pt-1">
         <p className="px-2 text-center text-[15px] leading-snug text-ios-label-2">{message}</p>
         <div className="space-y-2">

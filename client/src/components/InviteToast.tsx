@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { actions, useClient } from '../lib/store';
 
-const GAME_NAMES = { danese: 'Dane-se', poker: 'Poker', truco: 'Truco', duvido: 'Duvido', cs: 'Modo CS' } as const;
+const GAME_NAMES = { danese: 'Dane-se', poker: 'Poker', truco: 'Truco', duvido: 'Duvido', bingo: 'Bingo', cs: 'Modo CS' } as const;
 
 /** Friends calling you to their table, at the top of any screen. */
 export function InviteToast() {

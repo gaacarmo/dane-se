@@ -461,6 +461,8 @@ export const actions = {
   bet: (bet: number) => send('game:bet', { bet }),
   /** Named, amount-free action (poker: `fold`/`check`/`call`/`allIn`). */
   action: (type: string, amount?: number) => send('game:action', { type, amount }),
+  /** Bingo: claim "Linha!" or "Bingo!" (the server checks the card). */
+  claim: (prize: 'line' | 'bingo') => send('game:action', { type: 'claim', prize }),
   /** Duvido: play 1 to 3 cards face down at once. */
   playCards: (cardIds: string[]) => send('game:action', { type: 'playCards', cardIds }),
   /** Between-hands rebuy; the amount defaults to the room buy-in on the server. */

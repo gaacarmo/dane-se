@@ -139,6 +139,9 @@ export class SocialService {
       } else if (o.gameType === 'duvido') {
         stats.duvidoGames += 1;
         if (o.won) stats.duvidoWins += 1;
+      } else if (o.gameType === 'bingo') {
+        stats.bingoGames += 1;
+        if (o.won) stats.bingoWins += 1;
       } else {
         stats.pokerGames += 1;
         stats.pokerProfit += o.profit;

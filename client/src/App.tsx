@@ -7,6 +7,7 @@ import { GameScreen } from './components/table/GameScreen';
 import { PokerScreen } from './components/poker/PokerScreen';
 import { TrucoScreen } from './components/truco/TrucoScreen';
 import { DuvidoScreen } from './components/duvido/DuvidoScreen';
+import { BingoScreen } from './components/bingo/BingoScreen';
 import { ConnectionBanner, Toast } from './components/ui/Toast';
 import { VoiceButton } from './components/VoiceButton';
 import { InviteToast } from './components/InviteToast';
@@ -49,6 +50,8 @@ export function App() {
   );
   if (room?.gameType === 'poker' && room.game && room.status !== 'lobby') {
     screen = <PokerScreen room={room} onHelp={openHelp} />;
+  } else if (room?.gameType === 'bingo' && room.game && room.status !== 'lobby') {
+    screen = <BingoScreen room={room} onHelp={openHelp} />;
   } else if (room?.gameType === 'duvido' && room.game && room.status !== 'lobby') {
     screen = <DuvidoScreen room={room} onHelp={openHelp} />;
   } else if (room?.gameType === 'truco' && room.game && room.status !== 'lobby') {
@@ -62,14 +65,14 @@ export function App() {
   return (
     <>
       {screen}
-      {/* In the lobby the voice button lives in the room's navigation bar. */}
-      {room && room.status !== 'lobby' && <VoiceButton className="fixed top-[7.25rem] right-2 z-40" />}
+      {/* In the lobby and at the bingo table the voice button lives in the navigation bar. */}
+      {room && room.status !== 'lobby' && room.gameType !== 'bingo' && <VoiceButton className="fixed top-[7.25rem] right-2 z-40" />}
       <HowToPlay
         open={help}
         onClose={() => setHelp(false)}
         gameType={room?.gameType}
-        // Hub and waiting room follow light/dark; the game tables are always dark.
-        followAppearance={!room || room.status === 'lobby'}
+        // Hub, waiting room and the bingo table (iOS style) follow light/dark; the felt tables are always dark.
+        followAppearance={!room || room.status === 'lobby' || room.gameType === 'bingo'}
       />
       <Toast />
       <InviteToast />
