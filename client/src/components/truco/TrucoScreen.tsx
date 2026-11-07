@@ -166,6 +166,21 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
               <div className="ios-table-top absolute inset-[12px] rounded-[50%]" />
             </div>
 
+            {/* O camarão da casa, estampado no meio do tampo, atrás da vira. */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute z-0 -translate-x-1/2 -translate-y-1/2 -rotate-12 select-none"
+              style={{
+                left: geometry.center.x + geometry.tableCardW * 0.9,
+                top: geometry.center.y - geometry.tableCardW * 0.5,
+                fontSize: Math.min(geometry.rx, geometry.ry) * 0.62,
+                lineHeight: 1,
+                filter: 'drop-shadow(0 6px 10px rgb(0 0 0 / 0.35))',
+              }}
+            >
+              🦐
+            </span>
+
             {/* Vira no meio da mesa, com a manilha embaixo. */}
             <div
               className="pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
