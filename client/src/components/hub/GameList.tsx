@@ -49,6 +49,14 @@ const ROWS: Row[] = [
     players: '2–6',
   },
   {
+    id: 'bingo',
+    name: 'Bingo',
+    short: 'Bingo',
+    subtitle: 'Linha e cartela cheia',
+    description: 'Cartela de 75 bolas, sorteadas uma a uma. Quem fechar uma linha e cantar primeiro leva 30% do pote; cartela cheia leva 70%.',
+    players: '2–8',
+  },
+  {
     id: 'cs',
     name: 'Modo CS',
     short: 'Modo CS',
@@ -217,7 +225,7 @@ export function GameList({ balance, initialCode }: { balance: number; initialCod
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="truncate text-[17px] font-semibold">{r.short}</span>
-                      {r.id === 'duvido' && (
+                      {r.id === 'bingo' && (
                         <span className="shrink-0 rounded-full bg-ios-blue/20 px-2 py-px text-[11px] font-bold text-ios-blue">Novo</span>
                       )}
                     </span>

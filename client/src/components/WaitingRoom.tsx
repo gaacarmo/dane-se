@@ -467,7 +467,7 @@ function MoneyPanel({ room, isHost }: { room: RoomView; isHost: boolean }) {
         {room.money.practice
           ? 'Tem bot na mesa, então ninguém paga e nada vale dinheiro.'
           : `A entrada sai do seu saldo quando a partida começa. ${
-              room.gameType === 'truco' ? 'A dupla que fizer 12 pontos divide o pote' : 'Quem ficar até o fim leva o pote'
+              room.gameType === 'truco' ? 'A dupla que fizer 12 pontos divide o pote' : room.gameType === 'bingo' ? 'Quem cantar Linha leva 30% e quem cantar Bingo leva 70%' : 'Quem ficar até o fim leva o pote'
             }; quem sai no meio perde a entrada.`}
       </Footnote>
     </section>

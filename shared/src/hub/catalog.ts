@@ -68,6 +68,18 @@ export const GAME_CATALOG: readonly GameCatalogEntry[] = [
     icon: '🌶️',
     available: true,
   },
+  {
+    id: 'bingo',
+    name: 'Bingo',
+    description: 'Cartela de 75 bolas. Linha leva 30% do pote e cartela cheia leva 70%: cante antes dos outros.',
+    minPlayers: 2,
+    maxPlayers: 8,
+    minEntry: 100,
+    defaultEntry: 100,
+    entryOptions: [100, 250, 500, 1000],
+    icon: '🎟️',
+    available: true,
+  },
 ];
 
 export function catalogEntry(id: GameType): GameCatalogEntry {

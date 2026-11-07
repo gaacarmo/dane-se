@@ -20,6 +20,9 @@ import {
   type TrucoView,
   type DuvidoSettings,
   type DuvidoView,
+  type BingoSettings,
+  type BingoView,
+  type AutoDelay,
   type ProfileView,
   type RoomClosedReason,
   type RoomStatus,
@@ -52,6 +55,8 @@ import { WalletService } from './hub/walletService.js';
 
 export interface Timings {
   /** How long a finished trick stays on the table before it's collected. */
+  /** Time between two bingo balls. */
+  ballDrawMs: number;
   trickPauseMs: number;
   /** How long the round summary shows before the next round is dealt. */
   roundSummaryMs: number;
@@ -84,6 +89,7 @@ export const DEFAULT_TIMINGS: Timings = {
   idleRoomTtlMs: 2 * 60 * 60_000,
   sweepIntervalMs: 60_000,
   betweenHandsMs: 30_000,
+  ballDrawMs: 3500,
   turnTimeoutMs: POKER_TURN_TIMEOUT_MS,
   talentPickMs: 40_000,
 };
@@ -1036,7 +1042,8 @@ export class RoomManager {
     this.broadcast(room);
   }
 
-  private delayFor(delay: 'trickPause' | 'roundSummary' | 'betweenHands'): number {
+  private delayFor(delay: AutoDelay): number {
+    if (delay === 'ballDraw') return this.timings.ballDrawMs;
     if (delay === 'trickPause') return this.timings.trickPauseMs;
     if (delay === 'roundSummary') return this.timings.roundSummaryMs;
     return this.timings.betweenHandsMs;
@@ -1210,6 +1217,9 @@ export class RoomManager {
     };
     // The only game data that leaves the server: filtered per player.
     const game = room.game && module ? module.viewFor(room.game, memberId) : null;
+    if (room.gameType === 'bingo') {
+      return { ...base, gameType: 'bingo', settings: room.settings as unknown as BingoSettings, game: game as BingoView | null };
+    }
     if (room.gameType === 'duvido') {
       return { ...base, gameType: 'duvido', settings: room.settings as unknown as DuvidoSettings, game: game as DuvidoView | null };
     }

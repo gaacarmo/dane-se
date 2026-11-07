@@ -150,6 +150,10 @@ export class BotClient {
   action(type: string, amount?: number) {
     return this.call('game:action', { type, amount });
   }
+  /** Bingo: claim "Linha!" or "Bingo!". */
+  claim(prize: 'line' | 'bingo') {
+    return this.call('game:action', { type: 'claim', prize });
+  }
   /** Duvido: play several cards face down at once. */
   playCards(cardIds: string[]) {
     return this.call('game:action', { type: 'playCards', cardIds });
@@ -180,6 +184,8 @@ export class BotClient {
     const room = this.view;
     if (!room) return false;
     if (room.gameType === 'poker') return !!room.game && room.game.actorId === room.youId;
+    // Bingo has no turns: balls are drawn on a timer and anyone may claim.
+    if (room.gameType === 'bingo') return false;
     const g = room.game;
     return !!g && g.turnPlayerId === room.youId && (g.phase === 'betting' || g.phase === 'playing');
   }

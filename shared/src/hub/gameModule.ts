@@ -3,7 +3,7 @@ import type { Money } from './money.js';
 import type { Entry, Payout } from './payout.js';
 
 /** Registry id of a game. Rooms carry one of these. */
-export type GameType = 'danese' | 'poker' | 'truco' | 'duvido';
+export type GameType = 'danese' | 'poker' | 'truco' | 'duvido' | 'bingo';
 
 /** A seat as seen by the engine (no wallet, no socket). */
 export interface GamePlayer {
@@ -32,7 +32,7 @@ export type EngineError =
 export type EngineResult<S> = { ok: true; state: S } | { ok: false; error: EngineError };
 
 /** Which automatic transition an engine is waiting for (drives server timers). */
-export type AutoDelay = 'trickPause' | 'roundSummary' | 'betweenHands';
+export type AutoDelay = 'trickPause' | 'roundSummary' | 'betweenHands' | 'ballDraw';
 
 export interface AutoStep<Action> {
   delay: AutoDelay;

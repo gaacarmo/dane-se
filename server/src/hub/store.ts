@@ -41,6 +41,8 @@ export interface StatsRow {
   trucoWins: number;
   duvidoGames: number;
   duvidoWins: number;
+  bingoGames: number;
+  bingoWins: number;
 }
 
 export const EMPTY_STATS: StatsRow = {
@@ -52,6 +54,8 @@ export const EMPTY_STATS: StatsRow = {
   trucoWins: 0,
   duvidoGames: 0,
   duvidoWins: 0,
+  bingoGames: 0,
+  bingoWins: 0,
 };
 
 export interface LedgerEntry {
