@@ -199,7 +199,7 @@ export function GameOver({ room }: { room: DaneseRoomView }) {
 }
 
 /** A disconnected player's turn: countdown until the bot plays, host can skip. */
-export function WaitingBanner({ room }: { room: RoomView }) {
+export function WaitingBanner({ room, ios = false }: { room: RoomView; /** iOS table (truco): glass instead of black. */ ios?: boolean }) {
   const waiting = room.waitingFor;
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -221,15 +221,17 @@ export function WaitingBanner({ room }: { room: RoomView }) {
           exit={{ y: -40, opacity: 0 }}
           role="status"
         >
-          <div className="flex items-center gap-3 rounded-xl bg-black/85 px-4 py-2 text-sm shadow-xl ring-1 ring-gold-500/50">
-            <span className="size-2.5 animate-pulse rounded-full bg-gold-400" />
+          <div
+            className={`flex items-center gap-3 px-4 py-2 text-sm ${ios ? 'glass glass-thick rounded-2xl text-ios-label' : 'rounded-xl bg-black/85 shadow-xl ring-1 ring-gold-500/50'}`}
+          >
+            <span className={`size-2.5 animate-pulse rounded-full ${ios ? 'bg-ios-orange' : 'bg-gold-400'}`} />
             <span>
               Aguardando <strong>{who.name}</strong> reconectar… o bot joga em {seconds}s
             </span>
             {room.hostId === room.youId && (
               <button
                 onClick={() => actions.skipWaiting()}
-                className="min-h-9 rounded-lg bg-gold-400 px-3 font-semibold text-wood-900"
+                className={`min-h-9 px-3 font-semibold ${ios ? 'tint-fill rounded-full' : 'rounded-lg bg-gold-400 text-wood-900'}`}
               >
                 Pular
               </button>

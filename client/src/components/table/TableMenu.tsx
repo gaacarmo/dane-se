@@ -72,6 +72,7 @@ export function TableMenu({
   onLeave,
   onShowKit,
   followAppearance = false,
+  tableSettings = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -81,6 +82,8 @@ export function TableMenu({
   onShowKit?: () => void;
   /** Bingo (iOS table): follow light/dark instead of always dark. */
   followAppearance?: boolean;
+  /** Felt tables only: table color and first-person view. The iOS tables (bingo, truco) have neither. */
+  tableSettings?: boolean;
 }) {
   const prefs = usePrefs();
   const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
@@ -106,13 +109,16 @@ export function TableMenu({
               right={<Switch on={prefs.haptics} onChange={(on) => setPref('haptics', on)} label="Vibrar na sua vez" />}
             />
           )}
+          {tableSettings && (
           <Row
             icon={<RowIcon bg="#0a84ff">🪑</RowIcon>}
             label="Primeira pessoa (3D)"
             right={<Switch on={prefs.view3d} onChange={(on) => setPref('view3d', on)} label="Primeira pessoa (3D)" />}
           />
+          )}
         </Group>
 
+        {tableSettings && (
         <Group title="Cor da mesa" footer="Só muda no seu aparelho.">
           <div role="radiogroup" aria-label="Cor da mesa">
             {THEMES.map((t, i) => {
@@ -138,6 +144,7 @@ export function TableMenu({
             })}
           </div>
         </Group>
+        )}
 
         <Group>
           {onShowKit && <Row first icon={<RowIcon bg="#bf5af2">🎴</RowIcon>} label="Seu kit" right={Chevron} onClick={then(onShowKit)} />}

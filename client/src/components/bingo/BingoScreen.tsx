@@ -385,6 +385,7 @@ export function BingoScreen({ room, onHelp }: { room: BingoRoomView; onHelp: () 
           setConfirmLeave(true);
         }}
         followAppearance
+        tableSettings={false}
       />
       <LeaveDialog
         open={confirmLeave}

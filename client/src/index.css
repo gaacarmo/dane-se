@@ -27,6 +27,7 @@
   --color-ios-red: var(--ios-red);
   --color-ios-yellow: var(--ios-yellow);
   --color-ios-orange: var(--ios-orange);
+  --color-ios-cyan: var(--ios-cyan);
   --color-ios-label: var(--ios-label);
   --color-ios-on-tint: var(--ios-on-tint);
   --color-ios-label-2: var(--ios-label-2);
@@ -273,6 +274,7 @@ body {
   --ios-green: #30d158;
   --ios-red: #ff453a;
   --ios-yellow: #ffd60a;
+  --ios-cyan: #64d2ff;
   --ios-orange: #ff9f0a;
   --ios-label: #ffffff;
   --ios-label-2: rgb(235 235 245 / 0.6);
@@ -309,7 +311,8 @@ body {
     --ios-green: #34c759;
     --ios-red: #ff3b30;
     --ios-yellow: #ff9f0a;
-  --ios-orange: #d96d00;
+    --ios-orange: #d96d00;
+    --ios-cyan: #0071a4;
     --ios-label: #000000;
     --ios-label-2: rgb(60 60 67 / 0.6);
     --ios-label-3: rgb(60 60 67 / 0.3);
@@ -346,6 +349,7 @@ body {
   --ios-red: #ff3b30;
   --ios-yellow: #ff9f0a;
   --ios-orange: #d96d00;
+  --ios-cyan: #0071a4;
   --ios-label: #000000;
   --ios-label-2: rgb(60 60 67 / 0.6);
   --ios-label-3: rgb(60 60 67 / 0.3);
@@ -502,6 +506,7 @@ body {
   --color-ios-red: var(--ios-red);
   --color-ios-yellow: var(--ios-yellow);
   --color-ios-orange: var(--ios-orange);
+  --color-ios-cyan: var(--ios-cyan);
   --color-ios-label: var(--ios-label);
   --color-ios-on-tint: var(--ios-on-tint);
   --color-ios-label-2: var(--ios-label-2);
