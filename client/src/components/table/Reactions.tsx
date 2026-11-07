@@ -45,7 +45,7 @@ export function ReactionBubbles({ seats }: { seats: Map<string, Point> }) {
  * Round button on the table that opens the emoji palette. In the compact
  * (short landscape) layout it sits at the top, where there's free felt.
  */
-export function ReactionPicker({ atTop = false }: { atTop?: boolean }) {
+export function ReactionPicker({ atTop = false, ios = false }: { atTop?: boolean; /** iOS table (truco): glass instead of black. */ ios?: boolean }) {
   const [open, setOpen] = useState(false);
   const [coolingDown, setCoolingDown] = useState(false);
 
@@ -63,7 +63,7 @@ export function ReactionPicker({ atTop = false }: { atTop?: boolean }) {
       <AnimatePresence>
         {open && (
           <motion.div
-            className="grid grid-cols-4 gap-1 rounded-2xl bg-black/85 p-2 shadow-2xl ring-1 ring-gold-500/50"
+            className={`grid grid-cols-4 gap-1 p-2 ${ios ? 'glass glass-thick' : 'rounded-2xl bg-black/85 shadow-2xl ring-1 ring-gold-500/50'}`}
             initial={{ opacity: 0, scale: 0.8, y: atTop ? -10 : 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: atTop ? -10 : 10 }}
@@ -76,7 +76,7 @@ export function ReactionPicker({ atTop = false }: { atTop?: boolean }) {
                 key={emoji}
                 role="menuitem"
                 onClick={() => send(emoji)}
-                className="grid size-11 place-items-center rounded-xl text-2xl transition hover:bg-white/15 active:scale-90"
+                className={`grid size-11 place-items-center rounded-xl text-2xl transition active:scale-90 ${ios ? 'hover:bg-ios-fill' : 'hover:bg-white/15'}`}
                 aria-label={`Reagir com ${emoji}`}
               >
                 {emoji}
@@ -90,8 +90,8 @@ export function ReactionPicker({ atTop = false }: { atTop?: boolean }) {
         disabled={coolingDown}
         aria-expanded={open}
         aria-label="Reações"
-        className={`grid size-12 place-items-center rounded-full bg-black/60 text-2xl shadow-lg ring-1 transition active:scale-90 disabled:opacity-40 ${
-          open ? 'ring-gold-400' : 'ring-white/20'
+        className={`grid size-12 place-items-center rounded-full text-2xl transition active:scale-90 disabled:opacity-40 ${
+          ios ? 'glass-control text-ios-label' : `bg-black/60 shadow-lg ring-1 ${open ? 'ring-gold-400' : 'ring-white/20'}`
         }`}
       >
         {open ? '✕' : '😀'}
