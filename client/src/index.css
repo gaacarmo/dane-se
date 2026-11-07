@@ -275,6 +275,9 @@ body {
   --ios-red: #ff453a;
   --ios-yellow: #ffd60a;
   --ios-cyan: #64d2ff;
+  /* Truco table: brushed-metal rim around a graphite top. */
+  --table-rim: linear-gradient(180deg, #6e6e73 0%, #3a3a3c 45%, #1c1c1e 100%);
+  --table-top: radial-gradient(ellipse 75% 65% at 50% 38%, #3e3f44 0%, #2a2b2f 55%, #1b1c1f 100%);
   --ios-orange: #ff9f0a;
   --ios-label: #ffffff;
   --ios-label-2: rgb(235 235 245 / 0.6);
@@ -313,6 +316,8 @@ body {
     --ios-yellow: #ff9f0a;
     --ios-orange: #d96d00;
     --ios-cyan: #0071a4;
+    --table-rim: linear-gradient(180deg, #fbfbfd 0%, #d4d6dc 45%, #a7aab3 100%);
+    --table-top: radial-gradient(ellipse 75% 65% at 50% 38%, #a3aab6 0%, #8a919e 55%, #6f7683 100%);
     --ios-label: #000000;
     --ios-label-2: rgb(60 60 67 / 0.6);
     --ios-label-3: rgb(60 60 67 / 0.3);
@@ -350,6 +355,8 @@ body {
   --ios-yellow: #ff9f0a;
   --ios-orange: #d96d00;
   --ios-cyan: #0071a4;
+  --table-rim: linear-gradient(180deg, #fbfbfd 0%, #d4d6dc 45%, #a7aab3 100%);
+  --table-top: radial-gradient(ellipse 75% 65% at 50% 38%, #a3aab6 0%, #8a919e 55%, #6f7683 100%);
   --ios-label: #000000;
   --ios-label-2: rgb(60 60 67 / 0.6);
   --ios-label-3: rgb(60 60 67 / 0.3);
@@ -546,4 +553,21 @@ body {
 }
 :root[data-appearance='light'] .silver-text {
   background-image: linear-gradient(180deg, #48484a 0%, #1c1c1e 55%, #3a3a3c 100%);
+}
+
+/* iOS truco table: a real table top (not white glass) so the cards stand out in light mode too. */
+.ios-table-rim {
+  background: var(--table-rim);
+  box-shadow:
+    0 30px 60px -22px rgb(0 0 0 / 0.55),
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    inset 0 -2px 4px rgb(0 0 0 / 0.25);
+}
+.ios-table-top {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    var(--table-top);
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.2),
+    inset 0 8px 30px rgb(0 0 0 / 0.4);
 }

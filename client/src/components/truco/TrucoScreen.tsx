@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useAnimationControls } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import {
   type Card,
@@ -102,6 +102,13 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
   const seatPoints = new Map<string, Point>(game.seats.map((s, i) => [s.id, seatPoint(seatK(i), n, geometry, size)]));
   const trickSpots = new Map<string, Point>(game.seats.map((s, i) => [s.id, trickPoint(seatK(i), n, geometry)]));
 
+  // A mesa treme quando alguém grita truco (ou aumenta).
+  const shake = useAnimationControls();
+  const callValue = game.phase === 'truco' ? game.request?.value : undefined;
+  useEffect(() => {
+    if (callValue) void shake.start({ x: [0, -9, 9, -7, 7, -3, 3, 0], transition: { delay: 0.18, duration: 0.45 } });
+  }, [callValue, shake]);
+
   const hidden = game.special === 'ferro';
   const handCards = game.hand.flatMap((h) => (h.card ? [h.card] : []));
 
@@ -138,25 +145,25 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
         tableSettings={false}
       />
 
-      <div
+      <motion.div
         ref={tableRef}
+        animate={shake}
         className="relative z-10 min-h-0 flex-1"
         style={{ '--table-card-w': `${geometry.tableCardW}px` } as React.CSSProperties}
       >
         {size.width > 0 && (
           <>
-            {/* A mesa: uma lâmina de vidro oval, com um friso por dentro. */}
+            {/* A mesa: borda de metal escovado e tampo grafite, pra as cartas brancas saltarem. */}
             <div
-              className="glass absolute"
+              className="ios-table-rim absolute rounded-[50%]"
               style={{
-                left: geometry.center.x - geometry.rx - 10,
-                top: geometry.center.y - geometry.ry - 10,
-                width: (geometry.rx + 10) * 2,
-                height: (geometry.ry + 10) * 2,
-                borderRadius: '50%',
+                left: geometry.center.x - geometry.rx - 12,
+                top: geometry.center.y - geometry.ry - 12,
+                width: (geometry.rx + 12) * 2,
+                height: (geometry.ry + 12) * 2,
               }}
             >
-              <div className="absolute inset-[14px] rounded-[50%] bg-ios-fill ring-1 ring-ios-separator" />
+              <div className="ios-table-top absolute inset-[12px] rounded-[50%]" />
             </div>
 
             {/* Vira no meio da mesa, com a manilha embaixo. */}
@@ -176,8 +183,8 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
                   <PlayingCard card={game.vira} />
                 </motion.div>
               </div>
-              <span className="glass-control rounded-full px-3 py-1 text-[12px] font-semibold text-ios-label-2">
-                Manilha <strong className="text-[15px] text-ios-label">{game.manilha}</strong>
+              <span className="rounded-full bg-black/45 px-3 py-1 text-[12px] font-semibold text-white/75 ring-1 ring-white/15">
+                Manilha <strong className="text-[15px] text-white">{game.manilha}</strong>
               </span>
             </div>
 
@@ -219,7 +226,7 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
         <WaitingBanner room={room} ios />
         <TrucoCallBanner game={game} />
         <HandSummary game={game} />
-      </div>
+      </motion.div>
 
       <div className="relative z-20">
         {game.partnerHand && game.phase === 'maoDeOnze' && <PartnerHand game={game} cards={game.partnerHand.cards} />}
@@ -555,27 +562,83 @@ function HiddenHand({ game }: { game: TrucoView }) {
   );
 }
 
-/** O grito de truco no meio da mesa, pra todo mundo ver. */
+/** Tempo mínimo do grito de truco na tela. */
+const CALL_MIN_MS = 1700;
+
+/**
+ * O grito de truco: clarão vermelho, uma onda saindo do centro e as letras
+ * caindo uma a uma na mesa, com um tranco no fim. Seis, nove e doze repetem,
+ * cada vez mais forte.
+ */
 function TrucoCallBanner({ game }: { game: TrucoView }) {
-  const request = game.phase === 'truco' ? game.request : null;
+  const live = game.phase === 'truco' ? game.request : null;
+  // Os bots respondem em menos de um segundo: o grito fica na tela um tempo mínimo
+  // mesmo depois de aceito ou corrido, senão a animação some no meio.
+  const [request, setRequest] = useState<{ value: number; byPlayerId: string; at: number } | null>(null);
+  useEffect(() => {
+    if (live) setRequest({ value: live.value, byPlayerId: live.byPlayerId, at: Date.now() });
+  }, [live?.value, live?.byPlayerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!request || live?.value === request.value) return;
+    const t = setTimeout(() => setRequest(null), Math.max(0, CALL_MIN_MS - (Date.now() - request.at)));
+    return () => clearTimeout(t);
+  }, [request, live?.value]);
   const asker = request ? game.seats.find((s) => s.id === request.byPlayerId) : null;
+  const word = request ? `${trucoCallName(request.value).toUpperCase()}!` : '';
+  // Quanto maior o pedido, maior o tranco.
+  const power = request ? Math.min(1, request.value / 12) : 0;
   return (
     <AnimatePresence>
       {request && asker && (
-        <motion.div
-          key={request.value}
-          className="pointer-events-none absolute inset-x-0 top-[18%] z-40 flex flex-col items-center"
-          initial={{ scale: 0.3, opacity: 0, rotate: -8 }}
-          animate={{ scale: 1, opacity: 1, rotate: -2 }}
-          exit={{ scale: 1.4, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 14 }}
-        >
-          <span className="glass glass-thick flex flex-col items-center rounded-[2rem]! px-7 py-3">
-            <span className="text-[44px] leading-none font-black tracking-tight text-ios-red">{trucoCallName(request.value).toUpperCase()}!</span>
-            <span className="mt-1.5 text-[15px] font-semibold text-ios-label-2">
+        <motion.div key={request.value} className="pointer-events-none absolute inset-0 z-40" exit={{ opacity: 0, transition: { duration: 0.25 } }}>
+          {/* Clarão. */}
+          <motion.div
+            className="absolute inset-0"
+            style={{ background: 'radial-gradient(ellipse 70% 55% at 50% 32%, rgb(255 59 48 / 0.45), transparent 70%)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 0.35] }}
+            transition={{ duration: 0.7, times: [0, 0.2, 1] }}
+          />
+          {/* Ondas de choque. */}
+          {[0, 0.12].map((delay) => (
+            <motion.span
+              key={delay}
+              className="absolute top-[30%] left-1/2 size-32 rounded-full border-[3px] border-ios-red"
+              style={{ x: '-50%', y: '-50%' }}
+              initial={{ scale: 0.2, opacity: 0.9 }}
+              animate={{ scale: 3.2 + power, opacity: 0 }}
+              transition={{ delay, duration: 0.75, ease: 'easeOut' }}
+            />
+          ))}
+
+          <div className="absolute inset-x-0 top-[30%] flex -translate-y-1/2 flex-col items-center">
+            <motion.div
+              className="flex items-center rounded-[2rem] bg-[var(--solid-surface)]/90 px-7 py-3 shadow-[0_24px_60px_-20px_rgb(255_59_48/0.7)] ring-1 ring-ios-red/40"
+              initial={{ scale: 0.4, rotate: -10 }}
+              animate={{ scale: [0.4, 1.12 + power * 0.1, 1], rotate: [-10, 3, -2] }}
+              transition={{ duration: 0.5, times: [0, 0.6, 1], ease: 'easeOut' }}
+            >
+              {[...word].map((ch, i) => (
+                <motion.span
+                  key={i}
+                  className="inline-block text-[44px] leading-none font-black tracking-tight text-ios-red"
+                  initial={{ y: -70, opacity: 0, rotate: i % 2 ? 25 : -25, scale: 1.6 }}
+                  animate={{ y: 0, opacity: 1, rotate: 0, scale: 1 }}
+                  transition={{ delay: 0.05 + i * 0.045, type: 'spring', stiffness: 520, damping: 16 }}
+                >
+                  {ch}
+                </motion.span>
+              ))}
+            </motion.div>
+            <motion.span
+              className="mt-2 rounded-full bg-[var(--solid-surface)]/85 px-3.5 py-1 text-[15px] font-semibold text-ios-label shadow-lg"
+              initial={{ y: -12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.35 + word.length * 0.045 }}
+            >
               {asker.id === game.viewerId ? 'Você pediu' : `${asker.name} pediu`}
-            </span>
-          </span>
+            </motion.span>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
