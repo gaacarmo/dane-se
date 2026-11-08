@@ -166,7 +166,7 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
               <div className="ios-table-top absolute inset-[12px] rounded-[50%]" />
             </div>
 
-            {/* O camarão da casa, estampado no meio do tampo, atrás da vira. */}
+            {/* O camarão da casa: marca d'água cinza no meio do tampo, atrás da vira. */}
             <span
               aria-hidden
               className="pointer-events-none absolute z-0 -translate-x-1/2 -translate-y-1/2 -rotate-12 select-none"
@@ -175,7 +175,9 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
                 top: geometry.center.y - geometry.tableCardW * 0.5,
                 fontSize: Math.min(geometry.rx, geometry.ry) * 0.62,
                 lineHeight: 1,
-                filter: 'drop-shadow(0 6px 10px rgb(0 0 0 / 0.35))',
+                // Cinza e translúcido, como uma marca d'água no tampo.
+                filter: 'grayscale(1)',
+                opacity: 0.28,
               }}
             >
               🦐
