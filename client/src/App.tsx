@@ -65,14 +65,14 @@ export function App() {
   return (
     <>
       {screen}
-      {/* In the lobby and at the bingo table the voice button lives in the navigation bar. */}
-      {room && room.status !== 'lobby' && room.gameType !== 'bingo' && <VoiceButton className="fixed top-[7.25rem] right-2 z-40" />}
+      {/* In the lobby and at the iOS tables (bingo, truco) the voice button lives in the navigation bar. */}
+      {room && room.status !== 'lobby' && room.gameType !== 'bingo' && room.gameType !== 'truco' && <VoiceButton className="fixed top-[7.25rem] right-2 z-40" />}
       <HowToPlay
         open={help}
         onClose={() => setHelp(false)}
         gameType={room?.gameType}
-        // Hub, waiting room and the bingo table (iOS style) follow light/dark; the felt tables are always dark.
-        followAppearance={!room || room.status === 'lobby' || room.gameType === 'bingo'}
+        // Hub, waiting room and the iOS tables (bingo, truco) follow light/dark; the felt tables are always dark.
+        followAppearance={!room || room.status === 'lobby' || room.gameType === 'bingo' || room.gameType === 'truco'}
       />
       <Toast />
       <InviteToast />
