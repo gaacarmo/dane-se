@@ -5,16 +5,31 @@ import {
   type TrucoPhase,
   type TrucoPlayedCard,
   type TrucoRequest,
-  type TrucoRoundRecord,
   type TrucoSpecialHand,
   canAskTruco,
+  canCoverCard,
   canDecideOnze,
   canSwapPalhacos,
   canRaiseTruco,
   hiddenCardId,
   trucoActorId,
 } from './game.js';
-import { type TrucoSettings, type TrucoTeam, nextTrucoValue } from './rules.js';
+import { type TrucoRoundResult as RoundResult, type TrucoSettings, type TrucoTeam, nextTrucoValue } from './rules.js';
+
+/**
+ * Uma carta na mesa como o cliente vê. A encoberta só mostra a carta pra quem
+ * jogou; pros outros `card` vem null.
+ */
+export interface TrucoTableCard {
+  playerId: string;
+  card: Card | null;
+  covered?: boolean;
+}
+
+export interface TrucoRoundView {
+  cards: TrucoTableCard[];
+  result: RoundResult;
+}
 
 export interface TrucoSeatView {
   id: string;
@@ -43,6 +58,8 @@ export interface TrucoLegalView {
   canRaise: boolean;
   /** Regra da casa: tem 3 palhaços e ainda pode trocar. */
   canSwap: boolean;
+  /** Pode jogar uma carta encoberta (da segunda vaza em diante, na sua vez). */
+  canCover: boolean;
 }
 
 /** Tudo que um cliente pode saber sobre a mesa de truco. */
@@ -63,11 +80,11 @@ export interface TrucoView {
   request: TrucoRequest | null;
   actorId: string | null;
   turnPlayerId: string;
-  table: TrucoPlayedCard[];
-  rounds: TrucoRoundRecord[];
+  table: TrucoTableCard[];
+  rounds: TrucoRoundView[];
   hand: TrucoHandCard[];
-  /** Mão de onze: as cartas do parceiro, que a dupla com 11 pode ver. */
-  partnerHand: { playerId: string; cards: Card[] } | null;
+  /** Mão de onze: as cartas dos parceiros, que o time com 11 pode ver (1 com 4 jogadores, 2 com 6). */
+  partnerHands: { playerId: string; cards: Card[] }[];
   onzeDeciderId: string | null;
   legal: TrucoLegalView;
   lastHand: TrucoHandResult | null;
@@ -82,7 +99,14 @@ const NO_LEGAL: TrucoLegalView = {
   canRun: false,
   canRaise: false,
   canSwap: false,
+  canCover: false,
 };
+
+/** Esconde a carta encoberta de quem não jogou. */
+function tableCard(p: TrucoPlayedCard, viewerId: string | null): TrucoTableCard {
+  if (!p.covered) return { playerId: p.playerId, card: p.card };
+  return { playerId: p.playerId, card: p.playerId === viewerId ? p.card : null, covered: true };
+}
 
 export function getTrucoView(state: TrucoGameState, viewerId: string | null): TrucoView {
   const me = state.players.find((p) => p.id === viewerId);
@@ -95,10 +119,11 @@ export function getTrucoView(state: TrucoGameState, viewerId: string | null): Tr
       ? ownHand.map((_, i) => ({ id: hiddenCardId(i), card: null }))
       : ownHand.map((c) => ({ id: `${c.rank}${c.suit}`, card: c }));
 
-  let partnerHand: TrucoView['partnerHand'] = null;
-  if (me && state.special === 'onze' && state.players.length === 4 && state.scores[me.team] === 11) {
-    const partner = state.players.find((p) => p.team === me.team && p.id !== me.id);
-    if (partner) partnerHand = { playerId: partner.id, cards: [...(state.hands[partner.id] ?? [])] };
+  let partnerHands: TrucoView['partnerHands'] = [];
+  if (me && state.special === 'onze' && state.scores[me.team] === 11) {
+    partnerHands = state.players
+      .filter((p) => p.team === me.team && p.id !== me.id)
+      .map((p) => ({ playerId: p.id, cards: [...(state.hands[p.id] ?? [])] }));
   }
 
   let legal = NO_LEGAL;
@@ -114,6 +139,7 @@ export function getTrucoView(state: TrucoGameState, viewerId: string | null): Tr
       canRun: inTruco || inOnze,
       canRaise: canRaiseTruco(state, id),
       canSwap: canSwapPalhacos(state, id),
+      canCover: canCoverCard(state, id),
     };
   }
 
@@ -140,10 +166,10 @@ export function getTrucoView(state: TrucoGameState, viewerId: string | null): Tr
     request: state.request,
     actorId: trucoActorId(state),
     turnPlayerId: state.turnPlayerId,
-    table: [...state.table],
-    rounds: state.rounds.map((r) => ({ cards: [...r.cards], result: r.result })),
+    table: state.table.map((p) => tableCard(p, viewerId)),
+    rounds: state.rounds.map((r) => ({ cards: r.cards.map((p) => tableCard(p, viewerId)), result: r.result })),
     hand,
-    partnerHand,
+    partnerHands,
     onzeDeciderId: state.onzeDeciderId,
     legal,
     lastHand: state.lastHand,

@@ -47,9 +47,9 @@ export const GAME_CATALOG: readonly GameCatalogEntry[] = [
   {
     id: 'truco',
     name: 'Truco Paulista',
-    description: 'Com vira e manilha. Peça truco, blefe e leve a dupla até 12 pontos.',
+    description: 'Com vira e manilha. Peça truco, blefe e leve o seu time até 12 pontos.',
     minPlayers: 2,
-    maxPlayers: 4,
+    maxPlayers: 6,
     minEntry: 100,
     defaultEntry: 100,
     entryOptions: [100, 250, 500, 1000],

@@ -33,10 +33,17 @@ function betAction(): Built {
   return { ok: false, error: 'INVALID_ACTION' };
 }
 
-/** `{ type: 'truco' | 'accept' | 'run' | 'swap' }`. Vez e fase são checadas no `apply`. */
-function commandAction(_state: TrucoGameState, playerId: string, raw: unknown): Built {
+/**
+ * `{ type: 'truco' | 'accept' | 'run' | 'swap' }`, ou `{ type: 'cover', cardId }` pra
+ * jogar uma carta encoberta. Vez e fase são checadas no `apply`.
+ */
+function commandAction(state: TrucoGameState, playerId: string, raw: unknown): Built {
   if (typeof raw !== 'object' || raw === null) return { ok: false, error: 'INVALID_ACTION' };
   const type = (raw as { type?: unknown }).type;
+  if (type === 'cover') {
+    const built = playAction(state, playerId, (raw as { cardId?: unknown }).cardId);
+    return built.ok && built.action.type === 'play' ? { ok: true, action: { ...built.action, covered: true } } : built;
+  }
   if (type === 'truco' || type === 'accept' || type === 'run' || type === 'swap') return { ok: true, action: { type, playerId } };
   return { ok: false, error: 'INVALID_ACTION' };
 }
@@ -69,7 +76,7 @@ function settle(state: TrucoGameState, entries: readonly Entry[]): Payout[] {
 export const trucoModule: GameModule<TrucoSettings, TrucoGameState, TrucoAction, TrucoView> = {
   id: 'truco',
   name: 'Truco Paulista',
-  description: 'Com vira e manilha. Peça truco, blefe e leve a dupla até 12 pontos.',
+  description: 'Com vira e manilha. Peça truco, blefe e leve o seu time até 12 pontos.',
   minPlayers: TRUCO_MIN_PLAYERS,
   maxPlayers: TRUCO_MAX_PLAYERS,
   minEntry: TRUCO_MIN_ENTRY,

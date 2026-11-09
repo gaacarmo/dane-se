@@ -27,9 +27,9 @@ const ROWS: Row[] = [
     id: 'truco',
     name: 'Truco Paulista',
     short: 'Truco',
-    subtitle: 'Duplas, vira e manilha',
-    description: 'Peça truco, blefe e leve sua dupla até 12 pontos. Dá pra jogar 1 contra 1 ou 2 contra 2.',
-    players: '2 ou 4',
+    subtitle: 'Times, vira e manilha',
+    description: 'Peça truco, blefe e leve seu time até 12 pontos. Dá pra jogar 1 contra 1, 2 contra 2 ou 3 contra 3.',
+    players: '2, 4 ou 6',
   },
   {
     id: 'poker',

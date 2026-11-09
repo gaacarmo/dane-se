@@ -1,10 +1,10 @@
 import { isValidMoney, type Money } from '../../hub/money.js';
 import { type Card, type Rank, RANKS, SUITS } from '../danese/cards.js';
 
-/** Truco Paulista: 1 contra 1 ou 2 contra 2 (parceiros sentados frente a frente). */
-export const TRUCO_PLAYER_COUNTS = [2, 4] as const;
+/** Truco Paulista: 1 contra 1, 2 contra 2 ou 3 contra 3 (os times se alternam na mesa). */
+export const TRUCO_PLAYER_COUNTS = [2, 4, 6] as const;
 export const TRUCO_MIN_PLAYERS = 2;
-export const TRUCO_MAX_PLAYERS = 4;
+export const TRUCO_MAX_PLAYERS = 6;
 
 /** A partida vai até 12 pontos. */
 export const TRUCO_TARGET = 12;
@@ -35,7 +35,7 @@ export function validateTrucoSettings(raw: unknown): TrucoSettings | null {
   return next;
 }
 
-/** Duplas: 0 e 1. Os assentos se alternam (0, 2 contra 1, 3). */
+/** Times (duplas, ou trios com 6): 0 e 1. Os assentos se alternam (0, 2, 4 contra 1, 3, 5). */
 export type TrucoTeam = 0 | 1;
 
 export function teamOfSeat(seat: number): TrucoTeam {
@@ -83,6 +83,9 @@ export function trucoStrength(card: Card, manilha: Rank): number {
   if (card.rank === manilha) return 100 + SUITS.indexOf(card.suit);
   return RANKS.indexOf(card.rank);
 }
+
+/** Força de uma carta encoberta: abaixo de qualquer carta (só empata com outra encoberta). */
+export const TRUCO_COVERED_STRENGTH = -1;
 
 /** Nome popular da manilha de cada naipe. */
 export const MANILHA_NAMES: Record<Card['suit'], string> = {

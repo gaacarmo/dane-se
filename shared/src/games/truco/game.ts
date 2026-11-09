@@ -1,6 +1,7 @@
 import { shuffle } from '../../rng.js';
 import { type Card, type Rank, cardId, createDeck } from '../danese/cards.js';
 import {
+  TRUCO_COVERED_STRENGTH,
   TRUCO_ONZE,
   TRUCO_ONZE_VALUE,
   TRUCO_PLAYER_COUNTS,
@@ -27,6 +28,11 @@ export interface TrucoPlayer {
 export interface TrucoPlayedCard {
   playerId: string;
   card: Card;
+  /**
+   * Jogada encoberta (escondida): vale menos que qualquer carta e ninguém além de
+   * quem jogou vê qual era. Só a partir da segunda vaza.
+   */
+  covered?: boolean;
 }
 
 /** Um pedido de truco (ou aumento) esperando resposta da outra dupla. */
@@ -103,7 +109,7 @@ export interface TrucoGameState {
 }
 
 export type TrucoAction =
-  | { type: 'play'; playerId: string; cardId: string }
+  | { type: 'play'; playerId: string; cardId: string; covered?: boolean }
   /** Pede truco na sua vez, ou aumenta quando é você quem responde. */
   | { type: 'truco'; playerId: string }
   /** Aceita o pedido (ou, na mão de onze, topa jogar). */
@@ -273,14 +279,28 @@ function resolveCardId(state: TrucoGameState, playerId: string, rawId: string): 
   return hand.find((c) => cardId(c) === rawId) ?? null;
 }
 
-function play(state: TrucoGameState, playerId: string, rawId: string): TrucoResult {
+/**
+ * Pode jogar encoberto? A partir da segunda vaza, na sua vez. Na mão de ferro não
+ * (lá ninguém vê nem a própria carta).
+ */
+export function canCoverCard(state: TrucoGameState, playerId: string): boolean {
+  return state.phase === 'playing' && state.turnPlayerId === playerId && state.rounds.length >= 1 && state.special !== 'ferro';
+}
+
+/** Força de uma carta na mesa: a encoberta perde pra todas. */
+export function playedStrength(played: TrucoPlayedCard, manilha: Rank): number {
+  return played.covered ? TRUCO_COVERED_STRENGTH : trucoStrength(played.card, manilha);
+}
+
+function play(state: TrucoGameState, playerId: string, rawId: string, covered = false): TrucoResult {
   if (state.phase !== 'playing') return fail('WRONG_PHASE');
   if (state.turnPlayerId !== playerId) return fail('NOT_YOUR_TURN');
+  if (covered && !canCoverCard(state, playerId)) return fail('INVALID_ACTION');
   const card = resolveCardId(state, playerId, rawId);
   if (!card) return fail('CARD_NOT_IN_HAND');
 
   const hand = state.hands[playerId]!.filter((c) => c !== card);
-  const table = [...state.table, { playerId, card }];
+  const table = [...state.table, covered ? { playerId, card, covered: true } : { playerId, card }];
   const next: TrucoGameState = { ...state, hands: { ...state.hands, [playerId]: hand }, table };
   if (table.length < state.players.length) {
     return ok({ ...next, turnPlayerId: state.players[nextSeat(state, seatOf(state, playerId))]!.id });
@@ -292,9 +312,9 @@ function play(state: TrucoGameState, playerId: string, rawId: string): TrucoResu
 /** Fecha a vaza da mesa e decide se a mão acabou. */
 function collectRound(state: TrucoGameState): TrucoResult {
   if (state.phase !== 'roundEnd') return fail('WRONG_PHASE');
-  let best = -1;
-  for (const p of state.table) best = Math.max(best, trucoStrength(p.card, state.manilha));
-  const top = state.table.filter((p) => trucoStrength(p.card, state.manilha) === best);
+  let best = -Infinity;
+  for (const p of state.table) best = Math.max(best, playedStrength(p, state.manilha));
+  const top = state.table.filter((p) => playedStrength(p, state.manilha) === best);
   const topTeams = new Set(top.map((p) => teamOf(state, p.playerId)));
   const result: TrucoRoundResult = topTeams.size === 1 ? [...topTeams][0]! : 'tie';
   const rounds = [...state.rounds, { cards: state.table, result }];
@@ -407,7 +427,7 @@ export function applyTrucoAction(state: TrucoGameState, action: TrucoAction): Tr
   if ('playerId' in action && seatOf(state, action.playerId) < 0) return fail('UNKNOWN_PLAYER');
   switch (action.type) {
     case 'play':
-      return play(state, action.playerId, action.cardId);
+      return play(state, action.playerId, action.cardId, action.covered === true);
     case 'truco':
       return askTruco(state, action.playerId);
     case 'accept':

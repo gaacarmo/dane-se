@@ -191,8 +191,8 @@ function TrucoRules() {
         pedir de novo.
       </p>
       <p className="glass px-4 py-3">
-        <strong>Mão de onze:</strong> a dupla com 11 vê as cartas do parceiro e decide se joga (vale 3) ou corre (o outro
-        lado leva 1). Ninguém pede truco nela. <strong>Mão de ferro:</strong> as duas duplas com 11 jogam com as cartas
+        <strong>Mão de onze:</strong> o time com 11 vê as cartas dos parceiros e decide se joga (vale 3) ou corre (o outro
+        lado leva 1). Ninguém pede truco nela. <strong>Mão de ferro:</strong> os dois times com 11 jogam com as cartas
         viradas, no escuro.
       </p>
       <p className="glass px-4 py-3">
@@ -200,7 +200,15 @@ function TrucoRules() {
         mistura), aparece o botão <strong>Trocar</strong> do lado da mão e você troca as 3 por cartas novas do baralho,
         enquanto ainda não jogou nenhuma. Na mão de ferro não vale.
       </p>
-      <p className="glass px-4 py-3">Quem fizer 12 pontos primeiro vence. Valendo dinheiro, a dupla vencedora divide o pote.</p>
+      <p className="glass px-4 py-3">
+        <strong>Carta encoberta:</strong> da segunda vaza em diante, na sua vez, ligue <strong>Jogar encoberta</strong> e a
+        próxima carta vai virada. Ela perde pra qualquer carta (duas encobertas cangam) e ninguém fica sabendo qual era: serve
+        pra jogar fora uma carta sem mostrar o que você tinha.
+      </p>
+      <p className="glass px-4 py-3">
+        Dá pra jogar <strong>1 contra 1</strong>, <strong>2 contra 2</strong> ou <strong>3 contra 3</strong>; os times se
+        alternam na mesa. Quem fizer 12 pontos primeiro vence. Valendo dinheiro, o time vencedor divide o pote.
+      </p>
     </section>
   );
 }

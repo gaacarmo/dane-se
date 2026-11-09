@@ -17,6 +17,7 @@ const players2 = [
   { id: 'b', name: 'Beto' },
 ];
 const players4 = [...players2, { id: 'c', name: 'Caio' }, { id: 'd', name: 'Duda' }];
+const players6 = [...players4, { id: 'e', name: 'Edu' }, { id: 'f', name: 'Fê' }];
 
 function start(players = players2, seed = 7): TrucoGameState {
   const r = createTrucoGame(players, seed, { entry: 100 });
@@ -169,8 +170,8 @@ describe('mão de onze e mão de ferro', () => {
     const decider = t.onzeDeciderId!;
     expect(t.players.find((p) => p.id === decider)!.team).toBe(1);
     // O parceiro mostra as cartas pra dupla com 11.
-    expect(getTrucoView(t, decider).partnerHand?.cards).toHaveLength(3);
-    expect(getTrucoView(t, 'a').partnerHand).toBeNull();
+    expect(getTrucoView(t, decider).partnerHands[0]?.cards).toHaveLength(3);
+    expect(getTrucoView(t, 'a').partnerHands).toEqual([]);
     const ran = apply(t, { type: 'run', playerId: decider });
     expect(ran.scores).toEqual([11, 11]);
     const played = apply(t, { type: 'accept', playerId: decider });
@@ -189,14 +190,14 @@ describe('mão de onze e mão de ferro', () => {
     const partner = team0.find((id) => id !== t.onzeDeciderId)!;
     // O parceiro (que não é quem a mesa espera) também pode responder e vê as cartas do outro.
     expect(getTrucoView(t, partner).legal.canAccept).toBe(true);
-    expect(getTrucoView(t, partner).partnerHand?.playerId).toBe(t.onzeDeciderId);
+    expect(getTrucoView(t, partner).partnerHands.map((h) => h.playerId)).toEqual([t.onzeDeciderId]);
     const ran = apply(t, { type: 'run', playerId: partner });
     expect(ran.scores).toEqual([11, 6]);
     expect(ran.lastHand).toMatchObject({ team: 1, points: 1, reason: 'onzeRun', ranPlayerId: partner });
     // A outra dupla não decide nem vê nada.
     for (const id of team1) {
       expect(applyTrucoAction(t, { type: 'accept', playerId: id })).toEqual({ ok: false, error: 'NOT_YOUR_TURN' });
-      expect(getTrucoView(t, id).partnerHand).toBeNull();
+      expect(getTrucoView(t, id).partnerHands).toEqual([]);
       expect(getTrucoView(t, id).legal.canAccept).toBe(false);
     }
   });
@@ -331,5 +332,120 @@ describe('módulo do hub', () => {
     expect(trucoModule.commandAction!(s, 'a', { type: 'fold' }).ok).toBe(false);
     expect(trucoModule.playAction(s, 'a', 42).ok).toBe(false);
     expect(trucoModule.betAction(s, 'a', 1).ok).toBe(false);
+  });
+});
+
+describe('carta encoberta', () => {
+  it('não vale na primeira vaza; da segunda em diante perde pra qualquer carta', () => {
+    let s = rigged({ a: ['3C', '4D', '5S'], b: ['2C', '6D', '7S'] });
+    // Primeira vaza: não dá pra esconder.
+    expect(getTrucoView(s, 'a').legal.canCover).toBe(false);
+    expect(applyTrucoAction(s, { type: 'play', playerId: 'a', cardId: '3C', covered: true })).toEqual({ ok: false, error: 'INVALID_ACTION' });
+    s = playRound(s, ['3C', '2C']); // a ganha (3 > 2)
+    expect(s.turnPlayerId).toBe('a');
+    expect(getTrucoView(s, 'a').legal.canCover).toBe(true);
+    // a esconde o 5 (que ganharia do 4... mas encoberta perde de tudo).
+    s = apply(s, { type: 'play', playerId: 'a', cardId: '5S', covered: true });
+    s = apply(s, { type: 'play', playerId: 'b', cardId: '6D' });
+    s = apply(s, { type: 'collectRound' });
+    expect(s.rounds[1]!.result).toBe(1);
+  });
+
+  it('só quem jogou vê a carta encoberta, na mesa e no histórico', () => {
+    let s = rigged({ a: ['3C', '4D', '5S'], b: ['2C', '6D', '7S'] });
+    s = playRound(s, ['3C', '2C']);
+    s = apply(s, { type: 'play', playerId: 'a', cardId: '5S', covered: true });
+    expect(getTrucoView(s, 'a').table[0]).toEqual({ playerId: 'a', card: c('5S'), covered: true });
+    expect(getTrucoView(s, 'b').table[0]).toEqual({ playerId: 'a', card: null, covered: true });
+    expect(getTrucoView(s, null).table[0]!.card).toBeNull();
+    s = apply(s, { type: 'play', playerId: 'b', cardId: '6D' });
+    s = apply(s, { type: 'collectRound' });
+    expect(getTrucoView(s, 'b').rounds[1]!.cards[0]!.card).toBeNull();
+    expect(getTrucoView(s, 'a').rounds[1]!.cards[0]!.card).toEqual(c('5S'));
+  });
+
+  it('duas encobertas empatam (cangou)', () => {
+    let s = rigged({ a: ['3C', '4D', '5S'], b: ['2C', '6D', '7S'] });
+    s = playRound(s, ['3C', '2C']);
+    s = apply(s, { type: 'play', playerId: 'a', cardId: '5S', covered: true });
+    s = apply(s, { type: 'play', playerId: 'b', cardId: '6D', covered: true });
+    s = apply(s, { type: 'collectRound' });
+    // Ganhou a primeira e cangou a segunda: a leva a mão.
+    expect(s.phase).toBe('handEnd');
+    expect(s.lastHand).toMatchObject({ team: 0, reason: 'rounds' });
+  });
+
+  it('não vale na mão de ferro', () => {
+    let s = rigged({ a: ['3C', '4D', '5S'], b: ['2C', '6D', '7S'] });
+    s = playRound(s, ['3C', '2C']);
+    s = { ...s, special: 'ferro' };
+    expect(getTrucoView(s, 'a').legal.canCover).toBe(false);
+  });
+
+  it('chega pelo comando `cover` do módulo', () => {
+    const s = rigged({ a: ['3C', '4D', '5S'], b: ['2C', '6D', '7S'] });
+    const built = trucoModule.commandAction!(s, 'a', { type: 'cover', cardId: '4D' });
+    expect(built).toEqual({ ok: true, action: { type: 'play', playerId: 'a', cardId: '4D', covered: true } });
+  });
+});
+
+describe('truco com 6 (3 contra 3)', () => {
+  it('cria a mesa com os times alternados e 3 cartas pra cada', () => {
+    const s = start(players6);
+    expect(s.players.map((p) => p.team)).toEqual([0, 1, 0, 1, 0, 1]);
+    for (const p of players6) expect(s.hands[p.id]).toHaveLength(3);
+    expect(s.stock).toHaveLength(40 - 6 * 3 - 1);
+    expect(createTrucoGame([...players4, { id: 'e', name: 'Edu' }], 1, { entry: 100 })).toEqual({ ok: false, error: 'INVALID_PLAYER_COUNT' });
+  });
+
+  it('a vaza só fecha com as 6 cartas e vai pro time da maior', () => {
+    let s = rigged({ a: ['4C', '4D', '5S'], b: ['5C', '6D', '7S'], c: ['3C', '7D', '6S'], d: ['2C', '5D', '4S'], e: ['6C', 'AD', 'AS'], f: ['7C', 'KD', 'KS'] }, players6);
+    for (const card of ['4C', '5C', '3C', '2C', '6C']) s = apply(s, { type: 'play', playerId: s.turnPlayerId, cardId: card });
+    expect(s.phase).toBe('playing');
+    s = apply(s, { type: 'play', playerId: s.turnPlayerId, cardId: '7C' });
+    s = apply(s, { type: 'collectRound' });
+    // O 3 do Caio (time 0) é a maior.
+    expect(s.rounds[0]!.result).toBe(0);
+    expect(s.turnPlayerId).toBe('c');
+  });
+
+  it('na mão de onze o time vê as cartas dos dois parceiros', () => {
+    let t = start(players6);
+    t = { ...t, scores: [11, 4], phase: 'handEnd' };
+    t = apply(t, { type: 'nextHand' });
+    expect(t.phase).toBe('maoDeOnze');
+    const team0 = t.players.filter((p) => p.team === 0).map((p) => p.id);
+    for (const id of team0) {
+      const view = getTrucoView(t, id);
+      expect(view.partnerHands.map((h) => h.playerId).sort()).toEqual(team0.filter((x) => x !== id).sort());
+      expect(view.partnerHands.every((h) => h.cards.length === 3)).toBe(true);
+    }
+    expect(getTrucoView(t, 'b').partnerHands).toEqual([]);
+  });
+
+  it('o pote de 6 se divide entre os 3 do time vencedor', () => {
+    let t = start(players6);
+    t = { ...t, winnerTeam: 1, phase: 'gameOver' };
+    const payouts = trucoModule.settle(t, players6.map((p) => ({ playerId: p.id, amount: 100 })));
+    expect(payouts.filter((p) => p.amount > 0).map((p) => p.playerId).sort()).toEqual(['b', 'd', 'f']);
+    expect(payouts.reduce((sum, p) => sum + p.amount, 0)).toBe(600);
+  });
+
+  it('bots jogam uma partida inteira de 6 até o fim', () => {
+    let s = start(players6.map((p) => ({ ...p, isBot: true })), 3);
+    let rng = 11;
+    for (let i = 0; i < 5000 && s.phase !== 'gameOver'; i++) {
+      const auto = trucoModule.auto!(s);
+      if (auto) {
+        s = apply(s, auto.action);
+        continue;
+      }
+      const actor = trucoModule.actorId(s)!;
+      const step = trucoModule.botAction(s, actor, rng)!;
+      rng = step.rng;
+      s = apply(s, step.action);
+    }
+    expect(s.phase).toBe('gameOver');
+    expect(Math.max(...s.scores)).toBe(12);
   });
 });
