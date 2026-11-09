@@ -93,11 +93,12 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
   const [tableRef, size] = useElementSize<HTMLDivElement>();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
-  // Próxima carta vai encoberta (escondida).
+  // Próxima carta vai encoberta (escondida). Dá pra ligar antes da sua vez; desliga a cada mão nova.
   const [cover, setCover] = useState(false);
-  useEffect(() => {
-    if (!game.legal.canCover) setCover(false);
-  }, [game.legal.canCover]);
+  useEffect(() => setCover(false), [game.handNumber]);
+  // O botão aparece a mão toda (menos na mão de ferro); só funciona da 2ª vaza em diante.
+  const coverShown = !game.isSpectator && game.special !== 'ferro' && game.hand.length > 0 && game.phase !== 'handEnd' && game.phase !== 'gameOver';
+  const coverReady = game.rounds.length >= 1;
   useTrucoEffects(room);
 
   const geometry = tableGeometry(size);
@@ -105,15 +106,22 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
   const myIndex = Math.max(0, game.seats.findIndex((s) => s.id === youId));
   const seatK = (i: number) => (i - myIndex + n) % n;
   const seatPoints = new Map<string, Point>(game.seats.map((s, i) => [s.id, seatPoint(seatK(i), n, geometry, size)]));
-  // Com 6 na mesa as cartas da vaza ficam mais pro centro (e um pouco menores), longe dos avatares.
+  // Com 6 na mesa as cartas da vaza ficam mais pro centro (e um pouco menores).
   const crowded = n >= 6;
   const trickW = crowded ? geometry.tableCardW * 0.86 : geometry.tableCardW;
   const trickSpots = new Map<string, Point>(
     game.seats.map((s, i) => {
-      const t = trickPoint(seatK(i), n, geometry);
-      if (!crowded) return [s.id, t];
-      const pull = 0.8;
-      return [s.id, { x: geometry.center.x + (t.x - geometry.center.x) * pull, y: geometry.center.y + (t.y - geometry.center.y) * pull }];
+      const seat = seatPoints.get(s.id)!;
+      let t = trickPoint(seatK(i), n, geometry);
+      if (crowded) t = towardCenter(t, geometry.center, 0.8);
+      // Nunca embaixo do avatar: se encostar no assento, a carta vem pro meio até sair de baixo.
+      for (let step = 0; step < 20 && overlapsSeat(t, seat, trickW); step++) t = towardCenter(t, geometry.center, 0.9);
+      // Mesa baixa: em vez de cair em cima da vira, a carta vai pro lado dela
+      // (quem está em cima, pra direita; quem está embaixo, pra esquerda).
+      if (overlapsVira(t, geometry.center, geometry.tableCardW, trickW)) {
+        t = { x: geometry.center.x + (t.y < geometry.center.y ? 1.35 : -1.55) * geometry.tableCardW, y: t.y };
+      }
+      return [s.id, t];
     }),
   );
 
@@ -274,14 +282,14 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
             <HiddenHand game={game} />
           ) : (
             <div className="relative">
-              {game.legal.canCover && <CoverToggle on={cover} onChange={setCover} />}
+              {coverShown && <CoverToggle on={cover && coverReady} ready={coverReady} onChange={setCover} />}
               <Hand
                 cards={handCards}
                 manilhaRank={game.manilha}
                 canPlay={game.legal.canPlay}
                 dimmed={!game.legal.canPlay}
                 onPlay={(id) => {
-                  const covered = cover && game.legal.canCover;
+                  const covered = cover && coverReady && game.legal.canCover;
                   setCover(false);
                   return covered ? actions.cover(id) : actions.play(id);
                 }}
@@ -603,40 +611,58 @@ function cardShort(card: Card): string {
   return `${card.rank}${SUIT_SYMBOL[card.suit]}`;
 }
 
-/** Liga "jogar encoberta": a próxima carta tocada vai virada, valendo menos que todas. Fica do lado esquerdo da mão. */
-function CoverToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+/**
+ * Liga "jogar encoberta": a próxima carta tocada vai virada, valendo menos que todas.
+ * Fica do lado esquerdo da mão a mão toda; na 1ª vaza aparece apagado ("só na 2ª vaza").
+ */
+function CoverToggle({ on, ready, onChange }: { on: boolean; ready: boolean; onChange: (on: boolean) => void }) {
+  const [line1, line2] = !ready ? ['Esconder:', 'só na 2ª vaza'] : on ? ['Próxima', 'vai virada'] : ['Jogar', 'encoberta'];
   return (
     <motion.button
       type="button"
       role="switch"
       aria-checked={on}
-      aria-label="Jogar encoberta"
+      aria-label={ready ? 'Jogar encoberta' : 'Jogar encoberta (só a partir da 2ª vaza)'}
+      disabled={!ready}
       initial={{ scale: 0.6, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      whileTap={{ scale: 0.92 }}
+      whileTap={ready ? { scale: 0.92 } : undefined}
       onClick={() => onChange(!on)}
-      className={`absolute top-1/2 left-[max(0.5rem,calc(50%-var(--card-w)*1.3-5.5rem))] z-30 flex w-[4.6rem] -translate-y-1/2 flex-col items-center gap-0.5 rounded-2xl px-2 py-2 transition-colors ${
+      className={`absolute! top-1/2 left-[max(0.5rem,calc(50%-var(--card-w)*1.3-5.5rem))] z-30 flex w-[4.9rem] -translate-y-1/2 flex-col items-center gap-0.5 rounded-2xl px-2 py-2 transition-colors ${
         on ? 'tint-fill' : 'glass text-ios-label'
-      }`}
+      } ${ready ? '' : 'opacity-55'}`}
     >
       <span className="text-2xl leading-none" aria-hidden>
         {on ? '🙈' : '🂠'}
       </span>
-      <span className="text-[12px] leading-tight font-semibold">{on ? (
-          <>
-            Próxima
-            <br />
-            virada
-          </>
-        ) : (
-          <>
-            Jogar
-            <br />
-            encoberta
-          </>
-        )}</span>
+      <span className="text-[12px] leading-tight font-semibold">
+        {line1}
+        <br />
+        {line2}
+      </span>
     </motion.button>
   );
+}
+
+/** Aproxima um ponto do centro (fator 1 = fica onde está, 0 = vai pro centro). */
+function towardCenter(p: Point, center: Point, factor: number): Point {
+  return { x: center.x + (p.x - center.x) * factor, y: center.y + (p.y - center.y) * factor };
+}
+
+/** A carta (largura `cardW`) em `p` cairia em cima da vira (com a carta de trás e a etiqueta da manilha)? */
+function overlapsVira(p: Point, center: Point, viraW: number, cardW: number): boolean {
+  const left = center.x - viraW * 0.8;
+  const right = center.x + viraW * 0.5;
+  const halfH = (viraW * 1.4 + 36) / 2;
+  const cardHalfH = (cardW * 1.4) / 2;
+  return p.x + cardW / 2 > left && p.x - cardW / 2 < right && p.y + cardHalfH > center.y - halfH && p.y - cardHalfH < center.y + halfH;
+}
+
+/** A carta (largura `cardW`) em `p` cairia em cima da caixa do assento (avatar, nome e cartas na mão)? */
+function overlapsSeat(p: Point, seat: Point, cardW: number): boolean {
+  const SEAT_HALF_W = 46;
+  const SEAT_HALF_H = 56;
+  return Math.abs(p.x - seat.x) < SEAT_HALF_W + cardW / 2 && Math.abs(p.y - seat.y) < SEAT_HALF_H + (cardW * 1.4) / 2;
 }
 
 /** Mão de ferro: as cartas vêm viradas e você escolhe no escuro. */
@@ -856,7 +882,7 @@ function SwapButton() {
         await actions.action('swap');
         setBusy(false);
       }}
-      className="glass absolute top-1/2 right-[max(0.5rem,calc(50%-var(--card-w)*1.3-5.5rem))] z-30 flex -translate-y-1/2 flex-col items-center gap-0.5 rounded-2xl! px-3 py-2 text-ios-label disabled:opacity-60"
+      className="glass absolute! top-1/2 right-[max(0.5rem,calc(50%-var(--card-w)*1.3-5.5rem))] z-30 flex -translate-y-1/2 flex-col items-center gap-0.5 rounded-2xl! px-3 py-2 text-ios-label disabled:opacity-60"
       aria-label="Trocar os 3 palhaços por cartas novas"
     >
       <span className="text-2xl leading-none">🤡</span>
