@@ -69,7 +69,7 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
   const game = GAME_CATALOG.find((g) => g.id === room.gameType)!;
   const allReady = !room.arcade || room.members.every((m) => m.talentsReady);
   const truco = room.gameType === 'truco';
-  // Truco: as duas duplas precisam ter o mesmo tamanho (1x1 ou 2x2).
+  // Truco: os dois times precisam ter o mesmo tamanho (1x1, 2x2 ou 3x3).
   const teamA = room.members.filter((m) => m.team === 0).length;
   const trucoOdd = truco && teamA * 2 !== room.members.length;
   const canStart = room.members.length >= game.minPlayers && allReady && !trucoOdd;
@@ -101,7 +101,7 @@ export function WaitingRoom({ room, onHelp }: { room: RoomView; onHelp: () => vo
         ? 'Falta 1 jogador'
         : `Faltam ${missing} jogadores`
       : trucoOdd
-        ? 'Duplas desiguais'
+        ? 'Times desiguais'
         : 'Esperando os kits';
 
   return (
@@ -223,7 +223,7 @@ function MemberRow({
   member: RoomMember;
   isHost: boolean;
   first: boolean;
-  /** Truco: o anfitrião troca um bot de dupla. */
+  /** Truco: o anfitrião troca um bot de time. */
   onSwap?: () => void;
 }) {
   return (
@@ -244,7 +244,7 @@ function MemberRow({
       </span>
       {m.isHost && room.gameType !== 'truco' && <Tag tone="neutral">Anfitrião</Tag>}
       {onSwap && (
-        <button type="button" onClick={onSwap} className="min-h-9 shrink-0 px-1 text-[15px] text-ios-blue" aria-label={`Trocar ${m.name} de dupla`}>
+        <button type="button" onClick={onSwap} className="min-h-9 shrink-0 px-1 text-[15px] text-ios-blue" aria-label={`Trocar ${m.name} de time`}>
           Trocar
         </button>
       )}
@@ -283,9 +283,9 @@ function AddBotRow({ first = false, label = 'Adicionar bot' }: { first?: boolean
   );
 }
 
-const TEAM_NAMES = ['Dupla A', 'Dupla B'] as const;
+const TEAM_NAMES = ['Time A', 'Time B'] as const;
 
-/** Truco: as duas duplas lado a lado; cada um escolhe a sua, e o anfitrião move os bots. */
+/** Truco: os dois times lado a lado; cada um escolhe o seu, e o anfitrião move os bots. */
 function TeamsSection({ room, isHost, maxPlayers }: { room: RoomView; isHost: boolean; maxPlayers: number }) {
   const me = room.members.find((m) => m.id === room.youId);
   const sizes = [0, 1].map((t) => room.members.filter((m) => m.team === t).length);
@@ -309,7 +309,7 @@ function TeamsSection({ room, isHost, maxPlayers }: { room: RoomView; isHost: bo
               <span className={`size-2.5 rounded-full ${team === 0 ? 'bg-ios-orange' : 'bg-ios-blue'}`} aria-hidden />
               {TEAM_NAMES[team]}
               <span className="font-normal">{members.length === 1 ? '1 jogador' : `${members.length} jogadores`}</span>
-              {mine && <Tag tone={team === 0 ? 'gold' : 'blue'}>Sua dupla</Tag>}
+              {mine && <Tag tone={team === 0 ? 'gold' : 'blue'}>Seu time</Tag>}
             </h2>
             <ul className="glass overflow-hidden">
               {members.map((m, i) => (
@@ -335,7 +335,7 @@ function TeamsSection({ room, isHost, maxPlayers }: { room: RoomView; isHost: bo
                         <path d="M4 12h13M12 6l6 6-6 6" />
                       </svg>
                     </span>
-                    Entrar na {TEAM_NAMES[team]}
+                    Entrar no {TEAM_NAMES[team]}
                   </button>
                 </li>
               )}
@@ -346,15 +346,15 @@ function TeamsSection({ room, isHost, maxPlayers }: { room: RoomView; isHost: bo
       })}
       {isHost && room.members.length < maxPlayers && (
         <ul className="glass overflow-hidden">
-          <AddBotRow first label="Adicionar bot na dupla menor" />
+          <AddBotRow first label="Adicionar bot no time menor" />
         </ul>
       )}
       <Footnote>
         {!even
-          ? `As duplas precisam ter o mesmo tamanho pra começar: agora está ${sizes[0]} contra ${sizes[1]}.`
+          ? `Os times precisam ter o mesmo tamanho pra começar: agora está ${sizes[0]} contra ${sizes[1]}.`
           : room.members.length < 2
-            ? 'Chame alguém pra outra dupla ou adicione um bot.'
-            : 'Parceiros sentam frente a frente. Dá pra jogar 1 contra 1 ou 2 contra 2.'}
+            ? 'Chame alguém pro outro time ou adicione um bot.'
+            : 'Os times se alternam na mesa. Dá pra jogar 1 contra 1, 2 contra 2 ou 3 contra 3.'}
       </Footnote>
     </div>
   );
@@ -467,7 +467,7 @@ function MoneyPanel({ room, isHost }: { room: RoomView; isHost: boolean }) {
         {room.money.practice
           ? 'Tem bot na mesa, então ninguém paga e nada vale dinheiro.'
           : `A entrada sai do seu saldo quando a partida começa. ${
-              room.gameType === 'truco' ? 'A dupla que fizer 12 pontos divide o pote' : room.gameType === 'bingo' ? 'Quem cantar Linha leva 30% e quem cantar Bingo leva 70%' : 'Quem ficar até o fim leva o pote'
+              room.gameType === 'truco' ? 'O time que fizer 12 pontos divide o pote' : room.gameType === 'bingo' ? 'Quem cantar Linha leva 30% e quem cantar Bingo leva 70%' : 'Quem ficar até o fim leva o pote'
             }; quem sai no meio perde a entrada.`}
       </Footnote>
     </section>

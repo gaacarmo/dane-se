@@ -93,6 +93,11 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
   const [tableRef, size] = useElementSize<HTMLDivElement>();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  // Próxima carta vai encoberta (escondida).
+  const [cover, setCover] = useState(false);
+  useEffect(() => {
+    if (!game.legal.canCover) setCover(false);
+  }, [game.legal.canCover]);
   useTrucoEffects(room);
 
   const geometry = tableGeometry(size);
@@ -100,7 +105,17 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
   const myIndex = Math.max(0, game.seats.findIndex((s) => s.id === youId));
   const seatK = (i: number) => (i - myIndex + n) % n;
   const seatPoints = new Map<string, Point>(game.seats.map((s, i) => [s.id, seatPoint(seatK(i), n, geometry, size)]));
-  const trickSpots = new Map<string, Point>(game.seats.map((s, i) => [s.id, trickPoint(seatK(i), n, geometry)]));
+  // Com 6 na mesa as cartas da vaza ficam mais pro centro (e um pouco menores), longe dos avatares.
+  const crowded = n >= 6;
+  const trickW = crowded ? geometry.tableCardW * 0.86 : geometry.tableCardW;
+  const trickSpots = new Map<string, Point>(
+    game.seats.map((s, i) => {
+      const t = trickPoint(seatK(i), n, geometry);
+      if (!crowded) return [s.id, t];
+      const pull = 0.8;
+      return [s.id, { x: geometry.center.x + (t.x - geometry.center.x) * pull, y: geometry.center.y + (t.y - geometry.center.y) * pull }];
+    }),
+  );
 
   // A mesa treme quando alguém grita truco (ou aumenta).
   const shake = useAnimationControls();
@@ -213,13 +228,17 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
                   <motion.div
                     key={`${game.handNumber}-${game.rounds.length}-${p.playerId}`}
                     className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-                    style={{ left: spot.x, top: spot.y, width: geometry.tableCardW }}
+                    style={{ left: spot.x, top: spot.y, width: trickW }}
                     initial={{ opacity: 0, scale: 0.6, y: 40 }}
                     animate={{ opacity: 1, scale: 1, y: 0, rotate: tiltFor(p.playerId) }}
                     exit={{ opacity: 0, scale: 0.8 }}
                     transition={{ type: 'spring', stiffness: 260, damping: 22 }}
                   >
-                    <PlayingCard card={p.card} highlight={p.card.rank === game.manilha} />
+                    {p.covered || !p.card ? (
+                      <CoveredCard mine={p.playerId === youId} card={p.card} />
+                    ) : (
+                      <PlayingCard card={p.card} highlight={p.card.rank === game.manilha} />
+                    )}
                   </motion.div>
                 );
               })}
@@ -246,7 +265,8 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
       </motion.div>
 
       <div className="relative z-20">
-        {game.partnerHand && game.phase === 'maoDeOnze' && <PartnerHand game={game} cards={game.partnerHand.cards} />}
+        {game.phase === 'maoDeOnze' &&
+          game.partnerHands.map((h) => <PartnerHand key={h.playerId} game={game} playerId={h.playerId} cards={h.cards} />)}
         <TrucoActions game={game} youId={youId} />
 
         {!game.isSpectator &&
@@ -254,12 +274,17 @@ export function TrucoScreen({ room, onHelp }: { room: TrucoRoomView; onHelp: () 
             <HiddenHand game={game} />
           ) : (
             <div className="relative">
+              {game.legal.canCover && <CoverToggle on={cover} onChange={setCover} />}
               <Hand
                 cards={handCards}
                 manilhaRank={game.manilha}
                 canPlay={game.legal.canPlay}
                 dimmed={!game.legal.canPlay}
-                onPlay={(id) => actions.play(id)}
+                onPlay={(id) => {
+                  const covered = cover && game.legal.canCover;
+                  setCover(false);
+                  return covered ? actions.cover(id) : actions.play(id);
+                }}
                 dealDelays={[]}
               />
               {game.legal.canSwap && <SwapButton key={handCards.map((c) => `${c.rank}${c.suit}`).join(',')} />}
@@ -450,7 +475,8 @@ function TrucoActions({ game, youId }: { game: TrucoView; youId: string }) {
   };
 
   if (game.phase === 'maoDeOnze' && legal.canAccept) {
-    const partner = game.partnerHand ? game.seats.find((s) => s.id === game.partnerHand!.playerId)?.name : null;
+    const names = game.partnerHands.map((h) => game.seats.find((s) => s.id === h.playerId)?.name ?? 'parceiro');
+    const partner = names.length > 0 ? new Intl.ListFormat('pt-BR').format(names) : null;
     return (
       <ActionPanel
         title="Mão de onze"
@@ -472,7 +498,7 @@ function TrucoActions({ game, youId }: { game: TrucoView; youId: string }) {
     return (
       <ActionPanel
         title="Mão de onze"
-        text={`${deciders.join(' e ')} ${deciders.length > 1 ? 'estão' : 'está'} com 11 e ${
+        text={`${new Intl.ListFormat('pt-BR').format(deciders)} ${deciders.length > 1 ? 'estão' : 'está'} com 11 e ${
           deciders.length > 1 ? 'decidem' : 'decide'
         } se joga a mão. Se correr, vocês ganham 1 ponto; se jogar, vale 3.`}
       >
@@ -538,9 +564,9 @@ function ActionPanel({ title, text, children }: { title: string; text: string; c
   );
 }
 
-/** Mão de onze: a dupla com 11 vê as cartas do parceiro antes de decidir. */
-function PartnerHand({ game, cards }: { game: TrucoView; cards: Card[] }) {
-  const name = game.seats.find((s) => s.id === game.partnerHand?.playerId)?.name ?? 'parceiro';
+/** Mão de onze: o time com 11 vê as cartas dos parceiros antes de decidir. */
+function PartnerHand({ game, playerId, cards }: { game: TrucoView; playerId: string; cards: Card[] }) {
+  const name = game.seats.find((s) => s.id === playerId)?.name ?? 'parceiro';
   return (
     <div className="glass relative z-30 mx-auto mb-2 flex w-[calc(100%-1.5rem)] max-w-md items-center gap-3 rounded-2xl! p-2.5 pl-4">
       <span className="flex-1 text-[13px] text-ios-label-2">
@@ -552,6 +578,64 @@ function PartnerHand({ game, cards }: { game: TrucoView; cards: Card[] }) {
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * Carta encoberta na mesa: virada pra todo mundo. Quem jogou vê um cantinho da
+ * própria carta, pra lembrar o que escondeu.
+ */
+function CoveredCard({ mine, card }: { mine: boolean; card: Card | null }) {
+  return (
+    <div className="relative">
+      <CardBack />
+      <span className="absolute inset-x-0 -bottom-2.5 flex justify-center">
+        <span className="rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap text-white ring-1 ring-white/20">
+          {mine && card ? `Encoberta · ${cardShort(card)}` : 'Encoberta'}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+const SUIT_SYMBOL: Record<Card['suit'], string> = { D: '♦', S: '♠', H: '♥', C: '♣' };
+function cardShort(card: Card): string {
+  return `${card.rank}${SUIT_SYMBOL[card.suit]}`;
+}
+
+/** Liga "jogar encoberta": a próxima carta tocada vai virada, valendo menos que todas. Fica do lado esquerdo da mão. */
+function CoverToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <motion.button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label="Jogar encoberta"
+      initial={{ scale: 0.6, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      whileTap={{ scale: 0.92 }}
+      onClick={() => onChange(!on)}
+      className={`absolute top-1/2 left-[max(0.5rem,calc(50%-var(--card-w)*1.3-5.5rem))] z-30 flex w-[4.6rem] -translate-y-1/2 flex-col items-center gap-0.5 rounded-2xl px-2 py-2 transition-colors ${
+        on ? 'tint-fill' : 'glass text-ios-label'
+      }`}
+    >
+      <span className="text-2xl leading-none" aria-hidden>
+        {on ? '🙈' : '🂠'}
+      </span>
+      <span className="text-[12px] leading-tight font-semibold">{on ? (
+          <>
+            Próxima
+            <br />
+            virada
+          </>
+        ) : (
+          <>
+            Jogar
+            <br />
+            encoberta
+          </>
+        )}</span>
+    </motion.button>
   );
 }
 
@@ -728,7 +812,7 @@ function TrucoGameOver({ room }: { room: TrucoRoomView }) {
           </div>
           <div className="flex items-center justify-between gap-3 border-t border-ios-separator px-4 py-3">
             <span className="text-[17px]">Venceu</span>
-            <span className="truncate text-[17px] text-ios-label-2">{winners.join(' e ')}</span>
+            <span className="truncate text-[17px] text-ios-label-2">{new Intl.ListFormat('pt-BR').format(winners)}</span>
           </div>
           {payout && !room.money.practice && (
             <div className="flex items-center justify-between border-t border-ios-separator px-4 py-3">

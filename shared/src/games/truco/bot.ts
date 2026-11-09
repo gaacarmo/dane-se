@@ -1,8 +1,8 @@
 import { nextRandom } from '../../rng.js';
 import { type Card } from '../danese/cards.js';
 import { type TrucoAction } from './game.js';
-import { trucoStrength } from './rules.js';
-import { type TrucoView } from './view.js';
+import { TRUCO_COVERED_STRENGTH, trucoStrength } from './rules.js';
+import { type TrucoTableCard, type TrucoView } from './view.js';
 
 /**
  * Bot de truco: só usa o que a própria `TrucoView` mostra (não espia ninguém).
@@ -36,42 +36,48 @@ function confidence(view: TrucoView, cards: readonly Card[]): number {
   return Math.min(1, Math.max(0, base + roundsWon(view) * 0.25 - roundsLost(view) * 0.3));
 }
 
-function chooseCard(view: TrucoView, playerId: string): string {
+/** A carta a jogar e se ela é só descarte (não vai ganhar a vaza): descarte pode ir encoberto. */
+function chooseCard(view: TrucoView, playerId: string): { id: string; discard: boolean } {
   const hand = view.hand;
   // Mão de ferro: ninguém vê nada, joga a primeira.
-  if (hand.some((h) => h.card === null)) return hand[0]!.id;
+  if (hand.some((h) => h.card === null)) return { id: hand[0]!.id, discard: false };
   const cards = hand.map((h) => h.card!);
   const strength = (c: Card) => trucoStrength(c, view.manilha);
   const sorted = [...cards].sort((a, b) => strength(a) - strength(b));
   const lowest = sorted[0]!;
   const highest = sorted[sorted.length - 1]!;
   const idOf = (c: Card) => `${c.rank}${c.suit}`;
+  const keep = (c: Card) => ({ id: idOf(c), discard: false });
+  const discard = (c: Card) => ({ id: idOf(c), discard: true });
 
   if (view.table.length === 0) {
     // Abrindo a primeira vaza com mão boa: guarda a maior e joga a do meio.
-    if (view.rounds.length === 0 && sorted.length === 3) return idOf(sorted[1]!);
-    return idOf(highest);
+    if (view.rounds.length === 0 && sorted.length === 3) return keep(sorted[1]!);
+    return keep(highest);
   }
 
-  const bestOnTable = view.table.reduce((best, p) => (strength(p.card) > strength(best.card) ? p : best));
+  // Encoberta não ganha de nada.
+  const onTable = (p: TrucoTableCard) => (p.covered || !p.card ? TRUCO_COVERED_STRENGTH : strength(p.card));
+  const bestOnTable = view.table.reduce((best, p) => (onTable(p) > onTable(best) ? p : best));
+  const best = onTable(bestOnTable);
   const myTeamId = view.seats.find((s) => s.id === playerId)?.team;
-  const partnerWinning = view.seats.find((s) => s.id === bestOnTable.playerId)?.team === myTeamId;
-  if (partnerWinning) return idOf(lowest);
+  const partnerWinning = best > TRUCO_COVERED_STRENGTH && view.seats.find((s) => s.id === bestOnTable.playerId)?.team === myTeamId;
+  if (partnerWinning) return discard(lowest);
 
   // A menor carta que ganha a vaza; se nenhuma ganha, a menor de todas.
-  const beats = sorted.find((c) => strength(c) > strength(bestOnTable.card));
-  if (beats) return idOf(beats);
+  const beats = sorted.find((c) => strength(c) > best);
+  if (beats) return keep(beats);
   // Cangar a primeira vaza também serve quando dá.
-  const ties = sorted.find((c) => strength(c) === strength(bestOnTable.card));
-  if (ties && view.rounds.length === 0) return idOf(ties);
-  return idOf(lowest);
+  const ties = sorted.find((c) => strength(c) === best);
+  if (ties && view.rounds.length === 0) return keep(ties);
+  return discard(lowest);
 }
 
 export function chooseTrucoAction(view: TrucoView, playerId: string, rng: number): { action: TrucoAction; rng: number } {
   const roll = nextRandom(rng);
   const luck = roll.value;
   const cards = view.hand.flatMap((h) => (h.card ? [h.card] : []));
-  const partner = view.partnerHand?.cards ?? [];
+  const partners = view.partnerHands.map((h) => h.cards);
 
   // Regra da casa: 3 palhaços sem nenhuma manilha no meio é mão fraca; troca.
   if (view.legal.canSwap && !cards.some((c) => c.rank === view.manilha)) {
@@ -79,7 +85,7 @@ export function chooseTrucoAction(view: TrucoView, playerId: string, rng: number
   }
 
   if (view.phase === 'maoDeOnze') {
-    const team = Math.max(handScore(cards, view.manilha), handScore(partner, view.manilha));
+    const team = Math.max(handScore(cards, view.manilha), ...partners.map((c) => handScore(c, view.manilha)));
     const play = team > 0.42 || luck < 0.15;
     return { action: { type: play ? 'accept' : 'run', playerId }, rng: roll.state };
   }
@@ -99,5 +105,8 @@ export function chooseTrucoAction(view: TrucoView, playerId: string, rng: number
     if ((c > 0.68 && luck < 0.6) || bluff) return { action: { type: 'truco', playerId }, rng: roll.state };
   }
 
-  return { action: { type: 'play', playerId, cardId: chooseCard(view, playerId) }, rng: roll.state };
+  const pick = chooseCard(view, playerId);
+  // Descarte vai encoberto às vezes: não entrega pro adversário o que sobrou na mão.
+  const covered = pick.discard && view.legal.canCover && luck < 0.5;
+  return { action: { type: 'play', playerId, cardId: pick.id, ...(covered ? { covered: true } : {}) }, rng: roll.state };
 }

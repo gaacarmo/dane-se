@@ -471,6 +471,8 @@ export const actions = {
   arcade: (ability: ArcadeAbilityId, targetId?: string, bet?: number) =>
     send('game:action', { type: 'arcade', ability, targetId, bet }),
   play: (cardId?: string) => send('game:play', { cardId }),
+  /** Truco: joga a carta encoberta (virada, vale menos que todas). */
+  cover: (cardId: string) => send('game:action', { type: 'cover', cardId }),
   /** Fire and forget: a reaction that's too fast is simply dropped, no error toast. */
   react: (emoji: string) => call('room:react', { emoji }),
 };
